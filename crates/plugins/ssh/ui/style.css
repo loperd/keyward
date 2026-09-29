@@ -61,3 +61,192 @@
 .ssh-pass { display: flex; gap: 8px; }
 
 .ssh-pass > :first-child { flex: 1; }
+
+/* ── The terminal ─────────────────────────────────────────────────────────
+   The section fills the working area itself: a strip of tabs, then the
+   overview or a shell. The shell is the card; nothing boxes it again. */
+
+.term-screen { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 8px var(--gutter) var(--gutter); gap: 8px; }
+
+.term-tabs { display: flex; align-items: center; gap: 4px; flex: none; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.term-tabs::-webkit-scrollbar { display: none; }
+
+.term-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  flex: none;
+  max-width: 240px;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+.term-tab:hover { background: var(--raise); color: var(--text); }
+/* The chosen tab is said the way the rail says it: a solid accent, white
+   text. */
+.term-tab.on { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--blue) 90%, transparent); }
+.term-tab.on .dot { box-shadow: 0 0 0 2px color-mix(in srgb, #fff 45%, transparent); }
+.term-tab-open { display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: 100%; padding: 0; border: none; background: none; color: inherit; font: inherit; }
+.term-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
+button.term-tab > .term-tab-label { font-family: var(--sans); font-weight: 500; }
+.term-tab-close {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-in);
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+}
+.term-tab-close:hover { opacity: 1; background: color-mix(in srgb, currentColor 16%, transparent); }
+.term-new { width: 32px; height: 32px; flex: none; }
+
+.term-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* A shell: the terminal on the card's ground, the states over it. */
+.term-pane { position: relative; flex: 1; min-height: 0; border-radius: var(--r-panel); background: var(--block); border: 1px solid var(--edge-soft); overflow: hidden; }
+.term-pane.hidden { display: none; }
+.term-host { position: absolute; inset: 8px 4px 8px 12px; }
+.term-host .xterm { height: 100%; }
+.term-host .xterm-viewport { background: transparent !important; }
+
+.term-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--block) 72%, transparent);
+  backdrop-filter: blur(2px);
+}
+.term-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: var(--r-win);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: var(--sh-pop);
+  text-align: center;
+  color: var(--text);
+}
+.term-card.wide { max-width: 480px; }
+.term-card > .icon { color: var(--sky); }
+.term-card .hint { margin: 0; }
+.term-card .warn-text { color: var(--amber); }
+.term-fingerprint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; }
+.term-fingerprint code { font-family: var(--mono); font-size: 12px; user-select: all; word-break: break-all; color: var(--text); }
+.term-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.term-card .term-actions { margin-top: 8px; justify-content: center; }
+
+.term-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--sky) 25%, transparent);
+  border-top-color: var(--sky);
+  animation: term-spin 800ms linear infinite;
+}
+@keyframes term-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .term-spinner { animation-duration: 2400ms; } }
+
+/* How a shell ended: a strip at the foot of the card, the output above
+   stays readable. */
+.term-ended {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: var(--sh-pop);
+}
+.term-ended > .alert { flex: 1; min-width: 200px; margin: 0; }
+.term-ended-text { flex: 1; display: inline-flex; align-items: center; gap: 8px; }
+.term-ended .term-actions { margin-left: auto; }
+
+.term-find {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: var(--sh-pop);
+  color: var(--dim);
+}
+.term-find input { width: 200px; height: 28px; border: none; background: none; color: var(--text); outline: none; font-size: 12px; }
+.term-find .btn.icon-only { width: 28px; height: 28px; }
+.term-find .btn.icon-only:first-of-type .icon { transform: rotate(180deg); }
+
+/* The overview: whether each key still gets in. */
+.term-overview { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; min-height: 0; padding: 8px 0 16px; }
+.term-overview-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.term-summary { display: flex; flex-direction: column; gap: 8px; }
+.term-summary h3 { margin: 0; font-size: 20px; font-weight: 500; }
+.term-summary .chips { align-items: center; }
+.term-overview > .hint { margin: 0; max-width: 72ch; }
+.term-keys { display: flex; flex-direction: column; gap: 8px; }
+
+.block.term-key { border-left: 3px solid var(--edge); display: flex; flex-direction: column; gap: 8px; }
+.block.term-key.health-ok { border-left-color: var(--mint); }
+.block.term-key.health-warn { border-left-color: var(--amber); }
+.block.term-key.health-bad { border-left-color: var(--rose); }
+.term-key-head { display: flex; align-items: center; gap: 8px; min-height: 32px; flex-wrap: wrap; }
+.term-key-head > .icon { color: var(--tone-1); }
+.term-key-head > b { white-space: nowrap; }
+.term-key-head .grow { flex: 1; }
+.term-key > .hint { margin: 0; }
+
+.term-checks { display: flex; flex-direction: column; }
+.term-check { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--edge-soft); }
+.term-check:first-child { border-top: none; }
+.term-check .health-dot { margin: 0 4px; }
+.term-check-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.term-check-text code { font-family: var(--mono); font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+.term-check-text .hint { margin: 0; }
+.term-fp { font-size: 12px; }
+.bad-text { color: var(--rose) !important; }
+
+.dot.warn { background: var(--amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 20%, transparent); }
+.chip.dot.warn { background: none; box-shadow: none; }
+
+/* The hosts in the section's column. */
+.nav.term-target { align-items: flex-start; }
+.term-target-dot { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.nav.term-target .label { display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); }
+.nav.term-target .label small { font-family: var(--sans); color: var(--faint); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.term-nohosts { padding: 0 8px; }
+
+/* The connect dialogue. */
+.term-connect { display: flex; flex-direction: column; gap: 16px; }
+.term-connect-row { display: flex; gap: 8px; }
+.term-connect-row .grow { flex: 1; }
+.term-connect-row .field:not(.grow) { width: 128px; }
+.term-connect .hint { margin: 0; }
+
+/* A key's health beside its name in the routes. */
+.row .ssh-key-name { display: inline-flex; align-items: center; gap: 8px; }

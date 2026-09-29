@@ -5,6 +5,8 @@ import { t } from "@keyward/i18n";
 import { call } from "@keyward/plugins/call";
 import type { PluginScreenProps } from "@keyward/plugins/types";
 import type { SshKeyEntry } from "./types";
+import { HealthDot } from "./Health";
+import { useHealth } from "./terminalState";
 
 /// Routes: the ssh keys and the hosts they are bound to.
 ///
@@ -14,6 +16,9 @@ import type { SshKeyEntry } from "./types";
 export function SshScreen({ catalog, loading, onChanged }: PluginScreenProps) {
   const [keys, setKeys] = useState<SshKeyEntry[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
+  // The same health the terminal shows: whether each key still gets in where
+  // it is bound.
+  const health = useHealth();
   const editingEntry = keys.find((k) => k.id === editing) ?? null;
 
   // The keys are asked of the plugin: the core gives the catalogue of items,
@@ -47,7 +52,10 @@ export function SshScreen({ catalog, loading, onChanged }: PluginScreenProps) {
                     <Icon name="ssh_key" />
                   </span>
                   <span className="text">
-                    <b>{k.name}</b>
+                    <b className="ssh-key-name">
+                      {health && <HealthDot status={health.keys.find((h) => h.entry_id === k.id)?.status ?? "pending"} />}
+                      {k.name}
+                    </b>
                     <span>{k.hosts || "—"}</span>
                   </span>
                   <span className="side reveal">

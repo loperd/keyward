@@ -5,6 +5,7 @@ document.documentElement.classList.add("stend");
 /// in an ordinary browser, which means it can be measured and shown to tools
 /// such as design-compiler, which do not look into a Tauri window. It does not
 /// reach the build — it is a page of its own, `preview.html`.
+import { STAND_TERMINAL } from "./standTerminal";
 import { StrictMode } from "react";
 import "./styles.css";
 import { createRoot } from "react-dom/client";
@@ -840,8 +841,9 @@ const SSH_KEYS = [
   { id: "i3", name: "id_ed25519 — production", hosts: "git.prod.demo.example, *.prod.demo.example" },
   { id: "i9", name: "id_ed25519 — staging", hosts: "*.staging.demo.example" },
   { id: "k3", name: "break-glass key", hosts: "" },
+  { id: "k7", name: "legacy-rsa", hosts: "admin@old.demo.example" },
 ];
-const SSH_SETTINGS = { agent_enabled: true, ask: "never", shared_socket: false };
+const SSH_SETTINGS = { agent_enabled: true, ask: "never", shared_socket: false, health_minutes: 30 };
 const SSH_SNIPPET = [
   "Host *.prod.demo.example",
   "  IdentityAgent ~/.keyward/s/i3.sock",
@@ -1042,6 +1044,9 @@ const PLUGIN_OPS: Record<string, Record<string, (p: Record<string, unknown>) => 
     settings: () => SSH_SETTINGS,
     set_settings: (p) => Object.assign(SSH_SETTINGS, p),
     snippet: () => SSH_SNIPPET,
+    // The terminal speaks its sealed protocol for real, over a make-believe
+    // shell.
+    ...STAND_TERMINAL,
   },
 };
 

@@ -29,6 +29,24 @@ ssh-key = { version = "0.6", features = ["ed25519", "rsa", "p256", "p384", "p521
 # The signature arrives from the core in ssh's wire form and has to be parsed
 # back.
 ssh-encoding = { version = "0.2", features = ["alloc"] }
+# The terminal's ssh client. Pure Rust on tokio: the same code on macOS, Linux
+# and Windows, with no system ssh and no local pty. `ring` rather than the
+# default aws-lc-rs: it builds everywhere without cmake or nasm.
+russh = { version = "0.63", default-features = false, features = ["ring", "rsa", "flate2"] }
+# The terminal's page talks to the plugin sealed end to end, the same exchange
+# the browser bridge uses: ECDH P-256, HKDF-SHA256, AES-256-GCM.
+p256 = { version = "0.13", features = ["ecdh"] }
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+base64 = "0.22"
+zeroize = { version = "1.9.0", features = ["serde"] }
+# Hashed host names in the plugin's own known_hosts, in OpenSSH's format.
+hmac = "0.12"
+sha1 = "0.10"
 
 [dev-dependencies]
 keyward-plugin = { workspace = true, features = ["testing"] }
+# The terminal's end-to-end test signs as the core would.
+signature = "2"

@@ -191,9 +191,28 @@ export type PluginItemEditor = {
   Component: ComponentType<PluginItemEditorProps>;
 };
 
+/// A further section of one plugin: an entry of its own in the rail, beside
+/// the plugin's main one. The terminal is the ssh plugin's second section —
+/// a plugin that does two things gets two doors rather than a door with tabs
+/// behind it.
+export type PluginSection = {
+  /// The section's name inside the plugin; the rail knows it as
+  /// `<plugin>/<id>`, and its caption is `plugin.<plugin>.section.<id>`.
+  id: string;
+  /// The name of an icon from the interface's set.
+  icon: string;
+  Screen: ComponentType<PluginScreenProps>;
+  Context?: ComponentType<PluginScreenProps>;
+  /// The screen fills the whole working area itself, with no padding and no
+  /// scroll of the shell's own: a terminal, say.
+  flush?: boolean;
+};
+
 export type PluginEntry = {
   /// The section's main column.
   Screen: ComponentType<PluginScreenProps>;
+  /// Further sections, each with an entry of its own in the rail.
+  sections?: PluginSection[];
   /// The section's left column: not every one has it.
   Context?: ComponentType<PluginScreenProps>;
   /// A block in the settings. The heading comes from the plugin's caption.
