@@ -1,0 +1,4536 @@
+@import "./theme.css";
+
+/* ── The frame: the rail on the left, the contents on the right ───────── */
+
+/* Three columns: the rail with the sections, the section's contents, and the
+   work itself. There are few sections and they do not change — an icon is
+   enough for them. Everything that depends on the section lives in the second
+   column and ends there. */
+.shell { display: grid; grid-template-columns: var(--rail-w) 236px 1fr; height: 100%; overflow: hidden; }
+
+.shell.solo { grid-template-columns: var(--rail-w) 1fr; }
+
+/* The header must not travel: only the contents scroll, and the elastic
+   bounce of the whole document used to shift it along with them. */
+.scroller, .content, .pane, .rail-body, .picker-list { overscroll-behavior: contain; }
+
+/* min-height: 0 — otherwise a grid container's column grows to fit its
+   contents and the whole page scrolls instead of the column. */
+.shell > * { min-height: 0; }
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  background: var(--rail);
+  border-right: 1px solid var(--edge);
+  padding-top: var(--titlebar);
+  padding-bottom: 16px;
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+/* The rail's first icon and the first row of the section's column stand on one
+   centre: it is one and the same notion in two columns, and a staircase of
+   them reads as a broken vertical. */
+.rail .sections { display: flex; flex-direction: column; gap: 8px; padding: 8px 0 8px; }
+
+.rail-item {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  /* One radius for everything that is pressed: the rail held 12 and the
+     buttons 8, and there was one roundness more on the screen than there were
+     meanings. */
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--faint);
+  transition: background 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+
+@media (hover: hover) { .rail-item:hover { color: var(--text); background: var(--raise); }}
+
+.rail-item.on { color: var(--text); background: color-mix(in srgb, var(--sky) 14%, transparent); }
+
+/* The stripe on the left marks the section without shifting the icon. */
+.rail-item.on::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  width: 3px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: var(--blue);
+}
+
+.rail-item .badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--amber);
+  color: #1b1405;
+  font-size: 12px;
+  line-height: 14px;
+  font-family: var(--mono);
+}
+
+/* The account at the bottom of the rail: it is rarely needed, and at the top
+   it took up a great deal of room. */
+.rail-account {
+  margin-top: auto;
+  position: relative;
+  /* The button is four pixels wider than the avatar: the lock mark lies inside
+     its bounds. It used to stick out by two pixels on each side — part of a
+     control lived outside it. */
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+}
+
+.rail-account .avatar { width: 32px; height: 32px; border-radius: 50%; font-size: 12px; }
+
+.rail-account .state {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--rail);
+  background: var(--amber);
+  color: #1b1405;
+}
+
+.rail-menu { left: calc(var(--rail-w) - 4px); bottom: 12px; top: auto; }
+
+.menu-head {
+  padding: 8px 16px 8px;
+  border-bottom: 1px solid var(--edge);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-head b { font-size: 12px; font-weight: 600; }
+
+.menu-head span { font-size: 12px; color: var(--dim); font-family: var(--mono); }
+
+/* The section's column. */
+.context {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: color-mix(in srgb, var(--rail) 62%, transparent);
+  border-right: 1px solid var(--edge);
+  padding-top: var(--titlebar);
+}
+
+.context-head {
+  height: var(--bar);
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+.context-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+
+.context-head .search { flex: 1; }
+
+.context-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 8px 24px; }
+
+.context-body .group:first-child { margin-top: 0; }
+
+/* The account's bar lives at the same height as the header on the right —
+   then both columns begin on one line. */
+.rail-head {
+  height: var(--bar);
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+}
+
+/* Only the list of sections scrolls, not the account along with it. */
+.rail-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 8px 24px; }
+
+/* The account */
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease);
+}
+
+.account:hover { border-color: var(--faint); }
+
+.avatar {
+  width: 32px; height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  background: linear-gradient(145deg, var(--blue-hi), var(--blue));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.account .who { min-width: 0; flex: 1; }
+
+.account .who b { display: block; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.account .who span { display: block; font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.account .state { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+.state.open { background: var(--mint); }
+
+.state.shut { background: var(--amber); }
+
+.state.dead { background: var(--rose); }
+
+/* It floats on top rather than pushing the rail apart: the list of sections
+   must not jump when the account is pressed. */
+.menu {
+  position: absolute;
+  z-index: 20;
+  left: 8px;
+  right: 8px;
+  top: calc(var(--titlebar) + var(--bar) - 2px);
+  box-shadow: var(--sh-pop);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  transition: background 120ms var(--ease);
+}
+
+.menu button:hover { background: var(--raise); }
+
+.menu button.danger { color: var(--rose); }
+
+.menu .sep { height: 1px; background: var(--edge); }
+
+/* The navigation and the filters */
+/* Only in the section's column: this rule used to reach any .group on the page
+   and gave it spacing that was none of its business. */
+.context-body .group { padding: 0px 8px 8px; }
+
+/*
+  A group's micro-caption — one look for all three places it appears in: a
+  group's heading in the section's column, the caption of the filters' row and
+  a field's caption on a card. These used to be three variants of one size
+  with different weights, tracking and capitals — a jumble that does not read
+  as intent.
+*/
+.context-body .group h4,
+.filter-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* A field's caption is the second and last role: no capitals, because it
+   stands over every value rather than over a section. Capitals on every row of
+   a card turned it into a list of headings. */
+.pane .rowline label, .field label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--dim);
+}
+
+/* A group's caption sits on the column of the entries' text rather than
+   hanging between the column of icons and the column of captions. */
+.context-body .group h4 { margin: 8px 8px 4px 32px; }
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
+  border: none;
+  border-radius: var(--r);
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  text-align: left;
+  position: relative;
+  transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+
+.nav:hover { background: var(--raise); color: var(--text); }
+
+/* "Chosen" is said one way across the whole application — by a blue
+   highlight. A grey fill under the chosen row repeated the fill of an ordinary
+   button, and one and the same patch meant now "press me", now "you are
+   here". */
+.nav.on { background: color-mix(in srgb, var(--sky) 12%, transparent); color: var(--text); }
+
+.context-body .group.sections .nav.on { background: color-mix(in srgb, var(--blue) 22%, transparent); }
+
+.context-body .group:not(.sections) .nav.on { color: var(--sky); }
+
+.context-body .group:not(.sections) .nav.on .count { color: var(--sky); }
+
+.nav.on::before {
+  content: "";
+  position: absolute;
+  left: -8px; top: 6px; bottom: 6px;
+  width: 2px;
+  border-radius: 0 var(--r-in) var(--r-in) 0;
+  background: var(--sky);
+}
+
+.nav .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nav .count { margin-left: auto; font-size: 12px; color: var(--faint); font-family: var(--mono); flex: none; }
+
+/* A folder is recognised by its colour rather than by an icon that is the
+   same for all of them. */
+.nav.with-dot .dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  margin: 0 4px;
+  border-radius: var(--r-in);
+  border: 1px solid transparent;
+  transition: transform 140ms var(--ease-out);
+}
+
+.nav.with-dot:hover .dot { transform: scale(1.25); }
+
+.nav.with-dot.on .dot { transform: scale(1.25); }
+
+.nav.on .count { color: var(--sky); }
+
+/* ── The contents ─────────────────────────────────────────────────────── */
+
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+
+.main { padding-top: var(--titlebar); }
+
+.head {
+  height: var(--bar);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--gutter);
+  border-bottom: 1px solid var(--edge);
+  background: var(--ink);
+}
+
+/* A screen's heading is the largest size on the canvas. An item's name in the
+   panel used to be set in the same one: two different things at one size, and
+   nothing for the eye to catch on. */
+.head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.015em; }
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 340px;
+  height: var(--control);
+  padding: 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  color: var(--dim);
+  transition: border-color 140ms var(--ease);
+}
+
+.search:focus-within {
+  border-color: var(--sky);
+  box-shadow: var(--ring);
+}
+
+.search input:focus, .search input:focus-visible { box-shadow: none; }
+
+.search input { flex: 1; background: none; border: none; outline: none; color: var(--text); font: inherit; }
+
+.search input::placeholder { color: var(--faint); }
+
+.tools { margin-left: auto; display: flex; gap: 8px; }
+
+.content { flex: 1; min-height: 0; overflow-y: auto; padding: var(--gutter) var(--gutter) 32px; }
+
+/* ── The buttons ──────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--control);
+  border: 1px solid var(--edge);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--r);
+  padding: 0 16px;
+  font-size: 12px;
+  transition: background 140ms var(--ease), border-color 140ms var(--ease), transform 140ms var(--ease);
+}
+
+/* Only for ordinary buttons: without :not(.primary) this rule overruled the
+   main button's gradient by specificity, and a blue button turned grey on
+   hover. */
+.btn:not(.primary):hover:not(:disabled) { background: var(--raise); border-color: var(--faint); }
+
+.btn:active:not(:disabled) { transform: translateY(0.5px); }
+
+/*
+  Three ranks and not one more: the main action, the ordinary one, the quiet
+  one.
+
+  The measurement found twelve ways of drawing a button and six different
+  fills under one and the same meaning. A rank is not a shade, it is a promise:
+  there is one blue button on the screen, and it does what the screen was
+  opened for.
+*/
+.btn.primary {
+  background: linear-gradient(180deg, var(--blue-hi), var(--blue));
+  border-color: transparent;
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+}
+
+.btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
+
+/*
+  The main button's shadow overruled the focus ring: `box-shadow` does not add
+  up, and "Save" was left the only control with no visible focus. Here the
+  sheen and the ring are set by one property.
+*/
+.btn.primary:focus-visible {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset, var(--ring);
+}
+
+/* The quiet button: no fill and no stroke until it is hovered. It has
+   replaced the link-actions — a "link" that leads to no page but does
+   something lies about itself and lands in 17 pixels of height instead of
+   24. */
+.btn.quiet {
+  background: none;
+  border-color: transparent;
+  color: var(--sky);
+  padding: 0 8px;
+}
+
+.btn.quiet:hover:not(:disabled) { background: var(--raise); border-color: var(--edge); color: var(--text); }
+
+.btn.icon-only { width: var(--control); padding: 0; }
+
+/* The small button differs only in height, its rank is the same. 26 pixels
+   rather than 17: below 24 a finger and a mouse begin to miss. */
+.btn.small { height: var(--control); font-size: 12px; padding: 0 16px; }
+
+.btn.small.icon-only { width: 32px; padding: 0; }
+
+/* While the markup moves to .btn.quiet, the old name behaves the same way. */
+button.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  color: var(--sky);
+  font-size: 12px;
+}
+
+button.link:hover { background: var(--raise); border-color: var(--edge); color: var(--text); }
+
+/* ── The list of items ────────────────────────────────────────────────── */
+
+.list { display: flex; flex-direction: column; }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  /* 8 + 32 (the monogram) + 8 = 48: a one-line and a two-line row give equal
+     padding. At 52 a one-line row stretched to 17/17. */
+  min-height: 48px;
+  padding: 8px var(--row-pad);
+  border-radius: var(--r);
+  color: var(--text);
+  transition: background 120ms var(--ease);
+}
+
+.row:hover { background: var(--surface); }
+
+.row + .row { box-shadow: 0 -1px 0 var(--edge-soft); }
+
+.row .glyph {
+  width: 32px; height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  background: var(--raise);
+  color: var(--dim);
+}
+
+/* The list is scanned far more often than it is read. Give each record type
+   a quiet, stable cue; the selected state itself stays blue everywhere. */
+.row .glyph.kind-login { color: var(--sky); background: color-mix(in srgb, var(--sky) 10%, var(--raise)); }
+.row .glyph.kind-card { color: var(--tone-1); background: color-mix(in srgb, var(--tone-1) 10%, var(--raise)); }
+.row .glyph.kind-identity { color: var(--tone-3); background: color-mix(in srgb, var(--tone-3) 10%, var(--raise)); }
+.row .glyph.kind-secure_note { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, var(--raise)); }
+.row .glyph.kind-ssh_key { color: var(--tone-1); background: color-mix(in srgb, var(--tone-1) 10%, var(--raise)); }
+.row .glyph:has(img), .row .glyph:has(.card-brand) { background: transparent; }
+
+.row .text { min-width: 0; flex: 1; }
+
+.row .text b { display: block; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.row .text span { display: block; font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.row .side { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.row .side .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+.chip {
+  /* A height of its own rather than an accidental sum of a line and some
+     borders: a chip was met at 20, 24 and 32 pixels in one and the same
+     role. */
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 0px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--edge);
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.chip.on { color: var(--sky); border-color: color-mix(in srgb, var(--sky) 40%, transparent); }
+
+.chip.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+
+.chip.ok { color: var(--mint); border-color: color-mix(in srgb, var(--mint) 40%, transparent); }
+
+.chip.bad { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 40%, transparent); }
+
+.sv-field {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 8px; border: 1px solid var(--edge); border-radius: var(--r-in);
+}
+
+.sv-field.dup { border-color: color-mix(in srgb, var(--amber) 50%, transparent); }
+
+.sv-field:not(.open) .sv-val { color: var(--dim); letter-spacing: 0.08em; }
+
+.sv-paste { display: flex; flex-direction: column; gap: 8px; }
+
+.sv-paste textarea { width: 100%; font-size: 12px; }
+
+.sv-paste-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Colour in the lists: folders and secrets' keys, statuses, roles. */
+.row .glyph.folder { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+
+.row .glyph.key { color: var(--tone-1); background: color-mix(in srgb, var(--tone-1) 12%, transparent); }
+
+.row .glyph.shield { color: var(--sky); background: color-mix(in srgb, var(--sky) 12%, transparent); }
+
+.row .glyph.shield.wide { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+
+.hint.warn { color: var(--amber); }
+
+/* ── A route: host → hole → key ───────────────────────────────────────── */
+
+.route { display: grid; grid-template-columns: minmax(120px, 1fr) 54px minmax(120px, 1.1fr) auto; align-items: center; gap: 8px; }
+
+.route .host { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+
+.thread { display: flex; align-items: center; color: var(--edge); }
+
+.thread .eye { width: 5px; height: 5px; margin: 0 4px; border-radius: 50%; border: 1px solid var(--faint); transition: border-color 140ms var(--ease), background 140ms var(--ease); }
+
+.row:hover .thread .eye { border-color: var(--sky); background: var(--sky); }
+
+/* ── The forms ────────────────────────────────────────────────────────── */
+
+.field { display: flex; flex-direction: column; gap: 8px; }
+
+/* A button inside a field is pressed against the left edge: stretched across
+   the whole width it looked like one more field, and its text stood in the
+   middle of the line. */
+.field > .btn { align-self: flex-start; }
+
+/* A field with hints: the list lies under the field without pushing the form
+   apart. */
+.suggest { position: relative; display: flex; }
+
+.suggest > input { flex: 1; min-width: 0; }
+
+.suggest-list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 208px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-ctl);
+  background: var(--raise);
+  box-shadow: var(--sh-pop);
+}
+
+.suggest-list button {
+  display: block;
+  width: 100%;
+  padding: 8px 8px;
+  border: 0;
+  border-radius: var(--r-in);
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  text-align: left;
+}
+
+.suggest-list button.on { background: color-mix(in srgb, var(--sky) 14%, transparent); color: var(--text); }
+
+/* A site's row: the field stretches, the cross stands inside by the right
+   edge. */
+.site-row { display: flex; position: relative; }
+
+.site-row input { flex: 1; min-width: 0; }
+
+/* A hint under a field: readable when it is looked for, and not arguing for
+   attention with the field itself when it is not. */
+.hint {
+  font-size: 12px;
+  /* Exactly 16 rather than 1.45 of the size: 17.4 rounded upwards along the
+     chain, and two thirds of the screen stood on a half-pixel — that is what
+     made the whole interface look soapy. 8 + 16 + 8 = 32, exactly the height
+     of a control. */
+  line-height: 16px;
+  color: var(--dim);
+  max-width: 62ch;
+}
+
+/* Two fields in a row — so that role_id and secret_id are of one width. */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+input, textarea, select {
+  background: var(--field);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  padding: 0 16px;
+  height: var(--control);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  transition: border-color 140ms var(--ease);
+}
+
+textarea { height: auto; padding: 8px 16px; }
+
+/*
+  One look for the focus and one condition: :focus-visible.
+
+  On :focus the border lit up from the mouse as well — a click on a field
+  looked like a move by keyboard, and two different "here"s glowed on the
+  screen at once.
+*/
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  border-color: var(--sky);
+  box-shadow: var(--ring);
+  background: var(--field-focus);
+}
+
+input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--dim) 70%, transparent); }
+
+input::placeholder { color: var(--faint); }
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  padding: 8px;
+}
+
+.seg button {
+  background: none;
+  border: none;
+  color: var(--dim);
+  font-size: 12px;
+  height: var(--control);
+  padding: 0 16px;
+  border-radius: var(--r-ctl);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+
+.seg button.on { background: var(--raise); color: var(--text); font-weight: 500; }
+
+.form { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+
+.form .row-actions { display: flex; gap: 8px; align-items: center; }
+
+/* ── The gate ─────────────────────────────────────────────────────────── */
+
+/* The gate — unlocking, logging in, "the daemon does not answer" — stands
+   on a surface of its own rather than on the glass: through the glass the
+   desktop showed, blurred into a grey-brown. A deep ink with one soft glare of
+   the accent from above; no coloured blots in the corners. */
+.gate {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 24px;
+  background:
+    radial-gradient(70% 55% at 50% -8%, color-mix(in srgb, var(--sky) 20%, transparent), transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--blue) 10%, var(--ink)) 0%, var(--ink) 55%);
+}
+
+.gate-card {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: rise 240ms var(--ease) both;
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.crest { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+
+.crest .badge {
+  width: 46px; height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-panel);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--blue) 60%, transparent), transparent 70%), var(--surface);
+  border: 1px solid var(--edge);
+  color: var(--sky);
+}
+
+.crest h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.015em; }
+
+.crest p { margin: 0; font-size: 12px; color: var(--dim); font-family: var(--mono); overflow-wrap: anywhere; }
+
+/* ── The errors, the emptiness, the loading ───────────────────────────── */
+
+.alert {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid color-mix(in srgb, var(--rose) 40%, var(--edge));
+  background: color-mix(in srgb, var(--rose) 8%, var(--surface));
+  color: var(--text);
+  font-size: 12px;
+}
+
+.alert.warn { border-color: color-mix(in srgb, var(--amber) 40%, var(--edge)); background: color-mix(in srgb, var(--amber) 8%, var(--surface)); }
+
+.alert .icon { color: var(--rose); margin-top: 4px; }
+
+.alert.warn .icon { color: var(--amber); }
+
+.alert-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+.alert-body pre { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--dim); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.alert-actions { display: flex; gap: 16px; }
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  width: 42px; height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  color: var(--faint);
+}
+
+.empty h3 { margin: 0; font-size: 16px; font-weight: 600; }
+
+.empty p { margin: 0; max-width: 46ch; font-size: 12px; color: var(--dim); }
+
+.skeleton { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; }
+
+.skeleton-row {
+  height: 38px;
+  border-radius: var(--r);
+  background: linear-gradient(90deg, var(--surface), var(--raise), var(--surface));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s var(--ease) infinite;
+}
+
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.between { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+.mono { font-family: var(--mono); }
+
+/* There are no native drop-downs in the interface: the system's look breaks
+   the application's language and cannot search. Our own Picker everywhere. */
+select { display: none; }
+
+/* The control in a setting's row: a fixed width, so that the right edge of
+   every row lines up. */
+.setting .control { flex: none; width: 190px; }
+
+/* Buttons in a row must not stick together. */
+.row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+.row-actions.spaced { margin-top: 4px; }
+
+/* ── The glass ────────────────────────────────────────────────────────
+   The real thing: an NSVisualEffectView lies under the window. That is why
+   the backgrounds here are half-transparent — otherwise the glass is not
+   seen, and a CSS blur would blur only what is drawn inside the window. */
+
+.rail { background: color-mix(in srgb, var(--rail) 62%, transparent); }
+
+.head { background: color-mix(in srgb, var(--ink) 55%, transparent); backdrop-filter: saturate(140%); }
+
+.content { background: color-mix(in srgb, var(--ink) 78%, transparent); }
+
+/* ── The press ────────────────────────────────────────────────────────
+   A button has to answer a finger: without that the interface feels deaf. */
+
+.btn, .nav, .account, .row {
+  transition: background 140ms var(--ease-out), border-color 140ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+.btn:active:not(:disabled) { transform: scale(0.97); }
+
+.account:active { transform: scale(0.99); }
+
+/* Touch devices catch hover on a tap — hence the false highlights. */
+@media (hover: hover) and (pointer: fine) {
+  .row:hover { background: color-mix(in srgb, var(--surface) 70%, transparent); }}
+
+/* ── The modal window ─────────────────────────────────────────────────
+   Adding happens in a dialogue rather than in a form built into the page:
+   the built-in one broke the list's row and rode over its neighbours. */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 8, 16, 0.5);
+  backdrop-filter: blur(3px);
+  animation: scrim-in 160ms var(--ease-out) both;
+}
+
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  /* A long form must not push the buttons past the window's edge: the header
+     and the footer stay put, and only the middle scrolls. */
+  max-height: calc(100vh - 72px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-win);
+  background: var(--surface);
+  box-shadow: var(--sh-win);
+  overflow: hidden;
+  /* Not from scale(0): nothing in life appears out of nothing. */
+  animation: modal-in 200ms var(--ease-out) both;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal.wide { max-width: 620px; }
+
+/* The full screen: editing an item takes the whole window, leaving only a
+   frame at the edges — that way the fields are not squeezed into a little box
+   in the middle of emptiness. */
+.modal.full {
+  max-width: none;
+  width: calc(100vw - 48px);
+  height: calc(100vh - 48px);
+  max-height: none;
+}
+
+.modal.full .body { padding: 24px 24px; }
+
+/* On the full screen the form lays itself out in two columns, and whatever is
+   long — the note, the custom fields, the switches — is left the whole
+   width. */
+.modal.full .cols { max-width: 1100px; }
+
+.modal.full > .body > .field,
+.modal.full > .body > .pair,
+.modal.full > .body > .between { max-width: 1100px; }
+
+.modal header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 16px;
+  border-bottom: 1px solid var(--edge);
+}
+
+/* A window's heading is the same step as an object's name. */
+.modal header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+
+.modal .body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+
+/* A conductor for Enter: the button is there and takes up no room. */
+.submit-proxy { position: absolute; width: 0; height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
+.modal footer { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 16px 16px; border-top: 1px solid var(--edge); }
+
+/*
+  One order of actions for every window, and it is set here rather than by the
+  order in the markup: the dangerous one on the left and set apart, the refusal
+  next to the main one, the main one by the right edge, under the thumb and
+  under Enter.
+
+  The order used to be whatever the buttons were written in in the code, and
+  on different screens it came out differently: "Save" on the left here, on the
+  right there.
+*/
+.modal footer > *, .row-actions > * { order: 2; }
+
+/* The reason for a refusal stands to the left of the actions and does not
+   argue with them for room. */
+.modal footer .foot-why { order: 0; margin-right: auto; }
+
+.modal footer .btn.primary, .row-actions .btn.primary { order: 3; }
+
+.modal footer .btn.danger, .row-actions .btn.danger { order: 1; margin-right: auto; }
+
+/* ── The toast ────────────────────────────────────────────────────────
+   A copied password has to be confirmed: otherwise it is unclear whether it
+   worked, and it gets pressed a second time. */
+
+.toasts { position: fixed; z-index: 50; left: 50%; transform: translateX(-50%); bottom: 24px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--edge);
+  background: var(--surface);
+  box-shadow: var(--sh-pop);
+  font-size: 12px;
+  animation: toast-in 220ms var(--ease-out) both;
+}
+
+.toast.leaving { animation: toast-out 140ms var(--ease-out) both; }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(100%) scale(0.98); } to { opacity: 1; transform: none; } }
+
+@keyframes toast-out { to { opacity: 0; transform: translateY(30%) scale(0.98); } }
+
+.toast .icon { color: var(--mint); }
+
+/* ── An item's card ───────────────────────────────────────────────────
+   A column of its own on the right: the list stays put and the detail appears
+   beside it rather than pushing the contents out. */
+
+/* minmax(0, 1fr) — otherwise the list's column refuses to be squeezed below
+   its contents, a long key in the card swells the second column, and a strip
+   two letters wide is all that is left of the list. */
+.with-pane {
+  display: grid;
+  /*
+    The panel was 380 pixels, and a public key in it broke into three lines
+    while the list's row stood empty for two thirds of its width. The width is
+    shared out in favour of wherever there is content.
+  */
+  grid-template-columns: minmax(0, 1fr) clamp(420px, 34%, 520px);
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.with-pane > * { min-height: 0; min-width: 0; max-width: 100%; }
+
+.pane {
+  min-width: 0;
+  max-width: 100%;
+  border-left: 1px solid var(--edge);
+  overflow-y: auto;
+  /* We do not grow horizontally: a long value wraps rather than pushing the
+     card past the window's edge — outside, `.content.flush` cuts by overflow,
+     and the part that travelled simply disappeared. */
+  overflow-x: hidden;
+  padding: 16px 16px 24px;
+  animation: pane-in 180ms var(--ease-out) both;
+}
+
+@keyframes pane-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+
+.pane h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+
+.pane .where { font-size: 12px; color: var(--dim); }
+
+/* The fields on a card are parted by air, as the panel's first two blocks
+   are. A hairline under every field was a second language of parting on the
+   same screen, and the last row without one read as a break. */
+.pane .rowline { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0 16px; }
+
+.pane .rowline:last-child { padding-bottom: 8px; }
+
+.pane .rowline .val { flex: 1; min-width: 0; }
+
+.pane .rowline label { display: block; font-size: 12px; color: var(--faint); margin-bottom: 4px; }
+
+/* Notes hold configuration files and multi-line texts — the line breaks in
+   them carry meaning, and gluing them into a paragraph is not on. */
+.pane .rowline .v { font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+.pane .rowline .v.mono { font-family: var(--mono); font-size: 12px; }
+
+.pane .rowline .acts { display: flex; gap: 4px; flex: none; }
+
+/* The list's tail: while the next portion loads, a skeleton stands in its
+   place — that way the bottom of the list does not look like the end. */
+.more { padding: 8px 0 16px; }
+
+/* The list's scrolling area is its own, so that the card on the right stays
+   put while the list travels. */
+.scroller { height: 100%; overflow-y: auto; padding-right: 8px; }
+
+.row.item {
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  position: relative;
+}
+
+.row.item:hover { background: color-mix(in srgb, var(--text) 4%, var(--surface)); }
+
+.row.item.active {
+  background: color-mix(in srgb, var(--blue) 18%, var(--block));
+  box-shadow: inset 3px 0 0 var(--blue), 0 1px 0 color-mix(in srgb, var(--blue) 16%, transparent);
+}
+
+.row.item.active .glyph { color: var(--sky); }
+
+.row.item.active .text b { font-weight: 600; }
+
+/* On the items tab the scrolling is governed by the columns inside rather
+   than by the container itself. */
+.content.flush { padding: 0; overflow: hidden; }
+
+.content.flush > * { height: 100%; }
+
+/* The same on every side: it was 12 on the left against 8 on the right, and
+   with the card open that difference read as accidental spacing. */
+.content.flush .scroller { padding: 8px; }
+
+/* A favicon takes the glyph's place entirely but is not stretched: logos come
+   in every shape. */
+.row .glyph img { width: 18px; height: 18px; object-fit: contain; border-radius: var(--r-in); }
+
+/* A one-time code and its countdown */
+.totp { display: flex; align-items: center; gap: 8px; }
+
+.totp .code {
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  /* Tabular figures: otherwise the line jumps every time the code changes. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* The countdown: the ring and the seconds side by side. Inside the ring a
+   figure at that size is unreadable, and without the figure it is unclear
+   whether there is time to paste the code. */
+.count { display: inline-flex; align-items: center; gap: 8px; }
+
+.count .ring {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(var(--sky) var(--p), color-mix(in srgb, var(--edge) 90%, transparent) 0);
+  /* A hole in the middle turns the sector into a ring — with no second
+     element. */
+  mask: radial-gradient(circle, transparent 4px, #000 4.8px);
+  -webkit-mask: radial-gradient(circle, transparent 4px, #000 4.8px);
+}
+
+.count .ring.soon { background: conic-gradient(var(--amber) var(--p), color-mix(in srgb, var(--edge) 90%, transparent) 0); }
+
+.count .secs {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  min-width: 14px;
+}
+
+.count .ring.soon + .secs { color: var(--amber); }
+
+/* The code in a list's row */
+.totp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--control);
+  padding: 0 8px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--dim);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+
+.totp-chip:hover { border-color: var(--sky); color: var(--text); }
+
+.totp-chip .mono { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+
+/* The scrollbar in the application's common language: the system's light bar
+   looked foreign in a dark window.
+
+   Room for it is always reserved: otherwise the bar's appearance shifts the
+   contents, and the list jumps when it crosses the boundary of scrolling. */
+/* In the rail there is no bar at all: the contents there are short, and the
+   reserved room left an empty column to the right of the tallies. In the list
+   and the card the bar stays — the scrolling there is constant, and the
+   indicator is of use. */
+.scroller, .pane { scrollbar-gutter: auto; }
+
+.rail-body { scrollbar-width: none; }
+
+.rail-body::-webkit-scrollbar { width: 0; height: 0; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+
+::-webkit-scrollbar-track { background: transparent; }
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--faint) 34%, transparent);
+  border-radius: var(--r-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--faint) 60%, transparent); background-clip: content-box; }
+
+::-webkit-scrollbar-corner { background: transparent; }
+
+textarea { resize: vertical; min-height: 72px; font-family: inherit; }
+
+/* A card's header: the name on the left and a row of actions on the right,
+   all of one size. */
+.pane-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+
+.pane-title { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+/* An item's name is the card's main subject, and it has a size of its own:
+   between the screen's heading (18) and the text (12.5). It used to match the
+   screen's heading, and two different things looked equally important. */
+.pane-title h2 { margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pane-head .acts { margin-left: auto; display: flex; align-items: center; gap: 4px; flex: none; }
+
+.acts-sep { width: 1px; height: 18px; background: var(--edge); margin: 0 4px; }
+
+/* What is dangerous turns red under the cursor rather than all the time. */
+.btn.icon-only.danger { color: var(--dim); border-color: var(--edge); }
+
+@media (hover: hover) {
+  .btn.icon-only.danger:hover:not(:disabled) {
+    color: var(--rose);
+    border-color: color-mix(in srgb, var(--rose) 45%, var(--edge));
+    background: color-mix(in srgb, var(--rose) 10%, transparent);
+  }}
+
+.row.item { min-height: 52px; }
+
+/* The settings */
+.settings { max-width: 640px; }
+
+.seg.tabs { margin-bottom: 16px; }
+
+/*
+  A "what — value" pair: the caption in a column of its own, the value right
+  after it.
+
+  The value used to fly off to the card's right edge, and half a thousand
+  pixels of emptiness lay between "Login" and the login itself — the eye
+  crossed it twice, there and back, on every row.
+*/
+.kv {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.kv + .kv { border-top: 1px solid var(--edge-soft); }
+
+.kv .k { font-size: 12px; color: var(--dim); }
+
+.kv .v { font-size: 12px; overflow-wrap: anywhere; }
+
+/* When it is narrow the caption stands over the value: two columns of 120
+   pixels are worse than one across the whole width. */
+@media (max-width: 700px) {
+  .kv { grid-template-columns: 1fr; gap: 4px; }}
+
+.btn.danger { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 35%, var(--edge)); }
+
+.btn.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--rose) 12%, transparent); border-color: var(--rose); }
+
+/* Handing out access */
+.check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; }
+
+.check input { width: 14px; height: 14px; margin-top: 4px; accent-color: var(--blue); }
+
+/* The change of a one-time code: a short transition with a blur. The blur
+   glues the two states into one movement — without it the eye sees two
+   overlaid sets of figures. The tick of the seconds is deliberately not
+   animated. */
+.swap { animation: swap 220ms var(--ease-out) both; }
+
+@keyframes swap {
+  from { opacity: 0; filter: blur(3px); transform: translateY(-2px); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+
+.count .secs { transition: color 200ms var(--ease-out); }
+
+.titlebar-drag {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar);
+  z-index: 60;
+}
+
+/* The settings: a "name — control" row */
+.setting { padding: 8px 0; align-items: flex-start; }
+
+.setting + .setting { border-top: 1px solid var(--edge-soft); }
+
+.setting h3 { margin: 0 0 4px; }
+
+.setting select { flex: none; min-width: 150px; }
+
+/* The switch */
+.switch {
+  /* 44 = 2 strokes + 4 of padding + 2x18 of the cap's travel. The numbers add
+     up on purpose: at 42 the cap stood three pixels from the edge vertically
+     and one horizontally, and the eye read that as a control put together
+     crookedly. */
+  width: 44px;
+  height: 24px;
+  flex: none;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--edge);
+  background: var(--ink);
+  /* The control's inner geometry rather than the layout's spacing: the grid
+     of eights does not reach in here — otherwise the cap rattles in its
+     track. */
+  padding: 2px;
+  display: flex;
+  transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+.switch span {
+  /* The cap fits the track's inner height exactly: 24 - 2 strokes - 4 of
+     padding. */
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: transform 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+
+.switch.on { background: var(--blue); border-color: var(--blue); }
+
+/* The travel equals the free room inside the track: 44 - 2 - 4 - 18. */
+.switch.on span { transform: translateX(20px); background: #fff; }
+
+/* A theme chosen by hand overrules the system's. */
+:root[data-theme="dark"] {
+  --ink: #101016; --rail: #14141d; --surface: #1a1a25; --raise: #292837;
+  --edge: #343343; --edge-soft: #292837; --sky: #b4a8ff; --mint: #42d6a4;
+  --amber: #f2c14e; --rose: #ff6f7d; --text: #f0eff8; --dim: #a6a4b6; --faint: #777587;
+  --panel: #171720; --block: #20202c; --field: #232330; --field-focus: #2a2939; --orange: #ff9560; --blue: #7865f5; --blue-hi: #8d7cff;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --ink: #f7f6fb; --rail: #eeedf5; --surface: #ffffff; --raise: #ebeaf3;
+  --edge: #dedce8; --edge-soft: #e9e7f0; --sky: #5544c7; --mint: #158f6d;
+  --amber: #946d0c; --rose: #d4475a; --text: #1d1c28; --dim: #625f72; --faint: #908ca0;
+  --panel: #fbfaff; --block: #f2f1f8; --field: #ffffff; --field-focus: #ffffff; --orange: #c45b26; --blue: #6250dc; --blue-hi: #725fff;
+  color-scheme: light;
+}
+
+/* The drop-down with a search */
+.picker { position: relative; }
+
+.picker-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: var(--control);
+  /* The same text inset as an input field's: on neighbouring controls of one
+     width the text began at 8 and at 12 pixels. */
+  padding: 0 16px;
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: var(--r);
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+/* A choice of many: the chips live inside the control. Outside, every added
+   name pushed the block taller and a long explanation beside it pushed it
+   wider — the form grew from choosing. Inside, the control grows by a row of
+   chips at a time and stops: what does not fit scrolls. */
+.picker-value.picked {
+  height: auto;
+  min-height: var(--control);
+  max-height: 88px;
+  overflow-y: auto;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: center;
+  gap: 4px;
+  padding: 4px 8px 4px 4px;
+  cursor: pointer;
+}
+
+/* A name is a name, not a paragraph: what a policy allows lives in the chip's
+   tooltip, and the chip itself keeps to one line. */
+/* Inside the control a chip is the smaller of the two heights: a 32px chip in
+   a 32px control makes a row 40 tall and the control looks broken. */
+.picker-value.picked .chip { max-width: 220px; height: 24px; gap: 4px; }
+
+.picker-value.picked .chip .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The rest of the strip is the way in: it opens the list, it is what the
+   keyboard lands on, and it grows into whatever the chips leave. */
+.picker-value.picked .picker-open {
+  flex: 1;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 24px;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.picker-value.picked .picker-open .dim { color: var(--faint); }
+
+.picker-value:hover { border-color: var(--faint); }
+
+.picker-value .dim { color: var(--faint); }
+
+.picker-menu {
+  position: fixed;
+  z-index: 60;
+  max-width: min(420px, calc(100vw - 16px));
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: var(--sh-pop);
+  overflow: hidden;
+  animation: pick-in 140ms var(--ease-out) both;
+}
+
+.picker-menu.up { transform: translateY(-100%); }
+
+@keyframes pick-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pick-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.picker-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--edge);
+  color: var(--faint);
+}
+
+.picker-search input { flex: 1; background: none; border: none; outline: none; color: var(--text); font: inherit; height: auto; padding: 0; }
+
+/* The search field inside the list is part of the list itself, it must have
+   no border of its own, and so there is nothing to highlight. */
+.picker-search input:focus-visible { border-color: transparent; box-shadow: none; }
+
+.picker-list { max-height: 240px; overflow-y: auto; }
+
+.picker-option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+
+.picker-option:hover { background: var(--raise); }
+
+.picker-option.on { color: var(--sky); }
+
+.picker-empty { padding: 16px; color: var(--faint); font-size: 12px; text-align: center; }
+
+/* A field with an action inside: the button must not take up a row of its
+   own. */
+.inset { position: relative; display: flex; }
+
+.inset input { flex: 1; padding-right: 32px; }
+
+.inset-action {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--dim);
+  transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+
+.inset-action:hover { background: var(--raise); color: var(--text); }
+
+/* The cross is the same plus, turned: an icon of its own for deleting is not
+   needed, and the turn reads unambiguously. */
+.inset-action.remove .icon { transform: rotate(45deg); }
+
+.inset-action.remove:hover { color: var(--rose); }
+
+.keylist { display: flex; flex-direction: column; gap: 8px; }
+
+.slot .picker { flex: 1; }
+
+.steps li.past { color: var(--dim); }
+
+.steps li.past .num { background: color-mix(in srgb, var(--mint) 30%, transparent); color: var(--mint); }
+
+/* The block that unfolds is ours rather than <details>: the native one has a
+   triangle, spacing and focus that all live by rules of their own. */
+.disclosure { display: flex; flex-direction: column; gap: 8px; }
+
+.disclosure-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: color 140ms var(--ease-out);
+}
+
+.disclosure-head svg { transition: transform 180ms var(--ease-out); }
+
+.disclosure.open .disclosure-head { color: var(--text); }
+
+.disclosure.open .disclosure-head svg { transform: rotate(90deg); }
+
+@media (hover: hover) { .disclosure-head:hover { color: var(--text); }}
+
+.disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-left: 24px;
+  border-left: 1px solid var(--edge);
+  animation: reveal 180ms var(--ease-out) both;
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* A step's outcome: a tick and a line about what has already been done. */
+.done { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mint); }
+
+/* ── An organisation in the main view ─────────────────────────────────
+   There is deliberately no separate "administration" section: an
+   organisation is the same list, only with people and collections beside
+   it. */
+
+/* Not stuck: sticking to the top of the scroll it stood over the rows and
+   left a strip of passing content above itself. The section's heading travels
+   with the list — and that is fine, the list is short. */
+.org-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 0px 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+.org-title { display: flex; align-items: center; gap: 8px; }
+
+.org-title b { font-size: 16px; font-weight: 600; }
+
+.org-title .glyph { color: var(--dim); display: flex; }
+
+/*
+  The tabs: an underline for the chosen one and no fill at all.
+
+  The shape tells moving between sections apart from choosing a value — a
+  filled cell is left only where one of several is chosen. While one element
+  drew both roles, two such bars one under the other read as a single control,
+  and nobody reached the second.
+*/
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* The same height as every control. There are three heights on the screen:
+     the ordinary one, the small one, and the one that lives inside a field. */
+  height: var(--control);
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  transition: color 140ms var(--ease), border-color 140ms var(--ease);
+}
+
+.tabs button.on { color: var(--text); border-bottom-color: var(--sky); font-weight: 500; }
+
+@media (hover: hover) { .tabs button:not(.on):hover { color: var(--text); }}
+
+.tabs .tally {
+  min-width: 16px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--raise);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 15px;
+  text-align: center;
+}
+
+.tabs button.on .tally { background: color-mix(in srgb, var(--sky) 18%, transparent); color: var(--sky); }
+
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  /* 4 + 24 + 4 = 32: the switch is of one height with the buttons beside it.
+     With no border — with one it came to 34, and it stuck out by two
+     pixels. */
+  padding: 4px;
+  border-radius: var(--r-panel);
+  background: var(--raise);
+  border: 0;
+  align-self: flex-start;
+}
+
+.segmented button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 24px;
+  min-width: 64px;
+  /* 4 on top and bottom against 12 on the sides: at 16 the ratio reached 1:5
+     and a tab read as squashed. */
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.segmented button.on { background: var(--surface); color: var(--text); box-shadow: var(--sh-1); }
+
+.segmented button:active { transform: scale(0.97); }
+
+@media (hover: hover) { .segmented button:not(.on):hover { color: var(--text); }}
+
+.segmented .tally { font-family: var(--mono); font-size: 12px; opacity: 0.7; }
+
+.row.plain { cursor: default; }
+
+.face {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--raise);
+  border: 1px solid var(--edge);
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.you { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--dim); }
+
+/* Only the modifiers: the base .chip is above, and overriding it here would
+   mean changing the chips across the whole application into the bargain. */
+.chip.role-owner { color: var(--sky); border-color: color-mix(in srgb, var(--sky) 40%, transparent); }
+
+.chip.role-admin { color: var(--mint); border-color: color-mix(in srgb, var(--mint) 40%, transparent); }
+
+.chip.status-revoked { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 40%, transparent); }
+
+.chip.status-invited,
+.chip.status-accepted,
+.chip.status-unknown { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+
+/* ── A vault's view ───────────────────────────────────────────────────
+   No cards inside cards: a line and some air are enough for the sections,
+   and every extra outline adds one more ring around the same contents. */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+/* Ready-made values instead of typing a number by hand.
+
+   Every cell keeps its own border, and neighbours share it with a negative
+   margin. That way the seam is exactly one pixel with no gaps or backing
+   fills, and the chosen one rises above its neighbours so that nothing
+   overlaps its border. The previous version drew the seams as gaps down to
+   the group's background and lit the chosen one with an inner shadow — the
+   shadow was cut by the rounding, and the corners looked shaved off. */
+.choice { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.choice .cells { display: inline-flex; }
+
+.choice .cells button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: var(--control);
+  min-width: 48px;
+  margin-left: -1px;
+  padding: 0 16px;
+  border: 1px solid var(--edge);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.choice .cells button:first-child { margin-left: 0; border-radius: var(--r-ctl) 0 0 var(--r-ctl); }
+
+.choice .cells button:last-child { border-radius: 0 var(--r-ctl) var(--r-ctl) 0; }
+
+.choice .cells button.on {
+  z-index: 1;
+  border-color: var(--sky);
+  color: var(--text);
+  font-weight: 500;
+}
+
+@media (hover: hover) {
+  .choice .cells button:not(.on):hover { color: var(--text); background: var(--raise); }}
+
+/* The "other" cell differs only in its text and its colour, not in its shape:
+   the shape says "this is the same choice". */
+.choice .cells .other {
+  color: var(--faint);
+  border-style: dashed;
+}
+
+@media (hover: hover) { .choice .cells .other:hover { color: var(--text); }}
+
+/* The button is inside the field rather than beside it: outside it gave a
+   second rectangle. */
+.with-inner { position: relative; display: flex; }
+
+.with-inner input { flex: 1; padding-right: 32px; }
+
+.with-inner .inner {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--dim);
+}
+
+@media (hover: hover) { .with-inner .inner:hover { background: var(--raise); color: var(--text); }}
+
+/* The chosen policies. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border-color: color-mix(in srgb, var(--sky) 40%, var(--edge));
+  background: color-mix(in srgb, var(--sky) 10%, transparent);
+  color: var(--sky);
+}
+
+.chip.pick .x { color: var(--faint); font-size: 16px; line-height: 1; }
+
+/* A chip answers the cursor: it is a button, and it is removed by pressing. */
+.chip.pick { transition: background 140ms var(--ease), border-color 140ms var(--ease), transform 140ms var(--ease-out); }
+
+@media (hover: hover) { .chip.pick:hover .x { color: var(--rose); }}
+
+/*
+  A section's heading: the name with its tally on the left, one action on the
+  right, a rule below.
+
+  There used to be the same "text — button" row here with no heading and no
+  rule, and in a wide window nine hundred pixels gaped between them: two things
+  with nothing to connect them, at opposite edges. The rule makes a bar out of
+  that, and the heading explains a bar of what.
+*/
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+.section-head .title { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+
+.section-head .title b { font-size: 12px; font-weight: 600; }
+
+.section-head .title .hint { white-space: nowrap; }
+
+textarea.mono { font-family: var(--mono); font-size: 12px; line-height: 16px; }
+
+/* ── The air ──────────────────────────────────────────────────────────
+   The density was reckoned for a smaller window: on a wide screen everything
+   stuck together into one bar. The grid's step is the same, 4px, but there
+   are more steps. */
+
+.nav { height: 32px; gap: 8px; }
+
+.head input { max-width: 420px; }
+
+.form { gap: 16px; }
+
+.list > * + * { margin-top: 4px; }
+
+.status-bar { padding-bottom: 16px; }
+
+/* The figures in the tallies must not shiver when a value changes. */
+.count, .tally, .chip { font-variant-numeric: tabular-nums; }
+
+/* The granting form: two columns while there is width enough. In one column
+   it travelled downwards, and an empty field half a screen wide was left on
+   the right. */
+.form.wide { max-width: 780px; }
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; align-items: start; }
+
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+@media (max-width: 1000px) { .cols { grid-template-columns: 1fr; }}
+
+.wrap-row { align-items: flex-start; gap: 16px; padding-top: 0px; }
+
+.wrap-row .text { display: flex; flex-direction: column; gap: 4px; max-width: 40ch; }
+
+.wrap-row .text b { font-size: 12px; font-weight: 500; }
+
+/* The ready-made values are smaller: three of them have to fit in a
+   column. */
+.choice button { height: 32px; padding: 0 8px; font-size: 12px; }
+
+/* Choosing a policy takes a row, the "new" button stands to the side. */
+.field .row-actions .picker { flex: 1; min-width: 0; max-width: 100%; }
+
+/* ── The filters over the list ────────────────────────────────────────
+   Folders, organisations and collections are a slice of the list rather than
+   the application's sections. In the side column they grew into a sheet;
+   here they are all in view at once, and it is visible which slice is on. */
+
+.filters {
+  flex: none;
+  /*
+    A grid rather than two separate rows: the column of captions is as wide as
+    the longest of them. At a hard 84 pixels "ORGANISATIONS" climbed out of its
+    box by 7 pixels and stuck to the first chip, while "FOLDERS" had 48 pixels
+    of air left to the chips — one and the same gutter looked different on two
+    rows in a row.
+  */
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 8px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--edge-soft);
+  background: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.chiprow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0px;
+}
+
+.chiprow::-webkit-scrollbar { display: none; }
+
+.chiprow-sep { flex: none; width: 1px; height: 18px; background: var(--edge); margin: 0 4px; }
+
+.fchip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* The same height as the small button: there should be two heights of
+     controls on a screen, not five. */
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-pill);
+  /* No fill: a mark is not a button, and a painted pill next to a button
+     reads as a second main action. The fill is left to the chosen one. */
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  white-space: nowrap;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out), background 140ms var(--ease-out);
+}
+
+.fchip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+.fchip .dot.hollow { border: 1px solid var(--faint); background: none; }
+
+.fchip em { font-style: normal; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+
+.fchip.on {
+  border-color: color-mix(in srgb, var(--sky) 50%, var(--edge));
+  background: color-mix(in srgb, var(--sky) 14%, var(--surface));
+  color: var(--text);
+}
+
+.fchip.on em { color: var(--sky); }
+
+@media (hover: hover) { .fchip:not(.on):hover { color: var(--text); border-color: var(--faint); }}
+
+.crumb-part { display: inline-flex; align-items: center; gap: 8px; color: var(--faint); min-width: 0; }
+
+/* A crumb that leads back reads as the text of the path, not as a button:
+   without this it took the browser's grey button. */
+.crumbs button { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+
+@media (hover: hover) { .crumbs button:hover { color: var(--text); }}
+
+/* ── The search overlay ───────────────────────────────────────────────
+   Called with Cmd+K from anywhere: searching happens more often than
+   anything else, and the way to the search has to be shorter than the way
+   to the mouse. */
+
+.scrim.top { align-items: flex-start; padding-top: 12vh; }
+
+.spot {
+  width: min(620px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-win);
+  border: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: var(--sh-win);
+  overflow: hidden;
+  animation: spot-in 180ms var(--ease-out) both;
+}
+
+@keyframes spot-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.spot-input {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  height: 54px;
+  border-bottom: 1px solid var(--edge-soft);
+  color: var(--faint);
+}
+
+.spot-input input {
+  flex: 1;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.spot-input input:focus-visible { border-color: transparent; box-shadow: none; }
+
+.spot-input .inner {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--faint);
+}
+
+@media (hover: hover) { .spot-input .inner:hover { background: var(--raise); color: var(--text); }}
+
+.spot-caption {
+  padding: 8px 16px 0px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.spot-list { max-height: min(52vh, 440px); overflow-y: auto; padding: 8px; }
+
+.spot-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 8px 8px;
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text);
+  text-align: left;
+}
+
+.spot-row.on { background: color-mix(in srgb, var(--sky) 14%, transparent); }
+
+.spot-row .glyph {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  background: var(--raise);
+  color: var(--dim);
+}
+
+.spot-row .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.spot-row .text b { font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.spot-row .text span { font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.spot-empty { padding: 24px; text-align: center; font-size: 12px; color: var(--dim); }
+
+.spot-foot {
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--edge-soft);
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.spot-foot span { display: inline-flex; align-items: center; gap: 8px; }
+
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: var(--r-in);
+  border: 1px solid var(--edge);
+  background: var(--raise);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+}
+
+/* The button that calls the search in the section's column. */
+.spot-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--control);
+  padding: 0 8px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--faint);
+  font-size: 12px;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+
+.spot-open span { flex: 1; text-align: left; }
+
+@media (hover: hover) { .spot-open:hover { color: var(--text); border-color: var(--faint); }}
+
+/* ── The generator ────────────────────────────────────────────────────
+   The password is the main thing on the screen, so it is large and on a slab
+   of its own rather than in a row of ordinary fields. */
+
+.readout {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+
+.readout output {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.readout .acts { display: flex; gap: 8px; flex: none; }
+
+.meter { height: 4px; border-radius: var(--r-pill); background: var(--raise); overflow: hidden; }
+
+.meter span { display: block; height: 100%; border-radius: var(--r-pill); transition: width 200ms var(--ease-out), background 200ms var(--ease-out); }
+
+.meter.weak span { background: var(--rose); }
+
+.meter.fair span { background: var(--amber); }
+
+.meter.good span { background: var(--sky); }
+
+.meter.strong span { background: var(--mint); }
+
+.setchips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* A choice of many is a pill, a choice of one is a closed cell. The shape
+   tells "all of them at once" apart from "one of them", and there is no need
+   to explain it. */
+.setchip {
+  display: grid;
+  place-items: center;
+  height: var(--control);
+  min-width: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--faint);
+  font-size: 12px;
+  transition: border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+}
+
+/* The chosen one is marked by an outline, as in the group of values: one
+   page, one way of saying "this is on". */
+.setchip.on { border-color: var(--sky); color: var(--text); }
+
+/* "No lookalike characters" is on — which means those characters are struck
+   out of the alphabet, and a struck-through label says so more plainly than
+   any caption. */
+.setchip.strike.on span { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.setchip:active { transform: scale(0.97); }
+
+@media (hover: hover) { .setchip:not(.on):hover { color: var(--text); border-color: var(--faint); }}
+
+.len-value { font-size: 12px; color: var(--dim); min-width: 3ch; text-align: right; }
+
+/* The length slider is ours: the native one on macOS is drawn in the system's
+   blue and looks foreign in a dark theme. */
+input[type="range"].len {
+  flex: 1;
+  min-width: 120px;
+  height: var(--control);
+  padding: 0;
+  border: 0;
+  background: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type="range"].len::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--raise);
+}
+
+input[type="range"].len::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--sky);
+  border: 0;
+}
+
+input[type="range"].len:focus-visible { box-shadow: none; }
+
+input[type="range"].len:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--ring);
+}
+
+.row.plain.past { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; }
+
+.row.plain.past .text { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 12px; color: var(--dim); }
+
+@media (hover: hover) { .row.plain.past:hover { background: var(--surface); }}
+
+.filter-line { display: contents; }
+
+.filter-label { white-space: nowrap; }
+
+/* The organisations' row: the caption, the chips and the action. The action
+   goes in a cell of its own by the chips' right edge rather than inside their
+   set. */
+.filter-line .chiprow { min-width: 0; }
+
+/* The account's menu: the rail is one icon wide, and the menu does not fit
+   inside it. So its position is fixed to the window's edge rather than to the
+   rail. */
+.rail-menu {
+  position: fixed;
+  left: calc(var(--rail-w) + 8px);
+  bottom: 14px;
+  top: auto;
+  right: auto;
+  width: 260px;
+  z-index: 70;
+  box-shadow: var(--sh-pop);
+}
+
+/* The bulk actions in the trash. */
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  border: 1px solid color-mix(in srgb, var(--rose) 30%, var(--edge));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--rose) 6%, var(--surface));
+}
+
+.bulk .grow { flex: 1; }
+
+.pickall { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); cursor: pointer; }
+
+.picked-row { display: flex; align-items: center; gap: 8px; }
+
+.picked-row > input[type="checkbox"] { flex: none; margin-left: 4px; }
+
+/* The checkbox is ours: the native one on macOS is drawn in the system's blue
+   and looks foreign in a dark theme. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--edge);
+  border-radius: var(--r-in);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  transition: background 140ms var(--ease-out), border-color 140ms var(--ease-out);
+}
+
+input[type="checkbox"]:checked { background: var(--blue); border-color: var(--blue); }
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+/* In a card the column is narrow: pairs of fields are put one under the
+   other. */
+.pane .pair { grid-template-columns: 1fr; }
+
+/* A long value wraps rather than stretching the column. */
+.pane .v, .pane pre, .pane .rowline { overflow-wrap: anywhere; min-width: 0; }
+
+/* ── The window's width ───────────────────────────────────────────────
+   The window is dragged from half the screen to the whole of it, and it has
+   to make sense at every step. Three thresholds: cramped, ordinary, wide. */
+
+/* Cramped: an item's card takes up almost everything when it is open — so
+   the section's column collapses, leaving the rail and the work. */
+@media (max-width: 1000px) {
+  .shell { grid-template-columns: var(--rail-w) 200px 1fr; }
+  .with-pane { grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); }
+  /* Cramped: one gutter for all — the heading, the filters, the rows. The
+     heading used to squeeze to 16 while a row stayed at 24, and the left edges
+     parted by eight pixels. */
+  :root { --gutter: 16px; --row-pad: 8px; }
+  .content { padding: var(--gutter) var(--gutter) 24px; }
+  .form.wide { max-width: none; }}
+
+/* Truly cramped: a filter's caption stands over its chips. Beside them it
+   eats 83 pixels of what the chips themselves need, and the hard width that
+   used to stand here simply cut the word "Organisations". */
+/* Cramped altogether: the section's column goes away entirely, and an item's
+   card stands over the list rather than beside it — otherwise a strip is all
+   that is left of the list. */
+@media (max-width: 820px) {
+  .shell { grid-template-columns: var(--rail-w) 1fr; }
+  .context { display: none; }
+  .with-pane { grid-template-columns: minmax(0, 1fr); }
+  /*
+    The card covers the work entirely rather than halfway.
+
+    At a width of 420 pixels a strip of the list and a stump of the filters'
+    row were left past its edge — "No folder" ended in the middle of a word,
+    and that read not as "the card is on top" but as broken layout.
+  */
+  .with-pane .pane {
+    position: fixed;
+    left: var(--rail-w);
+    right: 0;
+    top: var(--titlebar);
+    bottom: 0;
+    z-index: 40;
+    background: var(--ink);
+    box-shadow: var(--sh-win);
+  }
+  .cols { grid-template-columns: 1fr; }
+
+  /* A filter's caption stands over its chips: beside them it eats 83 pixels
+     of what the chips themselves need. */
+  .filters { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  /* Only the captions inside the body: the same caption in the heading row
+     slid down from this spacing relative to the chips and the arrow. */
+  .filters-body .filter-label { padding-top: 8px; }
+  .filter-line + .filter-line .filter-label { padding-top: 8px; }}
+
+/* Wide: the contents are not stretched across the whole line — a line of two
+   hundred characters cannot be read, and a list across the full width loses
+   the link between the name and the right edge. */
+@media (min-width: 1600px) {
+  .shell { grid-template-columns: var(--rail-w) 260px 1fr; }
+  /* The contents are limited rather than the list: the `.with-pane` wrapper
+     always stands between `.content` and the list, even when the card is
+     closed — which is why the previous rules did not fire at all. */
+  .content > .stack, .content > .settings, .content > .form { max-width: 1180px; }
+  .with-pane { grid-template-columns: minmax(0, 1fr) 420px; }}
+
+/* Very wide: the columns are centred, so that the work does not travel to the
+   left edge of a twenty-seven-inch screen. */
+@media (min-width: 2000px) {
+  .content > .stack, .content > .settings, .content > .form { max-width: 1320px; }}
+
+.fchip.add { border-style: dashed; color: var(--faint); }
+
+@media (hover: hover) { .fchip.add:hover { color: var(--text); border-color: var(--faint); }}
+
+/*
+  The custom fields: one line per field, no boxes around them.
+
+  They used to be a table of four columns: the value got a third of the width,
+  a picker of the kind took another quarter, and below 760 pixels every field
+  fell apart into a stack of three captioned boxes with the value stretched
+  across the whole dialogue. Now the name is the value's caption, set as quiet
+  text on the left; the kind is a mark at the start of the line; the value has
+  the rest of the width. Lines are parted by hairlines rather than frames.
+*/
+.custom-list {
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+}
+
+.custom-row {
+  display: grid;
+  grid-template-columns: var(--control) minmax(96px, 32%) minmax(0, 1fr) var(--control);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--edge-soft);
+}
+.custom-row:first-child { padding-top: 0; }
+
+/* The kind's mark: a coloured glyph without a plate, as elsewhere in the
+   rows; a press opens the choice of kind under the line. */
+.custom-kind {
+  width: var(--control);
+  height: var(--control);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--kind-tone, var(--sky));
+  cursor: pointer;
+}
+@media (hover: hover) { .custom-kind:hover { background: color-mix(in srgb, var(--kind-tone, var(--sky)) 14%, transparent); }}
+.custom-row.open .custom-kind { background: color-mix(in srgb, var(--kind-tone, var(--sky)) 18%, transparent); }
+.custom-row.kind-text { --kind-tone: var(--sky); }
+.custom-row.kind-hidden { --kind-tone: var(--amber); }
+.custom-row.kind-checkbox { --kind-tone: var(--tone-1); }
+.custom-row.kind-linked { --kind-tone: var(--tone-3); }
+
+/* The name reads as a caption and turns into a field only when it is being
+   edited: a second box in front of every value doubled the line's weight. */
+.custom-row input.custom-name {
+  font-weight: 500;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-overflow: ellipsis;
+}
+@media (hover: hover) { .custom-row input.custom-name:hover { background: var(--field); }}
+.custom-row input.custom-name:focus { background: var(--field); border-color: var(--edge); }
+
+.custom-value { min-width: 0; display: flex; }
+.custom-value > * { flex: 1; min-width: 0; }
+
+/* The switch sits by the value column's left edge, where the other values
+   begin. */
+.custom-flag { display: flex; align-items: center; min-height: var(--control); flex: 0 0 auto; }
+
+/* Removal stays in view but quiet: a row is not an alarm until the cursor is
+   on the bin. */
+.btn.custom-remove { color: var(--faint); background: transparent; border-color: transparent; box-shadow: none; }
+@media (hover: hover) { .btn.custom-remove:hover { color: var(--rose); background: color-mix(in srgb, var(--rose) 12%, transparent); }}
+
+/* The choice of kind unfolds under the line, level with the name. */
+.custom-kinds { grid-column: 2 / -1; }
+
+/* Adding: the list's last line, of the ordinary height and as wide as its
+   words. It used to share the class of the coloured blocks and came out as a
+   bar across the whole dialogue with the plus above the text. */
+.btn.custom-add {
+  align-self: flex-start;
+  margin-top: 8px;
+  gap: 8px;
+  flex-direction: row;
+}
+
+/* Narrow: the value moves under the name rather than being squeezed to a
+   few characters; the kind and the bin keep their places on the first line. */
+@container (max-width: 420px) {
+  .custom-row { grid-template-columns: var(--control) minmax(0, 1fr) var(--control); }
+  .custom-row > .custom-value { grid-column: 2 / 3; grid-row: 2; }
+  .custom-row > .custom-remove { grid-column: 3; grid-row: 1; }
+}
+
+/* A custom field's name is the row's heading rather than an ordinary input
+   field. */
+.field-name { font-weight: 500; max-width: 320px; }
+
+/* A pair of fields folds into a column when there is little room: two inputs
+   of 240 pixels read worse than two of 480 one under the other. */
+@media (max-width: 760px) {
+  .pair { grid-template-columns: 1fr; }}
+
+/* A block of meaning inside a form: the heading and everything under it. It
+   is set off by air and one rule above — not by a border: a border inside the
+   dialogue's border gave a third level of outlines. */
+.form-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 12 from the form's body plus 4 here — twenty, a step of the scale. It was
+     six, and that made 18: a value the scale does not have. */
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid var(--edge-soft);
+}
+
+.form-block .form-section { margin: 0; }
+
+/* A subsection's heading inside a form: an identity has eighteen fields, and
+   without a break that is a bedsheet. */
+.form-section {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* The accents: what is looked at first must not blend into the
+   background. */
+.section-head .title b { color: var(--text); font-size: 12px; }
+
+.sv-field.open .sv-val { color: var(--text); }
+
+.row .text b { color: var(--text); }
+
+.tabs [role=tab][aria-selected=true], .tabs .on { color: var(--sky); }
+
+.hist-row {
+  display: grid; grid-template-columns: max-content 1fr max-content; gap: 8px; align-items: center;
+  padding: 8px 8px; border: 0; border-radius: var(--r-in); background: none; font: inherit; color: var(--text); text-align: left; cursor: pointer;
+}
+
+.hist-row:hover:not(:disabled) { background: color-mix(in srgb, var(--sky) 10%, transparent); }
+
+.hist-row.on { background: color-mix(in srgb, var(--mint) 12%, transparent); cursor: default; }
+
+.hist-row:disabled { opacity: 1; }
+
+.list > * + * { margin-top: 8px; }
+
+.modal footer .foot-why { margin-right: auto; padding-right: 16px; }
+
+.disclosure + .disclosure { margin-top: 8px; }
+
+.field + .field, .field + .pair, .pair + .field { margin-top: 4px; }
+
+.section-head { margin-bottom: 8px; }
+
+.chip.tone-kv { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+
+.chip.tone-transit { color: var(--orange); border-color: color-mix(in srgb, var(--orange) 40%, transparent); }
+
+.chip.tone-pki { color: var(--sky); border-color: color-mix(in srgb, var(--sky) 40%, transparent); }
+
+.chip.tone-db { color: var(--mint); border-color: color-mix(in srgb, var(--mint) 40%, transparent); }
+
+.chip.tone-auth { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 40%, transparent); }
+
+.section-head.spaced { margin-top: 24px; }
+
+.disclosure .btn.primary { align-self: flex-start; margin-top: 8px; }
+
+/* The zone of dangerous actions. */
+.danger-zone {
+  margin-top: 8px; padding: 8px 16px; border-radius: var(--r);
+  border: 1px solid color-mix(in srgb, var(--rose) 35%, transparent);
+  background: color-mix(in srgb, var(--rose) 5%, transparent);
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.danger-zone h4 { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rose); font-weight: 600; }
+
+.danger-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+.danger-row .text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.danger-row .text b { font-size: 12px; font-weight: 500; }
+
+.danger-row .btn { flex: none; }
+
+.btn.warn { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+
+.btn.warn:hover { background: color-mix(in srgb, var(--amber) 12%, transparent); }
+
+.modal footer { flex-wrap: wrap; row-gap: 8px; }
+
+.modal footer .foot-why { flex: 1 1 160px; min-width: 0; white-space: normal; line-height: 16px; }
+
+/* ── The visual layer: accents, statuses, tiles ───────────────────────── */
+
+/* The tabs: an icon, air between them, the active one highlighted from
+   below. */
+.tabs { gap: 8px; }
+
+.tabs button svg { opacity: 0.7; }
+
+.tabs button.on svg { opacity: 1; color: var(--sky); }
+
+.tabs button.on { background: linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--sky) 10%, transparent)); }
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+
+.dot.ok { background: var(--mint); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mint) 20%, transparent); }
+
+.dot.bad { background: var(--rose); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rose) 20%, transparent); }
+
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mint) 20%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--mint) 8%, transparent); } }
+
+/* A chip with a status dot. */
+.chip.dot { display: inline-flex; align-items: center; gap: 8px; width: auto; height: auto; border-radius: var(--r-pill); background: none; box-shadow: none; }
+
+.chip.dot::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+/* The things that unfold: the click target is a control's height, the arrow
+   sits in a circle. */
+.disclosure-head { min-height: 32px; padding: 0px 0; font-weight: 500; }
+
+.disclosure-head svg { width: 20px; height: 20px; padding: 4px; border-radius: 50%; background: var(--raise); box-sizing: border-box; }
+
+.disclosure.open .disclosure-head svg { background: color-mix(in srgb, var(--sky) 16%, transparent); color: var(--sky); }
+
+/* The sections' headings: a caption in small capitals with an accent rule. */
+.section-head .title b { position: relative; padding-left: 8px; }
+
+.section-head .title b::before { content: ""; position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--sky); }
+
+/* The dialogue: a thin accent line on top and a path heading in a
+   monospaced face. */
+.modal { box-shadow: 0 0 0 1px color-mix(in srgb, var(--sky) 12%, transparent), var(--sh-pop); }
+
+.modal > header { background: linear-gradient(180deg, color-mix(in srgb, var(--sky) 5%, transparent), transparent); }
+
+/* A secret's fields: the key as a caption chip, an open value with an accent
+   on the left. */
+.sv-field { transition: border-color 140ms var(--ease); }
+
+.sv-field:hover { border-color: color-mix(in srgb, var(--tone-3) 35%, var(--edge)); }
+
+.sv-field.open { border-color: color-mix(in srgb, var(--tone-1) 35%, var(--edge)); }
+
+.sv-field.open .sv-val { padding-left: 8px; border-left: 2px solid var(--tone-1); }
+
+/* The icon buttons: a shadow of colour on hover. */
+.btn.icon-only:hover:not(:disabled) { color: var(--sky); border-color: color-mix(in srgb, var(--sky) 40%, var(--edge)); }
+
+.btn.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--rose) 12%, transparent); }
+
+.block {
+  display: flex; flex-direction: column; gap: 16px; width: 100%;
+  padding: 16px 16px 16px;
+  background: var(--block);
+  border: 1px solid var(--edge);
+  border-left: 3px solid var(--sky);
+  border-radius: var(--r);
+}
+
+.block-title {
+  margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sky);
+}
+
+.block.tone-mint { border-left-color: var(--tone-1); }
+
+.block.tone-mint .block-title { color: var(--tone-1); }
+
+.block.tone-amber { border-left-color: var(--tone-2); }
+
+.block.tone-amber .block-title { color: var(--tone-2); }
+
+.block.tone-orange { border-left-color: var(--tone-3); }
+
+.block.tone-orange .block-title { color: var(--tone-3); }
+
+.block .form-block { border-top: 1px solid var(--edge-soft); margin-top: 0; }
+
+.block .field label, .block .form-section { color: var(--text); }
+
+.block .form-section { color: var(--dim); }
+
+/* The fields on the blocks are a little lighter than a block — they read as a
+   field rather than as a hole. */
+.block input, .block textarea, .block select, .block .picker-value, .block .choice .cells button, .block .segmented { background: var(--field); }
+
+/* The dialogues are at the panel's level, the cards inside them at the
+   block's. */
+.modal { background: var(--panel); }
+
+.modal .sv-field, .modal .version, .modal .studio-row, .modal .hist-row.on, .modal .kvgrid, .modal pre.secret, .modal .issue-facts { background: var(--block); }
+
+.modal .issue-facts { padding: 8px 16px; border-radius: var(--r); border: 1px solid var(--edge-soft); }
+
+.modal .kvgrid { padding: 8px 8px; border-radius: var(--r); border: 1px solid var(--edge-soft); }
+
+.modal .versions { padding: 8px; border-radius: var(--r); border: 1px solid var(--edge-soft); background: var(--block); }
+
+.modal .version { background: transparent; }
+
+.modal .version.active { background: color-mix(in srgb, var(--sky) 12%, transparent); }
+
+.modal .disclosure { padding: 8px 16px; border: 1px solid var(--edge-soft); border-radius: var(--r); background: color-mix(in srgb, var(--block) 60%, transparent); }
+
+.modal .disclosure.open { border-color: var(--edge); }
+
+/* ── Two levels, not three ───────────────────────────────────────────
+   The working area as a whole is lighter than the navigation; the cards lie
+   on it. No boxes inside boxes: inside the dialogues the sections are parted
+   by lines and headings rather than by borders. */
+.content { background: var(--panel); }
+
+.head { background: var(--panel); border-bottom: 1px solid var(--edge-soft); backdrop-filter: none; }
+
+.block { box-shadow: 0 1px 0 color-mix(in srgb, var(--edge) 60%, transparent); }
+
+/* The dialogue is the card itself. Inside it, flat sections. */
+.modal { background: var(--panel); }
+
+.modal .sv-field { background: transparent; border: 0; border-radius: 0; padding: 8px 8px; border-bottom: 1px solid var(--edge-soft); }
+
+.modal .sv-field:last-child { border-bottom: 0; }
+
+.modal .sv-field:hover { background: color-mix(in srgb, var(--block) 70%, transparent); border-color: var(--edge-soft); }
+
+.modal .sv-field.open { border-color: var(--edge-soft); }
+
+.modal .sv { gap: 0; }
+
+.modal .versions { border: 0; background: transparent; padding: 0; }
+
+.modal .issue-facts { border: 0; background: transparent; padding: 0; }
+
+.modal .kvgrid { border: 0; background: transparent; padding: 0; }
+
+.modal .disclosure { border: 0; border-top: 1px solid var(--edge-soft); border-radius: 0; background: transparent; padding: 16px 0 0; }
+
+.modal .disclosure.open { border-color: var(--edge-soft); }
+
+.modal .disclosure + .disclosure { margin-top: 4px; }
+
+.modal .studio-row { background: transparent; border-bottom: 1px solid var(--edge-soft); border-radius: 0; padding: 8px 8px; }
+
+.modal .studio-summary { gap: 0; }
+
+.modal pre.secret { background: var(--field); }
+
+.modal .issue-facts dd.mono, .modal .sv-val { color: var(--text); }
+
+.modal .sv-key { color: var(--tone-3); }
+
+.modal .danger-zone { background: color-mix(in srgb, var(--rose) 6%, transparent); }
+
+/* A button's text is always on one line, and its neighbours do not squeeze
+   it. */
+.btn, .tabs button, .segmented button, .choice .cells button, .crumb, .picker-value { white-space: nowrap; }
+
+.btn { flex-shrink: 0; }
+
+.head .tools { flex: none; display: flex; align-items: center; gap: 8px; }
+
+.head nav { min-width: 0; }
+
+/* The header is darker than the working area and parted by a line with a soft
+   shadow. */
+.head { background: color-mix(in srgb, var(--ink) 55%, var(--panel)); border-bottom: 1px solid var(--edge); box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 40%, transparent), 0 4px 14px -10px rgb(0 0 0 / 0.5); position: relative; z-index: 2; }
+
+/* ── An item at a glance ────────────────────────────────────────────────── */
+.pane { background: var(--panel); display: flex; flex-direction: column; gap: 16px; }
+
+.pane-hero {
+  --k: var(--sky);
+  margin: 0; padding: 16px 16px; gap: 16px;
+  border: 1px solid color-mix(in srgb, var(--k) 30%, var(--edge));
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--k) 22%, transparent), transparent 55%),
+    var(--block);
+  box-shadow: 0 8px 24px -18px color-mix(in srgb, var(--k) 60%, transparent);
+}
+
+.pane.kind-login .pane-hero { --k: var(--sky); }
+
+.pane.kind-card .pane-hero { --k: var(--tone-1); }
+
+.pane.kind-identity .pane-hero { --k: var(--tone-3); }
+
+.pane.kind-secure_note .pane-hero { --k: var(--amber); }
+
+.pane.kind-ssh_key .pane-hero { --k: var(--tone-1); }
+
+.hero-tile {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden;
+  border-radius: 12px; color: var(--k);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--k) 32%, var(--block)), color-mix(in srgb, var(--k) 10%, var(--block)));
+  border: 1px solid color-mix(in srgb, var(--k) 40%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+}
+
+.hero-tile img { width: 32px; height: 32px; object-fit: contain; border-radius: 6px; }
+
+/* Payment marks are drawn locally: they convey the detected network without
+   fetching a third-party logo or ever exposing the full card number. */
+.card-brand { display: inline-grid; place-items: center; min-width: 34px; height: 22px; padding: 0 5px; border-radius: 5px; color: #fff; font: 700 8px/1 var(--sans); letter-spacing: .04em; background: #1a4f9b; }
+.card-brand.compact { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.card-brand.amex { background: #1676b7; }
+.card-brand.discover { background: #161616; border-right: 4px solid #f58220; }
+.card-brand.jcb { background: linear-gradient(90deg, #25704b 0 33%, #1d4b8f 33% 66%, #ae2e45 66%); }
+.card-brand.diners { color: #1465a2; background: #f1f7fc; border: 1px solid #82afd0; }
+.card-brand.unionpay { background: linear-gradient(135deg, #d5232a 0 40%, #135ca8 40% 72%, #2a9e55 72%); }
+.card-brand.maestro { background: #172c75; }
+.card-brand.mir { background: #168d58; }
+.card-brand.rupay { background: linear-gradient(135deg, #1971b9 0 52%, #ec7f27 52%); }
+.card-brand.mastercard { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 0; padding: 0; background: transparent; }
+.card-brand.mastercard i { width: 17px; height: 17px; border-radius: 50%; background: #eb001b; }
+.card-brand.mastercard i + i { margin-left: -6px; background: #f79e1b; mix-blend-mode: screen; }
+.card-number-input { position: relative; display: block; }
+.card-number-input input { padding-right: 52px; }
+
+.pane-hero .pane-title { gap: 8px; }
+
+.pane-hero .pane-title h2 { font-size: 16px; letter-spacing: -0.01em; }
+
+.hero-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.hero-meta .chip { display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: 12px; }
+
+.hero-meta .chip.kind { color: var(--k); border-color: color-mix(in srgb, var(--k) 45%, transparent); background: color-mix(in srgb, var(--k) 10%, transparent); text-transform: capitalize; }
+
+.hero-meta .chip.bad { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 40%, transparent); }
+
+.pane-hero .acts { align-self: flex-start; }
+
+/* A masked card is information, not ornament. This compact face makes the
+   relevant three facts glanceable before a person chooses to reveal anything. */
+.payment-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 164px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--mint) 44%, var(--edge));
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--mint) 8%, var(--block));
+  box-shadow: 0 12px 28px -24px color-mix(in srgb, var(--mint) 80%, transparent);
+}
+
+.payment-card-topline, .payment-card-footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+.payment-card-label {
+  color: var(--mint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.payment-card-number {
+  margin: auto 0 16px;
+  color: var(--text);
+  font-size: 18px;
+  letter-spacing: .1em;
+  word-spacing: .15em;
+}
+
+.payment-card-footer > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; color: var(--text); font-size: 12px; }
+.payment-card-footer > span:last-child { text-align: right; }
+.payment-card-footer small { color: var(--dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+
+.pane-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 16px 8px;
+  background: var(--block);
+  border: 1px solid var(--edge);
+  border-left: 3px solid var(--sky);
+  border-radius: var(--r);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--edge) 60%, transparent);
+}
+
+.pane-card.tone-amber { border-left-color: var(--tone-2); }
+
+.pane-card.tone-amber .block-title { color: var(--tone-2); }
+
+.pane-card.tone-mint { border-left-color: var(--tone-1); }
+
+.pane-card.tone-mint .block-title { color: var(--tone-1); }
+
+.pane-card .block-title { margin-bottom: 8px; }
+
+.pane .pane-card .rowline { padding: 8px 0; border-top: 1px solid var(--edge-soft); }
+
+.pane .pane-card .rowline:first-of-type { border-top: 0; }
+
+.pane .pane-card .rowline label { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+
+.pane .pane-card .rowline .v { font-size: 12px; }
+
+.pane .pane-card .rowline .v.mono { font-size: 12px; color: var(--text); }
+
+.uri-list { display: flex; flex-direction: column; gap: 4px; }
+
+.uri { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 0; color: var(--dim); }
+
+.uri .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text); }
+
+.uri .btn.ghost { border-color: transparent; background: transparent; opacity: 0.6; }
+
+.uri:hover .btn.ghost { opacity: 1; }
+
+/* No gradients: flat tones, one accent — an edge or a border. */
+.pane-hero {
+  background: var(--block);
+  border-color: var(--edge);
+  border-left: 3px solid var(--k);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--edge) 60%, transparent);
+}
+
+.hero-tile {
+  background: color-mix(in srgb, var(--k) 14%, var(--block));
+  border-color: color-mix(in srgb, var(--k) 30%, transparent);
+  box-shadow: none;
+}
+
+.tabs button.on { background: none; }
+
+.modal > header { background: none; }
+
+.btn.primary { background: var(--blue); }
+
+.btn.primary:hover:not(:disabled) { background: var(--blue-hi); filter: none; }
+
+.dot.ok, .dot.bad { box-shadow: none; }
+
+/* The monogram: letters on a colour from the name, readable in both
+   themes. */
+.monogram {
+  display: inline-grid; place-items: center; flex: none;
+  border-radius: var(--r); font-weight: 600; letter-spacing: 0.02em; line-height: 1;
+  font-family: var(--sans, inherit);
+  background: hsl(var(--h) 38% 26%);
+  color: hsl(var(--h) 85% 82%);
+  border: 1px solid hsl(var(--h) 40% 34%);
+}
+
+:root[data-theme="light"] .monogram { background: hsl(var(--h) 70% 92%); color: hsl(var(--h) 55% 34%); border-color: hsl(var(--h) 60% 84%); }
+
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .monogram { background: hsl(var(--h) 70% 92%); color: hsl(var(--h) 55% 34%); border-color: hsl(var(--h) 60% 84%); }}
+
+.row .glyph .monogram { width: 32px; height: 32px; border-radius: var(--r); }
+
+.row .glyph:has(.monogram) { background: transparent; }
+
+.hero-tile .monogram { width: 44px; height: 44px; border-radius: 12px; font-size: 20px; border: 0; }
+
+.hero-tile:has(.monogram) { background: transparent; border: 0; }
+
+/* An item card's accent is the hue of its monogram. */
+.pane-hero.hued { --k: hsl(var(--h) 60% 64%); }
+
+:root[data-theme="light"] .pane-hero.hued { --k: hsl(var(--h) 55% 40%); }
+
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .pane-hero.hued { --k: hsl(var(--h) 55% 40%); }}
+
+.pane-hero.hued { border-color: color-mix(in srgb, var(--k) 35%, var(--edge)); background: color-mix(in srgb, var(--k) 6%, var(--block)); }
+
+.pane:has(.pane-hero.hued) .pane-card { border-left-color: var(--k-card, var(--sky)); }
+
+/* The whole of an item's card takes the hue of its monogram. */
+.pane.hued { --k: hsl(var(--h) 60% 64%); }
+
+:root[data-theme="light"] .pane.hued { --k: hsl(var(--h) 55% 40%); }
+
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .pane.hued { --k: hsl(var(--h) 55% 40%); }}
+
+.pane.hued .pane-hero { --k: inherit; }
+
+.pane.hued .pane-hero, .pane.hued .pane-card, .pane.hued .pane-card.tone-amber, .pane.hued .pane-card.tone-mint { border-left-color: var(--k); }
+
+.pane.hued .pane-card .block-title, .pane.hued .pane-card.tone-amber .block-title, .pane.hued .pane-card.tone-mint .block-title { color: var(--k); }
+
+.pane.hued .pane-hero { border-color: color-mix(in srgb, var(--k) 35%, var(--edge)); background: color-mix(in srgb, var(--k) 7%, var(--block)); }
+
+.pane.hued .pane-card { border-color: color-mix(in srgb, var(--k) 22%, var(--edge)); }
+
+.pane.hued .hero-meta .chip { color: var(--k); border-color: color-mix(in srgb, var(--k) 40%, transparent); background: color-mix(in srgb, var(--k) 8%, transparent); }
+
+.pane.hued .hero-meta .chip.bad { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 40%, transparent); }
+
+.pane.hued .chip.pick { color: var(--k); border-color: color-mix(in srgb, var(--k) 40%, transparent); }
+
+.pane.hued .rowline .acts .btn:hover:not(:disabled), .pane.hued .uri .btn:hover { color: var(--k); border-color: color-mix(in srgb, var(--k) 45%, var(--edge)); }
+
+.pane.hued .rowline label { color: color-mix(in srgb, var(--k) 70%, var(--dim)); }
+
+.pane.hued .pane-card .rowline { border-top-color: color-mix(in srgb, var(--k) 14%, var(--edge-soft)); }
+
+/* A chosen row of the list is highlighted in the same hue. */
+.row.item.hued { --k: hsl(var(--h) 60% 64%); }
+
+:root[data-theme="light"] .row.item.hued { --k: hsl(var(--h) 55% 40%); }
+
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .row.item.hued { --k: hsl(var(--h) 55% 40%); }}
+
+.row.item.hued.active { background: color-mix(in srgb, var(--k) 14%, var(--block)); box-shadow: inset 3px 0 0 var(--k), 0 1px 0 color-mix(in srgb, var(--k) 18%, transparent); }
+
+/* The slices in the filters' row — only while the sections' column is
+   hidden. */
+.view-line { display: none; }
+
+@media (max-width: 820px) { .view-line { display: contents; }}
+
+.fchip.trash { color: var(--dim); }
+
+.fchip.trash.on { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 45%, transparent); background: color-mix(in srgb, var(--rose) 10%, transparent); }
+
+.fchip svg { flex: none; }
+
+/* The passkeys on an item's card. */
+.pane-card.tone-orange { border-left-color: var(--tone-3); }
+
+.pane-card.tone-orange .block-title { color: var(--tone-3); }
+
+.passkeys { display: flex; flex-direction: column; }
+
+.passkey { display: flex; align-items: flex-start; gap: 16px; padding: 8px 0; border-top: 1px solid var(--edge-soft); }
+
+.passkey:first-child { border-top: 0; }
+
+.passkey-icon {
+  width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: var(--r);
+  color: var(--orange); background: color-mix(in srgb, var(--orange) 14%, transparent);
+}
+
+.passkey-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+
+.passkey-text b { font-size: 12px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.passkey-text > span { font-size: 12px; color: var(--dim); }
+
+.passkey-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+.passkey .acts { flex: none; }
+
+.chip.pk-badge { display: inline-flex; align-items: center; gap: 4px; color: var(--orange); border-color: color-mix(in srgb, var(--orange) 40%, transparent); }
+
+/* ── The scrollbar over the contents ─────────────────────────────────── */
+.ov-host { scrollbar-width: none; scrollbar-gutter: auto; }
+
+.ov-host::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.ov-track {
+  position: sticky; top: 0; z-index: 30;
+  height: 0; width: 100%; pointer-events: none;
+  /* Pressed to the right edge of the visible area without taking room in the
+     flow. */
+  display: block; margin: 0; padding: 0;
+}
+
+.ov-thumb {
+  position: absolute; right: 2px; top: 0; width: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--faint) 55%, transparent);
+  opacity: 0; transition: opacity 220ms var(--ease), width 120ms var(--ease);
+  pointer-events: auto; will-change: transform;
+}
+
+.ov-host.ov-scrolling .ov-thumb, .ov-host.ov-dragging .ov-thumb, .ov-host:hover .ov-thumb { opacity: 1; }
+
+.ov-host:hover .ov-thumb:hover, .ov-host.ov-dragging .ov-thumb { width: 9px; background: color-mix(in srgb, var(--faint) 85%, transparent); }
+
+/* In flex columns a sticky host must not break the layout: zero height and no
+   gap. */
+
+/* The filters as an accordion: one row, the ranks on a click. */
+.filters { display: flex; flex-direction: column; gap: 0; padding: 0 var(--gutter); }
+
+.filters-bar {
+  display: flex; align-items: center; gap: 16px; width: 100%; min-height: 32px; padding: 8px 0;
+  border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+
+.filters-bar .filter-label { flex: none; }
+
+.filters-summary { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-width: 0; flex: 1; overflow: hidden; }
+
+.filters-summary .fchip { pointer-events: none; }
+
+.filters-summary .hint { white-space: nowrap; }
+
+.filters-bar > svg { flex: none; color: var(--dim); transition: transform 180ms var(--ease-out); }
+
+.filters.open .filters-bar > svg { transform: rotate(90deg); color: var(--text); }
+
+.filters.open .filters-bar { border-bottom: 1px solid var(--edge-soft); }
+
+.filters-body {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center; column-gap: 16px; row-gap: 8px; padding: 8px 0 8px;
+}
+
+/* The accordion's animation: a grid row from 0fr to 1fr, the contents come
+   out. */
+.filters-wrap {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 240ms var(--ease-out);
+}
+
+.filters.open .filters-wrap { grid-template-rows: 1fr; }
+
+.filters-wrap > .filters-body {
+  min-height: 0; overflow: hidden;
+  opacity: 0; transform: translateY(-4px);
+  visibility: hidden;
+  transition: opacity 180ms var(--ease-out), transform 240ms var(--ease-out), visibility 0s 240ms;
+}
+
+.filters.open .filters-wrap > .filters-body { opacity: 1; transform: none; visibility: visible; transition: opacity 200ms 60ms var(--ease-out), transform 240ms var(--ease-out), visibility 0s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .filters-wrap, .filters-wrap > .filters-body { transition: none; }}
+
+/* ── The movement ──────────────────────────────────────────────────────
+   Short, ease-out, transform and opacity alone. Frequent actions have no
+   animation. Everything switches off under prefers-reduced-motion. */
+
+/* The floating highlight of the tabs and the segments. */
+.tabs { position: relative; }
+
+.tabs .ink {
+  position: absolute; left: 0; bottom: -1px; height: 2px; border-radius: 1px;
+  background: var(--sky); transition: transform 240ms var(--ease-out), width 240ms var(--ease-out);
+  pointer-events: none;
+}
+
+.tabs button.on { border-bottom-color: transparent; }
+
+.segmented { position: relative; }
+
+.segmented .ink {
+  /* left: 0 — the shift is already counted in translateX: it is measured from
+     the container's edge, and with left: 4px the backing travelled four pixels
+     to the right. */
+  position: absolute; left: 0; top: 4px; bottom: 4px; border-radius: var(--r-ctl);
+  background: var(--surface); box-shadow: var(--sh-1);
+  transition: transform 220ms var(--ease-out), width 220ms var(--ease-out);
+  pointer-events: none;
+}
+
+.segmented button { position: relative; z-index: 1; background: none !important; box-shadow: none !important; transition: color 140ms var(--ease); }
+
+/* The staircase of rows and cards appearing: the first twelve at a step of
+   28 ms. */
+.tab-panel .list > *, .pane > .pane-card, .pane > .pane-hero {
+  animation: rise 260ms var(--ease-out) both;
+}
+
+.tab-panel .list > :nth-child(1), .pane > :nth-child(1) { animation-delay: 0ms; }
+
+.tab-panel .list > :nth-child(2), .pane > :nth-child(2) { animation-delay: 28ms; }
+
+.tab-panel .list > :nth-child(3), .pane > :nth-child(3) { animation-delay: 56ms; }
+
+.tab-panel .list > :nth-child(4), .pane > :nth-child(4) { animation-delay: 84ms; }
+
+.tab-panel .list > :nth-child(5), .pane > :nth-child(5) { animation-delay: 112ms; }
+
+.tab-panel .list > :nth-child(6), .pane > :nth-child(6) { animation-delay: 140ms; }
+
+/* Revealing a secret: the value comes out of a blur. */
+@keyframes unblur { from { opacity: 0.3; filter: blur(4px); } to { opacity: 1; filter: blur(0); } }
+
+.sv-field.open .sv-val { animation: unblur 220ms var(--ease-out) both; }
+
+/* Copying: the icon is replaced by a tick with a slight jump. */
+.copy-btn { position: relative; }
+
+.copy-btn .copy-icon, .copy-btn .copy-check { display: inline-grid; place-items: center; transition: opacity 140ms var(--ease-out), transform 200ms var(--ease-out); }
+
+.copy-btn .copy-check { position: absolute; inset: 0; opacity: 0; transform: scale(0.6); color: var(--mint); }
+
+.copy-btn.done .copy-icon { opacity: 0; transform: scale(0.6); }
+
+.copy-btn.done .copy-check { opacity: 1; transform: scale(1); }
+
+.copy-btn.done { border-color: color-mix(in srgb, var(--mint) 45%, var(--edge)); }
+
+/* The filters' chips and the marks: an answer to hover and to a press. */
+.fchip { transition: background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease), transform 140ms var(--ease-out); }
+
+.fchip:active { transform: scale(0.96); }
+
+@media (hover: hover) and (pointer: fine) { .fchip:hover { border-color: var(--sky); color: var(--text); }}
+
+/* The main button rises a little under the cursor and sits down when
+   pressed. */
+@media (hover: hover) and (pointer: fine) { .btn.primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--blue) 80%, transparent); }}
+
+.btn.primary { transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), background 140ms var(--ease); }
+
+.btn.primary:active:not(:disabled) { transform: scale(0.97); box-shadow: none; }
+
+/* The switch and the toggle. */
+.toggle, .switch { transition: background 180ms var(--ease-out); }
+
+/* The zone of dangerous actions lights up only when it is approached. */
+.danger-zone { transition: border-color 160ms var(--ease), background 160ms var(--ease); }
+
+@media (hover: hover) and (pointer: fine) { .danger-zone:hover { border-color: color-mix(in srgb, var(--rose) 55%, transparent); background: color-mix(in srgb, var(--rose) 8%, transparent); }}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel, .tab-panel .list > *, .pane > .pane-card, .pane > .pane-hero, .sv-field.open .sv-val { animation: none; }
+  .tabs .ink, .segmented .ink, .copy-btn .copy-icon, .copy-btn .copy-check, .fchip, .btn.primary { transition: none; }}
+
+/* When folded, the filters' body has no padding either: the grid's row
+   squeezes to nothing, and the padding otherwise stayed as an empty strip
+   under the heading. */
+.filters-wrap > .filters-body { padding-top: 0; padding-bottom: 0; transition: opacity 180ms var(--ease-out), transform 240ms var(--ease-out), visibility 0s 240ms, padding 240ms var(--ease-out); }
+
+.filters.open .filters-wrap > .filters-body { padding-top: 8px; padding-bottom: 8px; transition: opacity 200ms 60ms var(--ease-out), transform 240ms var(--ease-out), visibility 0s, padding 240ms var(--ease-out); }
+
+.filters:not(.open) .filters-bar { border-bottom: 0; }
+
+/* A one-time code's error goes in the field's row, as a calm warning. */
+.totp-err { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--amber); font-size: 12px; }
+
+.alert { position: relative; }
+
+.alert .alert-close { position: absolute; top: 8px; right: 8px; }
+
+.alert:has(.alert-close) { padding-right: 48px; }
+
+/* The autofill mode in the quick search. */
+.spot-fill {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 12px; color: var(--text);
+  background: color-mix(in srgb, var(--sky) 9%, transparent); border-bottom: 1px solid var(--edge-soft);
+}
+
+.spot-fill svg { color: var(--sky); flex: none; }
+
+.spot-fill > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.spot-fill .dim { color: var(--dim); }
+
+.spot-caption.warn { color: var(--amber); white-space: normal; line-height: 1.45; }
+
+.spot-caption .link { background: none; border: 0; padding: 0; color: var(--sky); font: inherit; cursor: pointer; }
+
+.spot-row .side kbd { font-size: 12px; }
+
+/* The tag chips in the search line and the hints for them. */
+.spot-input { flex-wrap: wrap; gap: 8px 8px; min-height: 54px; height: auto; padding: 8px 16px; }
+
+.spot-input input { min-width: 120px; flex: 1; }
+
+.spot-input .tag {
+  display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 8px 0 8px;
+  border-radius: var(--r-pill); font-size: 12px; font-family: var(--mono);
+  color: var(--text); background: color-mix(in srgb, var(--sky) 14%, transparent); border: 1px solid color-mix(in srgb, var(--sky) 40%, transparent);
+}
+
+.spot-input .tag b { color: var(--sky); font-weight: 600; }
+
+.spot-input .tag.tag-name { background: color-mix(in srgb, var(--orange) 14%, transparent); border-color: color-mix(in srgb, var(--orange) 40%, transparent); }
+
+.spot-input .tag.tag-name b { color: var(--orange); }
+
+.spot-input .tag button { border: 0; background: none; color: var(--dim); font: inherit; font-size: 12px; line-height: 1; padding: 0 0px; cursor: pointer; }
+
+.spot-input .tag button:hover { color: var(--text); }
+
+.spot-sug { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid var(--edge-soft); }
+
+.spot-sug-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 8px; border: 0; border-radius: var(--r);
+  background: none; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+}
+
+.spot-sug-row b { font-family: var(--mono); color: var(--sky); font-weight: 600; }
+
+.spot-sug-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.spot-sug-row.on, .spot-sug-row:hover { background: color-mix(in srgb, var(--sky) 12%, transparent); }
+
+.spot-sug-row.dim { color: var(--dim); cursor: default; }
+
+.spot-sug-row kbd { font-size: 12px; }
+
+.spot-sug .spot-caption { padding: 8px 8px 8px; }
+
+.spot-sug.tips { border-bottom: 0; }
+
+.spot-sug-row svg { color: var(--dim); flex: none; }
+
+.spot-sug-row .dash { flex: none; color: var(--faint); }
+
+.spot-sug-row.tip span:last-of-type { color: var(--dim); }
+
+.spot-input .tag.tag-type { background: color-mix(in srgb, var(--mint) 14%, transparent); border-color: color-mix(in srgb, var(--mint) 40%, transparent); }
+
+.spot-input .tag.tag-type b { color: var(--mint); }
+
+.spot-input .tag.tag-folder { background: color-mix(in srgb, var(--amber) 14%, transparent); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+
+.spot-input .tag.tag-folder b { color: var(--amber); }
+
+.spot-input .tag.tag-org { background: color-mix(in srgb, var(--rose) 12%, transparent); border-color: color-mix(in srgb, var(--rose) 40%, transparent); }
+
+.spot-input .tag.tag-org b { color: var(--rose); }
+
+/* The scrollbar's host is always of zero height, even where the container's
+   children are given a height of 100%. */
+.ov-track, .content.flush > .ov-track { height: 0 !important; min-height: 0 !important; flex: none; }
+
+/* ── The top of the window: one solid bar ────────────────────────────────
+   Every column used to have a top of its own: the rail, the section's search
+   and the header began at different heights, with different backgrounds and
+   rules of their own, and the top of the window read as three things out of
+   step. Now one element draws the bar across the whole width: the window's
+   buttons, the rail, the search and the heading lie on it transparently, and
+   there is one rule below. */
+/* There is no separate empty strip above the header: the window's buttons
+   stand on the same line as the search and the heading (their place is set in
+   tauri.conf.json). */
+:root { --titlebar: 0px; --head: 56px; --band: calc(var(--titlebar) + var(--head)); }
+
+/* The rail is as wide as three window buttons with equal margins: 14 + 52 +
+   14. The buttons used to climb past its edge and run into the neighbouring
+   column's search. */
+:root {
+  --rail-w: 80px;
+  /* The page's gutter. A list's row climbs 8 pixels past it with its
+     highlight, so its gutter is smaller by exactly those 8 — and the edges
+     line up all the same. */
+  --gutter: 24px;
+  --row-pad: 16px;
+}
+
+.context-head { padding-left: 16px; }
+
+.titlebar-drag {
+  height: var(--band);
+  z-index: 30;
+  background: color-mix(in srgb, var(--ink) 70%, var(--panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
+  box-shadow: 0 4px 14px -12px rgb(0 0 0 / 0.45);
+}
+
+.rail, .context, .main { padding-top: var(--titlebar); }
+
+.rail-head, .context-head, .head {
+  position: relative;
+  z-index: 31;
+  height: var(--head);
+  background: transparent;
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.rail-head { align-self: stretch; }
+
+.head { backdrop-filter: none; }
+
+/* The drop-downs that grow out of the header are measured from the bar's
+   bottom. The account's menu grows downwards from the avatar, and its top must
+   not be set — otherwise it stretches to the window's full height. */
+.menu:not(.rail-menu) { top: calc(var(--band) - 2px); }
+
+@media (max-width: 820px) { .with-pane .pane { top: var(--band); z-index: 40; }}
+
+/* ── The sidebar: glass and light ───────────────────────────────────────
+   An NSVisualEffectView lies under the window, but the page's body was
+   filled with an opaque background and nobody saw any glass. Now the body is
+   transparent, the working area solid, and the rail, the section's column
+   and the top bar only tint the glass: a tone, a barely visible sheen on top
+   and a light grain, so that the plane does not look like plastic. There is
+   no patch of colour from the corner: it read as a splash rather than as
+   light. */
+body { background: transparent; }
+
+.main { background: var(--panel); }
+
+:root { --glass: 14 17 22; --glass-a: 0.58; }
+
+:root[data-theme="light"] { --glass: 236 238 243; --glass-a: 0.72; }
+
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --glass: 236 238 243; --glass-a: 0.72; }}
+
+.rail, .context {
+  border-right-color: color-mix(in srgb, var(--edge) 50%, transparent);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.6 0 0 0 0 0.6 0 0 0 0 0.6 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(165deg, rgb(255 255 255 / 0.05), transparent 42%),
+    linear-gradient(180deg, rgb(var(--glass) / var(--glass-a)), rgb(var(--glass) / calc(var(--glass-a) + 0.16)));
+  background-blend-mode: overlay, normal, normal;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.titlebar-drag {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent),
+    rgb(var(--glass) / calc(var(--glass-a) + 0.14));
+  border-bottom-color: color-mix(in srgb, var(--edge) 50%, transparent);
+}
+
+/* The chosen section is lit with the accent. */
+.rail-item.on {
+  color: var(--sky);
+  background: color-mix(in srgb, var(--sky) 16%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sky) 22%, transparent), 0 8px 20px -10px color-mix(in srgb, var(--sky) 80%, transparent);
+}
+
+.rail-item.on::before { background: var(--sky); box-shadow: 0 0 8px color-mix(in srgb, var(--sky) 70%, transparent); }
+
+@media (hover: hover) { .rail-item:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }}
+
+.nav.on, .context-body .group.sections .nav.on { background: color-mix(in srgb, var(--sky) 14%, transparent); }
+
+/* The stand in a browser: there is no glass, so behind the window there is a
+   "wallpaper" and the blur is done by CSS. In the application this class is
+   not set. */
+html.stend body {
+  background:
+    radial-gradient(at 18% 22%, #1d6f7a 0, transparent 45%),
+    radial-gradient(at 78% 68%, #3b4a5c 0, transparent 50%),
+    radial-gradient(at 60% 10%, #b85c38 0, transparent 40%),
+    #0b0d12;
+}
+
+html.stend .titlebar-drag { backdrop-filter: blur(36px) saturate(160%); }
+
+/* The blur goes on a backing pseudo-element rather than on the column itself:
+   backdrop-filter makes a stacking context out of the column, and its header
+   dived under the bar. */
+html.stend .rail, html.stend .context { position: relative; }
+
+html.stend .rail::before, html.stend .context::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  backdrop-filter: blur(36px) saturate(160%);
+}
+
+/* ── "You are here" — a solid accent ────────────────────────────────────
+   A half-transparent turquoise on the glass read as a grey fill and was no
+   different from hover. The chosen section and the chosen entry of the column
+   are filled with the accent entirely, and the text and the tally on them are
+   white; with a solid fill the side stripe is one thing too many. */
+.nav.on, .context-body .group.sections .nav.on {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--blue) 90%, transparent);
+}
+
+.nav.on:hover { background: var(--blue-hi); color: #fff; }
+
+.nav.on .count, .context-body .group:not(.sections) .nav.on, .context-body .group:not(.sections) .nav.on .count { color: #fff; }
+
+.nav.on .count { opacity: 0.85; }
+
+.nav.on::before { display: none; }
+
+.rail-item.on {
+  color: #fff;
+  background: var(--blue);
+  box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--blue) 90%, transparent);
+}
+
+.rail-item.on::before { display: none; }
+
+@media (hover: hover) { .rail-item.on:hover { background: var(--blue-hi); color: #fff; }}
+
+/* ── The controls in the header ─────────────────────────────────────────
+   The row became lower, and buttons as tall as an input field took up almost
+   all of it. In the header they are lower and lighter: the main one is a
+   compact fill of accent, the housekeeping ones one group on the glass with
+   no borders of their own. */
+.head .tools { gap: 8px; }
+
+.head .tools .btn { height: 32px; font-size: 12px; }
+
+.head .tools .btn.primary { padding: 0 16px 0 8px; gap: 8px; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 4px 12px -8px color-mix(in srgb, var(--blue) 90%, transparent); }
+
+.tool-group {
+  display: flex;
+  align-items: stretch;
+  height: 32px;
+  border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
+  overflow: hidden;
+}
+
+.tool-group .btn.icon-only {
+  width: 32px;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--dim);
+  box-shadow: none;
+}
+
+.tool-group .btn.icon-only + .btn.icon-only { border-left: 1px solid color-mix(in srgb, var(--edge) 70%, transparent); }
+
+@media (hover: hover) {
+  .tool-group .btn.icon-only:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); border-color: color-mix(in srgb, var(--edge) 70%, transparent); }}
+
+.tool-group .btn.icon-only:active:not(:disabled) { transform: none; background: color-mix(in srgb, var(--text) 12%, transparent); }
+
+/* The sections' button is visible only while the section's column is hidden;
+   the search always. */
+.tool-group .tool-menu { display: none; }
+
+@media (max-width: 820px) { .tool-group .tool-menu { display: inline-flex; }}
+
+/* ── An item at a glance: equal padding on the cards, controls in groups ──
+   The cards had different bottom padding (10 on some, 15 on the hosts card),
+   and the actions were separate bordered buttons as tall as an input field.
+   Now the padding on every card is 14/16, the actions in an item's header are
+   one group on the glass, as in the window's header, and the actions by the
+   fields are quiet icons with no borders. */
+/* The spacing of the rows is set by their own padding alone: together with
+   `gap` it came to 16 above the hairline and 9 below it — the parting line did
+   not sit in the middle. */
+.pane-card { padding: 16px; gap: 0; }
+
+.pane .pane-card .rowline:last-child { padding-bottom: 0; }
+
+.pane .pane-card .rowline:first-of-type { padding-top: 8px; }
+
+.pane .pane-card > .hint, .pane .pane-card .pk-note { margin: 0; }
+
+/* ── Vault workspace: a deliberately different composition ───────────────
+   The main list is the place a person returns to hundreds of times a day.
+   Give it a clear title and individual records, instead of making it look
+   like the inside of a generic settings pane. */
+.content.flush { background: var(--ink); }
+
+.content.flush .scroller {
+  padding: 24px;
+  background: var(--panel);
+}
+
+.vault-list-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  padding: 4px 4px 18px;
+}
+
+.vault-list-head > span { display: flex; flex-direction: column; gap: 2px; }
+.vault-list-head small {
+  color: var(--sky);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.vault-list-head h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 1.1;
+}
+
+.vault-list-count {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--sky) 38%, var(--edge));
+  border-radius: var(--r-pill);
+  color: var(--sky);
+  background: color-mix(in srgb, var(--sky) 9%, var(--block));
+  font: 600 12px/1 var(--mono);
+}
+
+.vault-list { gap: 6px; }
+.vault-list .row + .row { box-shadow: none; }
+
+.vault-list .row.item {
+  min-height: 62px;
+  padding: 10px 12px;
+  gap: 12px;
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-panel);
+  background: color-mix(in srgb, var(--block) 58%, var(--panel));
+  box-shadow: var(--sh-1);
+}
+
+.vault-list .row.item:hover {
+  border-color: color-mix(in srgb, var(--sky) 35%, var(--edge));
+  background: var(--block);
+}
+
+.vault-list .row.item.active,
+.vault-list .row.item.hued.active {
+  border-color: color-mix(in srgb, var(--sky) 52%, var(--edge));
+  background: color-mix(in srgb, var(--blue) 20%, var(--block));
+  box-shadow: inset 3px 0 0 var(--sky), 0 8px 18px -16px color-mix(in srgb, var(--sky) 90%, transparent);
+}
+
+.vault-list .row .glyph { width: 36px; height: 36px; border-radius: 10px; }
+.vault-list .row .glyph img { width: 21px; height: 21px; }
+.vault-list .row .text b { font-size: 13px; letter-spacing: -.01em; }
+.vault-list .row .text span { margin-top: 2px; }
+
+/* The inspector is intentionally quieter than the list. The wide inset makes
+   a selected record feel like an object being examined, not another row. */
+.with-pane { grid-template-columns: minmax(0, 1fr) clamp(400px, 32%, 500px); }
+.with-pane .pane { padding: 24px 20px 32px; background: color-mix(in srgb, var(--panel) 88%, var(--ink)); }
+.with-pane .pane-hero { padding: 18px 16px; }
+.with-pane .pane-card { border-radius: var(--r-panel); }
+
+@media (max-width: 820px) {
+  .content.flush .scroller { padding: 16px; }
+  .vault-list-head { padding-bottom: 12px; }
+}
+
+/* ── Application shell redesign ──────────────────────────────────────────
+   Navigation is a product surface, not leftover scaffolding around the list.
+   A compact brand rail, a calm library column and a command strip give the
+   workspace three clear layers before an item is even selected. */
+.shell { grid-template-columns: var(--rail-w) 252px minmax(0, 1fr); background: var(--ink); }
+.shell.solo { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+
+.rail {
+  padding-top: calc(var(--titlebar) + 52px);
+  background: var(--rail);
+  border-right-color: var(--edge-soft);
+}
+
+.rail .sections { gap: 10px; padding: 12px 0; }
+.rail-item { width: 40px; height: 40px; border-radius: 12px; }
+.rail-item.on { color: var(--sky); background: color-mix(in srgb, var(--sky) 13%, transparent); }
+.rail-item.on::before { left: -14px; height: 22px; background: var(--sky); }
+.rail-account { margin-bottom: 6px; }
+
+.context {
+  background: var(--panel);
+  border-right-color: var(--edge-soft);
+  padding-top: var(--titlebar);
+}
+
+.context-head {
+  height: 64px;
+  padding: 0 18px;
+  border-bottom-color: var(--edge-soft);
+  background: var(--surface);
+}
+
+.context-body { padding: 16px 12px 28px; }
+.context-body .group { padding: 0 0 14px; }
+.context-body .group h4 { margin: 12px 10px 8px; color: color-mix(in srgb, var(--faint) 80%, white); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+
+.nav { min-height: 34px; padding: 7px 10px; border-radius: 9px; }
+.nav:hover { background: var(--raise); }
+.nav.on, .context-body .group.sections .nav.on {
+  color: var(--text);
+  background: color-mix(in srgb, var(--blue) 24%, var(--block));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 24%, transparent);
+}
+.nav.on::before { display: none; }
+.nav.on .count, .context-body .group:not(.sections) .nav.on, .context-body .group:not(.sections) .nav.on .count { color: var(--sky); }
+
+.main { background: var(--panel); }
+.main > .head {
+  height: 64px;
+  padding: 0 24px;
+  border-bottom-color: var(--edge-soft);
+  background: var(--surface);
+  box-shadow: 0 1px 0 rgb(255 255 255 / .02);
+}
+
+.crumbs { gap: 10px; }
+.crumbs b { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.tool-group { height: 36px; border-radius: 11px; background: var(--raise); border-color: var(--edge); }
+.tool-group .btn.icon-only { width: 36px; }
+
+.filters {
+  margin: 12px 24px 0;
+  padding: 0 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.filters-bar { min-height: 38px; padding: 6px 2px; }
+.filters-bar .filter-label { color: var(--sky); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+.filters.open .filters-bar { border-bottom-color: var(--edge); }
+.filters-body { padding: 10px 2px 12px; }
+
+.content.flush { margin-top: 12px; }
+.content.flush .scroller { background: var(--panel); }
+
+@media (max-width: 820px) {
+  .shell { grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+  .rail { padding-top: calc(var(--titlebar) + 52px); }
+  .filters { margin: 8px 12px 0; }
+  .main > .head { padding: 0 16px; }
+}
+
+/* One interaction scale across the app. It makes the new geometry feel
+   intentional: compact affordances are 36px, navigation is 40px, and only
+   records earn the larger 62px rhythm. */
+.btn, .search, .tool-group, .pane-head .acts { min-height: var(--control); }
+.btn.icon-only { width: var(--control); }
+.nav, .rail-item, .tool-group .btn.icon-only, .pane-head .acts .btn.icon-only { transition: color 160ms var(--ease-out), background 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out); }
+.btn:hover:not(:disabled), .rail-item:hover, .nav:hover { transform: translateY(-1px); }
+.btn:active:not(:disabled), .rail-item:active, .nav:active { transform: translateY(0) scale(.97); }
+
+.vault-list .row.item { transition: transform 180ms var(--ease-out), border-color 180ms var(--ease-out), background 180ms var(--ease-out), box-shadow 180ms var(--ease-out); }
+.vault-list .row.item:hover { transform: translateX(3px); }
+.vault-list .row.item.active { animation: vault-selection 260ms var(--ease-out) both; }
+@keyframes vault-selection { from { opacity: .66; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+.pane { animation: inspector-in 300ms var(--ease-out) both; }
+@keyframes inspector-in { from { opacity: 0; transform: translateX(16px) scale(.985); } to { opacity: 1; transform: none; } }
+
+.pane-card, .pane-hero, .payment-card { transition: border-color 180ms var(--ease-out), background 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.pane-card:hover { border-color: color-mix(in srgb, var(--sky) 35%, var(--edge)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-list .row.item.active, .pane { animation: none; }
+  .btn:hover:not(:disabled), .rail-item:hover, .nav:hover, .vault-list .row.item:hover { transform: none; }
+}
+
+.pane-head .acts {
+  gap: 0;
+  height: 32px;
+  border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--edge) 70%, transparent);
+  overflow: hidden;
+}
+
+.pane-head .acts .btn.icon-only {
+  width: 32px; height: 100%;
+  border: 0; border-radius: 0;
+  background: transparent; color: var(--dim);
+  box-shadow: none;
+}
+
+.pane-head .acts .acts-sep { width: 1px; align-self: stretch; margin: 0; background: color-mix(in srgb, var(--edge) 70%, transparent); }
+
+@media (hover: hover) {
+  .pane-head .acts .btn.icon-only:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); border-color: transparent; }
+  .pane-head .acts .btn.icon-only.danger:hover:not(:disabled) { color: var(--rose); background: color-mix(in srgb, var(--rose) 14%, transparent); }}
+
+.pane-head .acts .btn.icon-only:active:not(:disabled) { transform: none; background: color-mix(in srgb, var(--text) 12%, transparent); }
+
+.pane .rowline .acts, .passkey .acts { gap: 4px; margin-top: 4px; }
+
+.pane .rowline .acts .btn.icon-only, .passkey .acts .btn.icon-only {
+  width: 32px; height: 32px;
+  border: 0; background: transparent; color: var(--faint);
+  border-radius: 6px; box-shadow: none;
+}
+
+@media (hover: hover) {
+  .pane .rowline .acts .btn.icon-only:hover:not(:disabled), .passkey .acts .btn.icon-only:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); border-color: transparent; }
+  .passkey .acts .btn.icon-only.danger:hover:not(:disabled) { color: var(--rose); background: color-mix(in srgb, var(--rose) 14%, transparent); }}
+
+/* ── Flat icons ──────────────────────────────────────────────────────────
+   Icons in squares and circles are a slab for a slab's sake: on a list's row,
+   on a passkey, on a TOTP. An icon stands on its own, in colour; the slab is
+   left only to the monogram, where it is the icon itself. */
+.row .glyph, .row .glyph[class], .row .glyph.engine[class*="tone-"], .glyph.tile, .glyph.tile.agent, .glyph.tile.person, .glyph.tile.me,
+.spot-row .glyph, .passkey .glyph { background: transparent; border: 0; }
+
+.totp-chip { border: 0; background: transparent; box-shadow: none; }
+
+@media (hover: hover) { .totp-chip:hover { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); border: 0; }}
+
+.row .side .btn.icon-only { border: 0; background: transparent; color: var(--dim); box-shadow: none; }
+
+@media (hover: hover) { .row .side .btn.icon-only:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); border-color: transparent; }}
+
+/* One size for every control — 32 pixels — and one grid: the size is a
+   multiple of four, the padding of eight, the gaps of four. */
+.btn, .tool-group, .pane-head .acts, .totp-chip, .spot-open, .nav, input:not([type="checkbox"]):not([type="radio"]), select { height: var(--control); }
+
+.btn.icon-only, .tool-group .btn.icon-only, .pane-head .acts .btn.icon-only, .pane .rowline .acts .btn.icon-only, .passkey .acts .btn.icon-only { width: var(--control); height: var(--control); }
+
+.passkey-icon { background: transparent; }
+
+/* Emptying the trash is a separate, calm button on the right; it turns red
+   under the cursor. */
+.bulk .btn.empty-trash { color: var(--dim); }
+
+@media (hover: hover) { .bulk .btn.empty-trash:hover:not(:disabled) { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 40%, var(--edge)); }}
+
+/* The password field: the eye always, the generator only on an empty one. The
+   buttons live in one row on the right, and the field leaves them room. */
+.with-inner.pw .inners { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: flex; gap: 0; }
+
+.with-inner.pw .inners .inner { position: static; transform: none; }
+
+.with-inner.pw input { padding-right: 32px; }
+
+.with-inner.pw.two input { padding-right: 56px; }
+
+/* ── The tooltip by the rail's buttons ─────────────────────────────────
+   Ours, to the right of the button: the native `title` appears a second
+   later somewhere near the cursor and is drawn by the system. The delay is
+   300 ms — so as not to flicker as the cursor flies along the rail;
+   appearing takes 120 ms ease-out. The rail cuts nothing (overflow is not
+   set), and the z-index is above the neighbouring column's headers. */
+.rail-item[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  height: 24px;
+  line-height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-in);
+  background: color-mix(in srgb, var(--ink) 86%, transparent);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--edge) 72%, transparent);
+  box-shadow: 0 12px 28px -16px rgb(0 0 0 / .8);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%) translateX(-4px);
+  transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-out);
+  z-index: 1000;
+}
+
+@media (hover: hover) {
+  .rail-item[data-tip]:hover::after, .rail-item[data-tip]:focus-visible::after {
+    opacity: 1;
+    transform: translateY(-50%);
+    transition-delay: 300ms;
+  }}
+
+.rail-item[data-tip]:hover, .rail-item[data-tip]:focus-visible { z-index: 100; }
+
+/* ── The settings: blocks across the full width ───────────────────────── */
+.settings { display: flex; flex-direction: column; gap: 16px; }
+
+.settings .block { gap: 8px; }
+
+.settings .block > .block-title { margin-bottom: 8px; }
+
+.settings .block pre {
+  margin: 0; padding: 8px 16px; border-radius: var(--r);
+  background: var(--field); border: 1px solid var(--edge-soft);
+  font-family: var(--mono); font-size: 12px; color: var(--dim);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+.settings .kv + .kv { border-top: 1px solid var(--edge-soft); }
+
+.settings .danger-zone { margin-top: 0; padding: 16px 16px; }
+
+.rows { display: flex; flex-direction: column; }
+
+.rows > .setting { padding: 8px 0; }
+
+.rows > .setting:first-child { padding-top: 0; }
+
+.rows > .setting:last-child { padding-bottom: 0; }
+
+.setting-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.setting-text h3 { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); }
+
+.setting-text p { margin: 0; font-size: 12px; color: var(--dim); }
+
+.setting .chip { display: inline-flex; align-items: center; gap: 8px; height: 24px; align-self: flex-start; }
+
+.chip .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+.setting > .btn, .setting > .switch, .setting > .control, .setting > .row-actions { flex: none; margin-top: 0; }
+
+.setting .control .segmented { width: 100%; }
+
+/* The profile: the avatar, the name edited in place, the email and the
+   date. */
+.profile { display: flex; align-items: center; gap: 16px; }
+
+.avatar-big {
+  width: 56px; height: 56px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 20px; font-weight: 600; letter-spacing: 0.02em;
+}
+
+.profile-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+
+.inline-name {
+  height: var(--control);
+  font-size: 16px; font-weight: 600;
+  padding: 0 8px; margin-left: -8px;
+  background: transparent; border-color: transparent;
+}
+
+.inline-name:hover { border-color: var(--edge); }
+
+.inline-name:focus { background: var(--field); border-color: var(--edge); }
+
+/* The avatar's palette — Bitwarden's eight colours and one of your own in
+   hex. */
+.swatches { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.swatch {
+  width: 24px; height: 24px; flex: none;
+  border-radius: 50%; border: 2px solid transparent; padding: 0;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+  transition: transform 120ms var(--ease-out), border-color 120ms var(--ease-out);
+}
+
+.swatch:hover { transform: scale(1.1); }
+
+.swatch.on { border-color: var(--text); }
+
+.swatch.custom { display: grid; place-items: center; color: #fff; cursor: pointer; margin-left: 8px; position: relative; overflow: hidden; }
+
+.swatch.custom svg { filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.6)); }
+
+.swatch.custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; padding: 0; border: 0; }
+
+.field-caption { font-size: 12px; color: var(--faint); letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* The fingerprint: five words through hyphens, the copy button beside
+   them. */
+.fingerprint { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+
+.fingerprint .mono { font-size: 12px; color: var(--sky); overflow-wrap: anywhere; }
+
+.fingerprint.big { padding: 8px 16px; border-radius: var(--r); background: var(--block); border: 1px solid var(--edge-soft); justify-content: space-between; }
+
+.fingerprint.big .mono { font-size: 16px; letter-spacing: 0.04em; }
+
+/* A password's strength: four segments, the colour by level. */
+.strength { display: flex; align-items: center; gap: 8px; }
+
+.strength .bar { display: flex; gap: 4px; flex: 1; }
+
+.strength .bar i { flex: 1; height: 4px; border-radius: var(--r-pill); background: var(--edge); transition: background 160ms var(--ease-out); }
+
+.strength.l1 .bar i.on { background: var(--rose); }
+
+.strength.l2 .bar i.on { background: var(--amber); }
+
+.strength.l3 .bar i.on { background: var(--sky); }
+
+.strength.l4 .bar i.on { background: var(--mint); }
+
+.strength .hint { flex: none; min-width: 64px; text-align: right; }
+
+/* The authenticator's QR code: the picture on white, the secret on the
+   right. */
+.qr-row { display: flex; gap: 16px; align-items: flex-start; }
+
+.qr { width: 176px; height: 176px; flex: none; border-radius: var(--r); background: #fff; padding: 8px; border: 1px solid var(--edge); }
+
+.qr.placeholder { display: block; }
+
+.qr-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; flex: 1; }
+
+.qr-side .fingerprint { flex-wrap: wrap; }
+
+.qr-side .fingerprint .mono { color: var(--text); letter-spacing: 0.06em; }
+
+/* The devices: rows with an icon of the kind and a date; the current one with
+   a chip. */
+.device-list { display: flex; flex-direction: column; }
+
+.device { display: flex; align-items: center; gap: 16px; padding: 8px 0; }
+
+.device + .device { border-top: 1px solid var(--edge-soft); }
+
+.device > .icon { color: var(--dim); flex: none; }
+
+.device.current > .icon { color: var(--mint); }
+
+.device-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+
+.device-text b { font-size: 12px; font-weight: 500; }
+
+.device .chip { display: inline-flex; align-items: center; gap: 8px; height: 24px; }
+
+.pair.three { grid-template-columns: 1fr 1fr 1fr; }
+
+.row-actions.inline { justify-content: flex-start; flex-wrap: nowrap; }
+
+.row-actions.inline > input { flex: 1; min-width: 0; }
+
+.row-actions.inline > .btn { flex: none; }
+
+/* The name in the profile is a field only to look at, on hover and on focus;
+   `.block input` paints the fields lighter, and here that is one thing too
+   many. */
+.block .inline-name { background: transparent; }
+
+.block .inline-name:focus { background: var(--field); }
+
+/* The fingerprint in a setting's row: it keeps to the right, and the copy
+   button goes by the text rather than at the opposite edge. */
+.setting > .fingerprint { flex: 0 1 auto; justify-content: flex-end; text-align: right; max-width: 60%; }
+
+.settings .block > .add-account { align-self: flex-start; }
+
+.choice .cells button, .segmented button, .seg button { justify-content: center; text-align: center; }
+
+/* The settings are one page in sections; a section's heading is in a large
+   size, with air between the sections, so that an anchor stops on the
+   heading. */
+.settings-part { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 16px; }
+
+.settings-part + .settings-part { margin-top: 32px; }
+
+.settings-title { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+
+/* The sections' drawer in a cramped window: the section's column over the
+   working area, from the bottom of the top bar to the bottom of the window,
+   with a dimming behind it. */
+@media (max-width: 820px) {
+  /* `html` in the selector is for the stand's sake: there the column is given
+     position: relative at the same specificity, and the drawer stayed in the
+     flow. */
+  html .context.drawer {
+    display: flex;
+    position: fixed;
+    top: var(--band);
+    left: var(--rail-w);
+    bottom: 0;
+    width: 240px;
+    z-index: 36;
+    padding-top: 0;
+    box-shadow: var(--sh-win);
+    animation: drawer-in 180ms var(--ease-out) both;
+    /* The drawer lies over an opaque working area, and the system's glass is
+       not seen through it. Here a CSS blur is exactly right, though: behind
+       the drawer is the window's contents, and that is what is blurred. */
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(160%);
+    background:
+      linear-gradient(165deg, rgb(255 255 255 / 0.05), transparent 42%),
+      rgb(var(--glass) / 0.62);
+    border-right: 1px solid color-mix(in srgb, var(--edge) 60%, transparent);
+  }
+  .context.drawer .context-head { display: none; }
+  .drawer-backdrop { position: fixed; inset: var(--band) 0 0 var(--rail-w); z-index: 35; background: rgb(0 0 0 / 0.35); }}
+
+@media (min-width: 821px) { .drawer-backdrop { display: none; }}
+
+@keyframes drawer-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) { .context.drawer { animation: none; }}
+
+/* The floating "new item" button: a circle of 48, the accent, the shadow of
+   the "floated up" height; it answers hover with a rise and a press with a
+   squeeze. */
+.fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--blue);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  z-index: 45;
+  box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--blue) 80%, transparent), var(--sh-pop);
+  transition: transform 160ms var(--ease-out), background 140ms var(--ease), box-shadow 160ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fab:hover { background: var(--blue-hi); transform: translateY(-2px); }}
+
+.fab:active { transform: scale(0.94); }
+
+.fab:focus-visible { outline: none; box-shadow: var(--ring), var(--sh-pop); }
+
+/* The word "Filters" in the row sits exactly in the middle of the height, as
+   the chips beside it do. */
+.filters-bar .filter-label { padding: 0; line-height: 1; display: inline-flex; align-items: center; }
+
+/* ── The plugins in the settings ────────────────────────────────────────
+   A card across the full width, as the settings' other blocks are: the icon
+   and the name on the left, the switch on the right, and under them the
+   description and the list of what the plugin asks for. There are no borders
+   inside the card: the sections are set off by air and a line, and a box
+   inside a box would read here as a separate screen. */
+.plugin-card { gap: 8px; }
+
+.plugin-card.off { border-left-color: var(--faint); }
+
+.plugin-card.off .plugin-head .icon { color: var(--faint); }
+
+.plugin-head { display: flex; align-items: flex-start; gap: 8px; }
+
+.plugin-head > .icon { flex: none; margin-top: 4px; color: var(--sky); }
+
+.plugin-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.plugin-name h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+
+.plugin-marks { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.plugin-marks .mono { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+
+.plugin-marks .chip { height: 20px; display: inline-flex; align-items: center; }
+
+.plugin-head > .switch { flex: none; margin-top: 4px; }
+
+.plugin-about { margin: 0; font-size: 12px; color: var(--dim); }
+
+.plugin-perms { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--edge-soft); }
+
+.plugin-perms h4 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+
+.perm-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+
+.perm-list .perm { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
+
+.perm-list .perm .icon { flex: none; color: var(--mint); }
+
+/* The secrets and the network in red: together they mean "it can carry
+   passwords away", and in an even grey list that is not seen. */
+.perm-list .perm.hot { color: var(--rose); }
+
+.perm-list .perm.hot .icon { color: var(--rose); }
+
+.plugin-danger {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--rose) 30%, transparent);
+}
+
+.plugin-danger .text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.plugin-danger .text b { font-size: 12px; font-weight: 600; color: var(--rose); }
+
+.plugin-danger .btn { flex: none; }
+
+/* The list of permissions in the consent dialogue is the same thing, only
+   with air: it is the one thing the window is open for. */
+.modal .plugin-perms { border-top: none; padding-top: 0; }
+
+.modal .perm-list .perm { font-size: 12px; }
+
+@media (max-width: 720px) {
+  .plugin-danger { flex-direction: column; align-items: stretch; }}
+
+/* ── The plugins' catalogue ─────────────────────────────────────────────
+   Two lists under one section heading — "what there is to install" and
+   "what is installed" — so each has a header of its own: the name on the
+   left, the explanation under it, the action on the right. The header has no
+   border: it belongs to the cards that follow rather than to itself. */
+.plugins-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 16px;
+  margin-top: 8px;
+}
+
+.plugins-head h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+
+.plugins-head .hint { grid-column: 1; margin: 4px 0 0; }
+
+.plugins-head .btn { grid-column: 2; grid-row: 1 / span 2; }
+
+/* A list from the cache is a quiet line with a way out rather than a red bar:
+   the catalogue is silent, but the installed plugins work. */
+.catalog-stale {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0; font-size: 12px; color: var(--amber);
+}
+
+.catalog-stale > .icon { flex: none; margin-top: 2px; }
+
+/* The explanation takes a whole row and wraps by itself; the action stands on
+   the right and does not travel to a second line — otherwise it reads as a
+   scrap of text rather than as a button. */
+.catalog-stale > span { flex: 1; min-width: 0; line-height: 16px; }
+
+.catalog-stale .btn.quiet { flex: none; margin-top: -8px; }
+
+.catalog-card { gap: 8px; }
+
+.catalog-card .plugin-head > .btn { flex: none; margin-top: 0; }
+
+.catalog-marks { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* "Installed" is not a button: there is nothing to press, and it must not
+   look like one. A calm tone, an ordinary weight. */
+.catalog-done {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: var(--control); padding: 0 8px;
+  font-size: 12px; color: var(--mint);
+}
+
+.catalog-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding-top: 8px; border-top: 1px solid var(--edge-soft);
+}
+
+/* The permissions in the catalogue are one line of marks: the full list with
+   its explanations is read in the consent dialogue, and here all that is
+   wanted is a reason to be wary. */
+.perm-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+
+.perm-chips .chip { height: 20px; display: inline-flex; align-items: center; }
+
+/* The catalogues' addresses: a monospaced address and one "remove" button on
+   the right. */
+.source-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+
+.source-list li { display: flex; align-items: center; gap: 8px; min-height: var(--control); }
+
+.source-list li .mono { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; word-break: break-all; }
+
+.source-list li .btn { flex: none; }
+
+.source-add { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+.source-add input { flex: 1; min-width: 0; }
+
+.source-add .btn { flex: none; }
+
+.hint.bad { color: var(--rose); }
+
+.url-input { width: 240px; }
+
+/* The publisher gets a quiet line under the name: a signed package from a
+   familiar publisher is the ordinary state of things, and there is nothing to
+   shout about. The marks beside it do the shouting. */
+.catalog-publisher {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0; font-size: 12px; color: var(--dim);
+}
+
+.catalog-publisher .chip { height: 20px; display: inline-flex; align-items: center; }
+
+/* A withdrawn version: the card goes out, but the reason reads at full
+   strength — it is exactly what somebody came to learn. */
+.catalog-card.revoked, .plugin-card.revoked { border-left-color: var(--rose); }
+
+.catalog-card.revoked .plugin-name h3, .catalog-card.revoked .plugin-about { color: var(--dim); }
+
+.catalog-revoked {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0; font-size: 12px; color: var(--rose);
+}
+
+.catalog-revoked > .icon { flex: none; margin-top: 2px; }
+
+/* An unsigned package in the consent dialogue is a block of the same weight
+   as the list of permissions: where a package came from is decided on a par
+   with what it asks for. There is no border, there is a fill and a line above
+   — a box inside a box in the middle of a dialogue would read as a separate
+   screen. */
+.consent-warn {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 8px; border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+}
+
+.consent-warn h4 {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--amber);
+}
+
+.consent-warn p { margin: 0; font-size: 12px; color: var(--text); }
+
+.consent-warn .where { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+.consent-warn .where .k { font-size: 12px; color: var(--dim); }
+
+.consent-warn .where .mono { font-family: var(--mono); font-size: 12px; color: var(--amber); overflow-wrap: anywhere; }
+
+/* The rights added by an update go in a list of their own and in red: the
+   rest was allowed already, the new is seen for the first time. */
+.plugin-perms.added h4 { color: var(--rose); }
+
+.modal .fingerprint.big { margin: 8px 0 0; }
+
+@media (max-width: 720px) {
+  .url-input { width: 100%; }
+  .catalog-foot { align-items: flex-start; flex-direction: column; }}
+
+/* The entries of the section's column do not stick to each other: there is
+   air between them, and none before the first or after the last — otherwise
+   the group is torn away from its heading. */
+.context-body .group .nav + .nav { margin-top: 4px; }
+
+.context-body .group + .group { margin-top: 8px; }
+
+/* Selection is a location, never a primary action.  A hover only previews a
+   destination; the current location is the quiet violet outline. */
+.context-body .nav:not(.on):hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  box-shadow: none;
+}
+
+.context-body .nav.on,
+.context-body .group.sections .nav.on,
+.context-body .group:not(.sections) .nav.on {
+  color: var(--text);
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sky) 36%, transparent);
+  box-shadow: inset 3px 0 0 var(--sky);
+}
+
+.context-body .nav.on:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--blue) 20%, transparent);
+  box-shadow: inset 3px 0 0 var(--sky);
+}
+
+.context-body .nav.on .count,
+.context-body .group:not(.sections) .nav.on .count { color: var(--sky); opacity: 1; }
+
+.rail-item.on {
+  color: var(--sky);
+  background: color-mix(in srgb, var(--blue) 17%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sky) 30%, transparent);
+  box-shadow: none;
+}
+
+.rail-item.on::before { display: none; }
+.rail-item.on:hover { color: var(--text); background: color-mix(in srgb, var(--blue) 24%, transparent); box-shadow: none; }
+
+/* ── Folders and organisations in the items' column ────────────────────
+   A group's heading carries its "+"; a row carries a gear that takes the
+   count's place on hover — slicing is the row, looking after it is the gear. */
+.context-body .group h4.group-head { display: flex; align-items: center; justify-content: space-between; margin-right: 0; }
+
+.group-add {
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border: none; border-radius: var(--r);
+  background: none; color: var(--faint);
+  cursor: pointer;
+}
+
+.group-add:hover { color: var(--sky); background: var(--raise); }
+
+.nav-row { position: relative; }
+
+.nav-act {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center;
+  width: 24px; height: 24px;
+  border: none; border-radius: var(--r);
+  background: none; color: var(--dim);
+  opacity: 0; cursor: pointer;
+  transition: opacity 120ms var(--ease);
+}
+
+.nav-row:hover .nav-act, .nav-act:focus-visible { opacity: 1; }
+
+.nav-row:hover .nav .count { visibility: hidden; }
+
+.nav-act:hover { color: var(--sky); background: var(--raise); }
+
+/* The organisation's dialogue: who you are in it, then its tabs. */
+.org-manage { display: flex; flex-direction: column; gap: 16px; }
+
+.org-manage-head { display: flex; align-items: center; gap: 8px; }
+
+/* A block's own action sits at its bottom right, apart from the fields. */
+.block-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* ── Tabs stay pinned ────────────────────────────────────────────────────
+   Tabs are the way between the parts of a screen or a dialogue, and they
+   used to scroll away with the first part: reaching "Custom fields" from the
+   bottom of a long item meant scrolling back up. They stick to the top of
+   whatever scrolls — the dialogue's body, the work area, a block — on the
+   background of that surface, so that what passes under them is hidden. */
+:root { --tabs-bg: var(--panel); }
+
+.block { --tabs-bg: var(--block); }
+
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--tabs-bg);
+}
+
+/* A sticky element pins to the scroller's edge *inside its padding*: with a
+   padding on top the pinned tabs hung a strip below the edge, and what passed
+   under them showed through it. So the scrollers that hold tabs keep their
+   top spacing as the first child's margin instead — the tabs pin flush to the
+   edge, and nothing is painted over what stands above them. */
+.content:not(.flush) { padding-top: 0; }
+
+/* The first real child: the overlay scrollbar's track sits first in the DOM. */
+.content:not(.flush) > :nth-child(1 of :not(.ov-track)) { margin-top: var(--gutter); }
+
+.modal .body { padding-top: 0; }
+
+.modal .body > :nth-child(1 of :not(.ov-track)) { margin-top: 16px; }
+
+/* A whole number with − and + beside it: one field, the buttons inside its
+   frame, the browser's own arrows gone. */
+.stepper { display: flex; align-items: stretch; height: var(--control); border: 1px solid var(--edge); border-radius: var(--r); background: var(--field); overflow: hidden; }
+
+.stepper:focus-within { border-color: var(--sky); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sky) 20%, transparent); }
+
+.stepper input { flex: 1; min-width: 0; border: none; background: none; text-align: center; font-variant-numeric: tabular-nums; box-shadow: none; }
+
+.stepper input:focus-visible { box-shadow: none; }
+
+.stepper-btn { width: 32px; flex: none; border: none; background: none; color: var(--dim); font-size: 16px; cursor: pointer; }
+
+.stepper-btn:hover:not(:disabled) { color: var(--text); background: var(--raise); }
+
+.stepper-btn:disabled { opacity: 0.4; cursor: default; }
+
+.stepper-btn:first-child { border-right: 1px solid var(--edge-soft); }
+
+.stepper-btn:last-child { border-left: 1px solid var(--edge-soft); }
+
+/* Several addresses as chips in one field, with hints under it. */
+.email-chips { display: flex; flex-direction: column; gap: 8px; }
+
+.email-chips-box { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: var(--control); padding: 4px 8px; border: 1px solid var(--edge); border-radius: var(--r); background: var(--field); }
+
+.email-chips-box:focus-within { border-color: var(--sky); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sky) 20%, transparent); }
+
+.email-chips-box input { flex: 1; min-width: 160px; border: none; background: none; box-shadow: none; padding: 0; height: 24px; }
+
+.email-chips-box input:focus-visible { box-shadow: none; }
+
+.email-chips-box .fchip { height: 24px; gap: 4px; }
+
+.email-chips-box .fchip button { display: grid; place-items: center; border: none; background: none; color: inherit; padding: 0; cursor: pointer; opacity: 0.7; }
+
+.email-chips-box .fchip button:hover { opacity: 1; }
+
+.email-chips-hints { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.email-chips-hints button { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border: 1px dashed var(--edge); border-radius: 999px; background: none; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; }
+
+.email-chips-hints button:hover, .email-chips-hints button.on { color: var(--text); border-color: var(--sky); }
+
+/* The palettes: each a small window of its own — ground, rail, a card with
+   text and the accent button — so that the choice shows the theme it makes,
+   not one dot of colour. */
+.palettes { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px; width: 100%; }
+
+.palette { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0; border: 0; background: none; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; position: relative; text-align: center; }
+
+.palette-win { position: relative; display: flex; height: 52px; border: 1px solid var(--edge); border-radius: var(--r-ctl); overflow: hidden; transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+
+.palette-rail { width: 14px; flex: none; }
+
+.palette-card { flex: 1; margin: 8px; border: 1px solid; border-radius: var(--r-in); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+
+.palette-line { height: 3px; border-radius: 2px; width: 80%; opacity: .8; }
+
+.palette-line.short { width: 50%; }
+
+.palette-btn { margin-top: auto; height: 7px; width: 55%; border-radius: 3px; }
+
+@media (hover: hover) { .palette:hover .palette-win { transform: translateY(-1px); }}
+
+.palette.on { color: var(--text); }
+
+.palette.on .palette-win { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--sky); }
+
+.palette.add .palette-win { display: grid; place-items: center; border-style: dashed; color: var(--dim); background: none; }
+
+.palette.add input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; padding: 0; border: 0; }
+
+
+/* ── Adaptive interior layout ───────────────────────────────────────────
+   The rail stays 80px because it is a control surface. Everything to its
+   right is fluid: a window can become narrow without leaving fixed-size cards
+   or controls outside its bounds. */
+.content { container-type: inline-size; container-name: workspace; }
+.content > *, .pane > *, .form, .settings, .stack, .card, .banner, .wizard { min-width: 0; max-width: 100%; }
+.pane-card, .pane-hero, .payment-card { max-width: 100%; }
+
+@media (max-width: 1000px) {
+  .with-pane { grid-template-columns: minmax(0, 1fr) minmax(280px, 38%); }
+}
+
+@container workspace (max-width: 620px) {
+  .content:not(.flush) { padding-inline: 16px; }
+  .section-head, .crumb, .banner, .between, .setting, .wrap-row { align-items: flex-start; flex-wrap: wrap; }
+  .setting .control, .setting select, .setting > .fingerprint { width: 100%; max-width: none; flex: 1 1 100%; text-align: left; justify-content: flex-start; }
+  .pair, .pair.three, .cols, .kv { grid-template-columns: 1fr; }
+  .route { grid-template-columns: minmax(0, 1fr) auto; }
+  .route > :nth-child(3) { grid-column: 1 / -1; }
+  .filters-body { grid-template-columns: 1fr; gap: 8px; }
+  .filters-summary { flex-wrap: wrap; }
+  .head .crumbs { overflow: hidden; }
+  .head .crumb-part:not(:last-child) { display: none; }
+  .pane { padding: 16px 12px 24px; }
+  .pane-hero { align-items: flex-start; flex-wrap: wrap; }
+  .pane-hero .pane-title { flex-basis: calc(100% - 60px); }
+  .pane-hero .acts { margin-left: auto; }
+  .payment-card { min-height: 148px; padding: 16px; }
+  .payment-card-number { font-size: clamp(14px, 4vw, 18px); letter-spacing: .06em; }
+  .uri { align-items: flex-start; flex-wrap: wrap; }
+  .uri .mono { flex-basis: calc(100% - 28px); white-space: normal; overflow-wrap: anywhere; }
+  .qr { width: min(176px, 100%); height: auto; aspect-ratio: 1; }
+}
+
+@container workspace (max-width: 430px) {
+  .content.flush .scroller { padding: 12px; }
+  .vault-list-head h1 { font-size: 21px; }
+  .vault-list .row.item { min-height: 58px; padding: 9px; }
+  .vault-list .row .side { gap: 4px; }
+  .vault-list .row .glyph { width: 32px; height: 32px; }
+  .vault-list .row .glyph img { width: 18px; height: 18px; }
+  .pane-hero .acts { order: 3; margin-left: 0; }
+  .payment-card-footer { gap: 8px; }
+  .payment-card-footer > span { font-size: 11px; }
+}
+
+/* After a new password was made: said once, with the way to copy it. */
+.rowline:has(.regen-done) { flex-wrap: wrap; }
+
+.regen-done { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; color: var(--mint); font-size: 12px; }
+
+/* A secret the form keeps without loading it: dots, a word, and the two ways
+   to open it — shown, or replaced. */
+.locked-secret { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: var(--control); padding: 0 8px 0 12px; border: 1px dashed var(--edge); border-radius: var(--r-ctl); background: var(--field); }
+
+.locked-secret .mono { color: var(--dim); letter-spacing: .1em; }
+
+.locked-secret .grow { flex: 1; }
+
+.locked-error { flex-basis: 100%; color: var(--rose); font-size: 12px; padding-bottom: 8px; }
+
+/* In a custom field's narrow line the word goes: the dots and the buttons say
+   it. */
+.custom-value .locked-secret .hint { display: none; }
+
+.custom-value .locked-secret { flex-wrap: nowrap; }
+
+/* A token just issued: dots, and the button that shows it for a while. */
+.issued-token { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+.issued-token pre { align-self: stretch; }

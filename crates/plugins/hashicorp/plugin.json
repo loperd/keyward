@@ -1,0 +1,11 @@
+{
+  "id": "hashicorp",
+  "title": "HashiCorp Vault",
+  "icon": "vault",
+  "description": "plugin.hashicorp.description",
+  "section": true,
+  "needs_unlocked": true,
+  "permissions": ["entries", "items", "items_write", "secrets", "notices", "network", "clipboard"],
+  "protocol": 2,
+  "exec": "keyward-plugin-hashicorp"
+}

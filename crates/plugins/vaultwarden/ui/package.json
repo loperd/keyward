@@ -1,0 +1,13 @@
+{
+  "name": "@keyward/plugin-vaultwarden-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The Vaultwarden admin panel's screens.",
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19"
+  }
+}

@@ -1,0 +1,17 @@
+[package]
+name = "keyward-plugin-stdio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+keyward-plugin.workspace = true
+keyward-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# `io-std` is stdin and stdout: the whole conversation goes over them.
+tokio = { workspace = true, features = ["io-std"] }
+zeroize = "1.9.0"
+async-trait = "0.1"
+base64 = "0.22"

@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>keyward</title>
+    <link rel="stylesheet" href="chooser.css" />
+  </head>
+  <body>
+    <header class="head">
+      <img class="logo" src="icons/64.png" alt="" width="24" height="24" />
+      <span class="brand">keyward</span>
+      <span class="site" id="site"></span>
+    </header>
+    <main class="body">
+      <h1 id="title"></h1>
+      <p class="lead" id="lead"></p>
+      <div class="notice" id="notice" hidden>
+        <strong id="notice-title"></strong>
+        <span id="notice-text"></span>
+      </div>
+      <ul class="choices" id="choices" role="radiogroup"></ul>
+      <p class="error" id="error" role="alert" hidden></p>
+    </main>
+    <footer class="foot">
+      <button type="button" class="ghost" id="other"></button>
+      <button type="button" class="primary" id="go"></button>
+    </footer>
+    <script src="chooser.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "@keyward/plugin-ssh-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The ssh agent plugin's screens.",
+  "peerDependencies": {
+    "react": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19"
+  }
+}

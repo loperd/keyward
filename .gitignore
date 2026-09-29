@@ -1,0 +1,11 @@
+target/
+dist/
+node_modules/
+.DS_Store
+
+# В глобальном ~/.gitignore игнорируется *.md — для этого репозитория markdown нужен,
+# потому что спеки и документация лежат в git.
+!*.md
+gui/dist/
+gui/node_modules/
+gui/src-tauri/gen/

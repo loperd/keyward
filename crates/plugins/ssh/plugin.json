@@ -1,0 +1,11 @@
+{
+  "id": "ssh",
+  "title": "SSH",
+  "icon": "route",
+  "description": "plugin.ssh.description",
+  "section": true,
+  "needs_unlocked": true,
+  "permissions": ["entries", "items_write", "notices", "ssh_sign"],
+  "protocol": 2,
+  "exec": "keyward-plugin-ssh"
+}

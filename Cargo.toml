@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/bw", "crates/sshkey", "crates/vault", "crates/plugin", "crates/plugin-stdio", "crates/plugins/hashicorp", "crates/plugins/ssh", "crates/plugins/vaultwarden", "crates/cli", "crates/passkey-host", "gui/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/loperd/keyward"
+
+[workspace.dependencies]
+keyward-core = { path = "crates/core" }
+keyward-bw = { path = "crates/bw" }
+keyward-vault = { path = "crates/vault" }
+keyward-sshkey = { path = "crates/sshkey" }
+keyward-plugin = { path = "crates/plugin" }
+keyward-plugin-stdio = { path = "crates/plugin-stdio" }
+keyward-plugin-hashicorp = { path = "crates/plugins/hashicorp" }
+keyward-plugin-ssh = { path = "crates/plugins/ssh" }
+keyward-plugin-vaultwarden = { path = "crates/plugins/vaultwarden" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

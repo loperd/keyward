@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "keyward"
+  },
+  "extDescription": {
+    "message": "Passkey из волта keyward: вход и сохранение новых с Touch ID"
+  },
+  "signInTitle": {
+    "message": "Вход с passkey"
+  },
+  "signInLead": {
+    "message": "$SITE$ просит passkey. Выбери аккаунт",
+    "placeholders": {
+      "SITE": {
+        "content": "$1"
+      }
+    }
+  },
+  "createTitle": {
+    "message": "Сохранить passkey"
+  },
+  "createLead": {
+    "message": "$SITE$ хочет создать passkey. Выбери, где его хранить",
+    "placeholders": {
+      "SITE": {
+        "content": "$1"
+      }
+    }
+  },
+  "createLeadUser": {
+    "message": "$SITE$ хочет создать passkey для $USER$. Выбери, где его хранить",
+    "placeholders": {
+      "USER": {
+        "content": "$1"
+      },
+      "SITE": {
+        "content": "$2"
+      }
+    }
+  },
+  "newLogin": {
+    "message": "Новый логин"
+  },
+  "replaces": {
+    "message": "Заменит passkey"
+  },
+  "noUser": {
+    "message": "Без имени пользователя"
+  },
+  "signIn": {
+    "message": "Войти"
+  },
+  "save": {
+    "message": "Сохранить в keyward"
+  },
+  "otherWay": {
+    "message": "Другим способом"
+  },
+  "waitTouchId": {
+    "message": "Подтверди Touch ID…"
+  },
+  "tryAgain": {
+    "message": "Повторить"
+  },
+  "lockedTitle": {
+    "message": "Волт заблокирован"
+  },
+  "lockedText": {
+    "message": "Разблокируй keyward и нажми «Повторить»"
+  },
+  "noKeyward": {
+    "message": "keyward не ответил: проверь, что приложение запущено"
+  }
+}

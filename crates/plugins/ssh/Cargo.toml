@@ -1,0 +1,34 @@
+[package]
+name = "keyward-plugin-ssh"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# A plugin is both a library and a program. The showcase package builds the
+# program: the daemon talks to it in lines of JSON through the
+# `keyward-plugin-stdio` bridge.
+[[bin]]
+name = "keyward-plugin-ssh"
+path = "src/bin/ssh.rs"
+
+[dependencies]
+keyward-core.workspace = true
+keyward-plugin.workspace = true
+keyward-plugin-stdio.workspace = true
+# Reading a pasted key for the editor, with the same rules the vault saves by.
+keyward-sshkey.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+async-trait = "0.1"
+ssh-agent-lib = "0.5.1"
+ssh-key = { version = "0.6", features = ["ed25519", "rsa", "p256", "p384", "p521", "dsa", "alloc", "std"] }
+# The signature arrives from the core in ssh's wire form and has to be parsed
+# back.
+ssh-encoding = { version = "0.2", features = ["alloc"] }
+
+[dev-dependencies]
+keyward-plugin = { workspace = true, features = ["testing"] }

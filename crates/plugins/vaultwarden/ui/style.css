@@ -1,0 +1,191 @@
+/* The Vaultwarden admin panel. The rows and blocks are the core's; what is
+   here is the panel's own: a user's row that opens, and its memberships. */
+.vw-head { display: flex; align-items: center; gap: 8px; }
+
+.vw-head .glyph { color: var(--sky); display: flex; }
+
+.vw-title { display: flex; flex-direction: column; min-width: 0; }
+
+.vw-title b { font-size: 20px; font-weight: 600; }
+
+.vw-head .grow, .vw-membership .grow, .vw-tool .grow { flex: 1; min-width: 0; }
+
+.vw-toolbar { display: flex; gap: 8px; align-items: center; }
+
+.vw-search { flex: 1; }
+
+.vw-row { width: 100%; border: none; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+
+/* A row and its menu side by side: the row opens the person, the menu acts
+   on them in place. */
+.vw-row-line { position: relative; display: flex; align-items: center; gap: 4px; }
+
+.vw-row-line .vw-row { flex: 1; min-width: 0; }
+
+.vw-row-menu { position: relative; display: flex; align-items: center; gap: 4px; }
+
+.vw-row-menu > .btn { border-color: transparent; background: none; color: var(--dim); }
+
+.vw-row-menu > .btn:hover, .vw-row-menu > .btn[aria-expanded="true"] { background: var(--raise); color: var(--text); }
+
+.vw-pop { position: fixed; top: 0; left: auto; right: 0; min-width: 200px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; }
+
+.vw-row-error { color: var(--rose); display: flex; }
+
+.vw-user.open .vw-row .side > .icon:last-child { transform: rotate(90deg); }
+
+.vw-row .side > .icon:last-child { color: var(--faint); transition: transform 120ms var(--ease); }
+
+.vw-detail { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 16px 64px; }
+
+.vw-memberships { display: flex; flex-direction: column; gap: 4px; }
+
+.vw-membership { display: flex; align-items: center; gap: 8px; min-height: var(--control); }
+
+.vw-membership .picker { min-width: 160px; }
+
+.vw-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip.vw-state-invited { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+
+.chip.vw-2fa { gap: 4px; }
+.chip.vw-2fa.on { color: var(--mint); border-color: color-mix(in srgb, var(--mint) 40%, transparent); }
+.chip.vw-2fa.off { color: var(--dim); border-style: dashed; }
+
+.chip.vw-state-disabled { color: var(--rose, var(--red)); border-color: color-mix(in srgb, var(--rose, var(--red)) 40%, transparent); }
+
+.vw-connect { display: flex; flex-direction: column; gap: 8px; }
+
+.vw-tool { display: flex; align-items: center; gap: 16px; }
+
+.vw-tool .grow { display: flex; flex-direction: column; gap: 4px; }
+
+.vw-tool b { font-size: 12px; font-weight: 500; }
+
+.vw-note { display: flex; align-items: center; gap: 8px; color: var(--tone-1); font-size: 12px; margin: 0; }
+
+.vw .kv .k { min-width: 220px; }
+
+.vw-unlock { max-width: 520px; margin-left: auto; margin-right: auto; }
+
+/* A person's own screen: back to the list, then who they are. */
+.vw-back { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; border: none; background: none; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer; padding: 4px 0; }
+
+.vw-back .icon { transform: rotate(180deg); }
+
+.vw-back:hover { color: var(--text); }
+
+.vw-person { display: flex; align-items: center; gap: 16px; }
+
+.vw-person .side { margin-left: auto; display: flex; gap: 8px; }
+
+.vw-filters { margin-top: -4px; }
+
+.vw-warn { color: var(--amber); }
+
+/* The server's settings: a row of group tabs with the save beside it. */
+.vw-settings-bar { display: flex; align-items: flex-start; gap: 16px; }
+
+.vw-settings-bar .chiprow { flex: 1; flex-wrap: wrap; }
+
+.vw-dirty { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
+.vw-fields { display: flex; flex-direction: column; gap: 16px; }
+
+.vw-field { display: flex; flex-direction: column; gap: 4px; }
+
+.vw-field.changed { padding-left: 8px; border-left: 2px solid var(--amber); }
+
+.vw-field-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+.vw-field-head label { font-size: 12px; font-weight: 500; color: var(--text); }
+
+.vw-field-head .mono { font-size: 12px; }
+
+.chip.vw-over { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+
+.vw-toggle { display: flex; }
+
+.vw-smtp { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--edge-soft); align-items: flex-start; }
+
+.vw-org-glyph { width: 48px; height: 48px; display: grid; place-items: center; border-radius: var(--r); background: var(--raise); color: var(--sky); }
+
+.vw-members-head { display: flex; align-items: center; gap: 16px; }
+
+.vw-members-head .hint { flex: 1; }
+
+/* The main tabs pin as one piece, and the settings' bar pins right under
+   them: the tabs' height is measured into --vw-under-tabs. */
+.vw-tabs { position: sticky; top: 0; z-index: 4; background: var(--tabs-bg); }
+
+.vw-tabs .tabs { position: static; }
+
+.vw-settings-bar {
+  position: sticky;
+  top: var(--vw-under-tabs, 33px);
+  z-index: 3;
+  align-items: center;
+  padding: 8px 0;
+  background: var(--tabs-bg);
+  border-bottom: 1px solid var(--edge-soft);
+}
+
+/* Slim chips on one line that scrolls: pinned, the bar has to stay thin. */
+.vw-settings-bar .chiprow { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+
+.vw-settings-bar .chiprow::-webkit-scrollbar { display: none; }
+
+.vw-settings-bar .fchip { height: 24px; padding: 0 10px; font-size: 12px; flex: none; }
+
+.vw-choice { display: flex; flex-direction: column; gap: 8px; }
+
+.vw-settings-bar .btn { height: 28px; }
+
+/* A value the environment sets: text on the block, not a field — there is
+   nothing to type into. */
+.vw-env-value { display: flex; align-items: center; gap: 8px; min-height: var(--control); color: var(--text); overflow-wrap: anywhere; }
+
+.vw-env-value.vw-none { color: var(--faint); }
+
+.chip.vw-env { color: var(--dim); gap: 4px; }
+
+.vw-number { max-width: 240px; }
+
+/* ── Composition ──────────────────────────────────────────────────────────
+   The section takes the whole work area, as every other one does; its
+   layout follows its own width (container queries), not the window's. */
+.settings.vw { max-width: none; container-type: inline-size; }
+
+
+/* A setting as a row: what it is on the left, its control on the right — the
+   way keyward's own settings read. Stacked when the section is narrow. */
+.vw-fields { container-type: inline-size; gap: 0; }
+
+.vw-field { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 16px 0; border-top: 1px solid var(--edge-soft); }
+
+.vw-field:first-child { border-top: none; padding-top: 0; }
+
+.vw-field-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.vw-field-control { min-width: 0; display: flex; align-items: center; }
+
+.vw-field-control > * { flex: 1; min-width: 0; }
+
+.vw-field-control > .vw-toggle, .vw-field-control > .vw-number { flex: none; }
+
+.vw-field.changed { padding-left: 12px; border-left: 2px solid var(--amber); }
+
+@container (min-width: 760px) {
+  .vw-field { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; align-items: start; }
+  .vw-field-control { justify-content: flex-end; }
+}
+
+/* A person's page: the working blocks and the facts side by side when there
+   is room. */
+.vw-page { display: grid; grid-template-columns: 1fr; gap: 16px; }
+
+.vw-page-main, .vw-page-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+@container (min-width: 980px) {
+  .vw-page { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: start; }
+}

@@ -1,0 +1,43 @@
+[package]
+name = "keyward-vault"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+keyward-core.workspace = true
+keyward-bw.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+rbw = "1.15"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+totp-rs = { version = "5", features = ["steam", "otpauth"] }
+zeroize = { version = "1.9.0", features = ["derive"] }
+aes-gcm = "0.11.1"
+base64 = "0.23.1"
+getrandom = "0.4.3"
+rsa = "0.9.10"
+# An ssh key item's material: generating pairs, reading pasted keys.
+keyward-sshkey.workspace = true
+rand = "0.8"
+# The account fingerprint (SHA-256 + HKDF) and the key from a PIN (Argon2id):
+# the same crates `keyward-bw` already has, so no new dependency in the tree.
+sha2 = "0.10"
+hkdf = "0.12"
+argon2 = "0.5"
+# Passkeys: ES256 keys, made and used the way WebAuthn and Bitwarden expect.
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "std"] }
+# Which part of a name is a public suffix: a site must not claim `co.uk` or
+# `github.io` as its rpId. The list is compiled in; nothing is fetched.
+psl = "2"
+url = "2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-local-authentication = { version = "0.3", features = ["LAContext", "LAError"] }
+block2 = "0.6"

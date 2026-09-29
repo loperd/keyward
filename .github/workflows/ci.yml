@@ -1,0 +1,53 @@
+# Every push and pull request: the window's code type-checks and builds, the
+# workspace's tests pass, and the smoke run brings the daemon and the agent up.
+#
+# macOS only: the application, the autofill and the keychain are macOS code,
+# and the Tauri crate is part of the workspace — a Linux run would test less
+# than half of it.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install the window's dependencies
+        run: npm ci
+
+      # tsc and vite: the Tauri crate embeds gui/dist at compile time, so the
+      # front end has to be built before cargo sees the workspace.
+      - name: Build the window
+        run: npm run build
+
+      - name: Tests
+        run: cargo test --workspace --locked
+
+      - name: Smoke run
+        run: |
+          cargo build -p keyward-cli --locked
+          ./scripts/smoke.sh

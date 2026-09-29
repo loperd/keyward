@@ -1,0 +1,53 @@
+[package]
+name = "keyward-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "keyward_gui_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+keyward-core.workspace = true
+keyward-vault.workspace = true
+libc = "0.2.189"
+objc2 = "0.6.4"
+objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSResponder", "NSWorkspace", "NSRunningApplication", "NSApplication"] }
+anyhow.workspace = true
+core-graphics = "0.24"
+core-foundation = "0.10"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+zeroize = "1.9.0"
+# A value handed to the webview travels sealed: ECDH P-256, HKDF-SHA256,
+# AES-256-GCM — what the page's WebCrypto has built in.
+p256 = { version = "0.13", features = ["ecdh"] }
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+rand_core = { version = "0.6", features = ["getrandom"] }
+tracing-subscriber.workspace = true
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tokio = { version = "1", features = ["time", "process"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6.2"
+objc2-foundation = { version = "0.3.2", features = ["NSString", "NSError"] }
+objc2-user-notifications = { version = "0.3.2", default-features = false, features = [
+  "std",
+  "block2",
+  "UNUserNotificationCenter",
+  "UNNotificationRequest",
+  "UNNotificationContent",
+  "UNNotificationTrigger",
+  "UNNotificationSound",
+] }
+window-vibrancy = "0.6"

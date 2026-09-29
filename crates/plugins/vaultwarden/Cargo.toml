@@ -1,0 +1,29 @@
+[package]
+name = "keyward-plugin-vaultwarden"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# A plugin is both a library and a program: the daemon talks to the program
+# in lines of JSON through the `keyward-plugin-stdio` bridge.
+[[bin]]
+name = "keyward-plugin-vaultwarden"
+path = "src/bin/vaultwarden.rs"
+
+[dependencies]
+keyward-core.workspace = true
+keyward-plugin.workspace = true
+keyward-plugin-stdio.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+async-trait = "0.1"
+# The panel's settings exist only as its HTML page: they are read out of it.
+scraper = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+
+[dev-dependencies]
+keyward-plugin = { workspace = true, features = ["testing"] }

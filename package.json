@@ -1,0 +1,18 @@
+{
+  "name": "keyward",
+  "private": true,
+  "description": "The workspace: the window and the plugins' screens. A plugin's dependencies are declared with the plugin.",
+  "workspaces": [
+    "gui",
+    "crates/plugins/*/ui"
+  ],
+  "scripts": {
+    "dev": "npm -w keyward-gui run dev",
+    "build": "npm -w keyward-gui run build",
+    "tauri": "npm -w keyward-gui run tauri"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true
+  }
+}

@@ -1,0 +1,81 @@
+# A tag v<version> publishes a release: the application, the CLI and the
+# plugins' packages, built for Apple silicon.
+#
+# The signature is ad hoc: there is no Apple Developer ID, so no notarisation —
+# on another Mac the application is opened with right-click → Open the first
+# time. `make install` on one's own Mac signs with the local certificate from
+# scripts/signing.sh instead.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      TARGET: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v5
+
+      # The tag and the workspace must name the same version: a release whose
+      # files say another version than its title is a trap for whoever
+      # installs it.
+      - name: Check the version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          crate="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          app="$(python3 -c 'import json;print(json.load(open("gui/src-tauri/tauri.conf.json"))["version"])')"
+          echo "tag=$tag workspace=$crate app=$app"
+          [ "$tag" = "$crate" ] && [ "$tag" = "$app" ] || { echo "::error::the tag v$tag does not match the workspace ($crate) or the app ($app)"; exit 1; }
+          echo "VERSION=$tag" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install the window's dependencies
+        run: npm ci
+
+      - name: Tests
+        run: |
+          npm run build
+          cargo test --workspace --locked
+
+      - name: Build the CLI
+        run: cargo build --release --locked -p keyward-cli
+
+      - name: Build the application
+        run: cd gui && npm run tauri build -- --bundles app
+
+      - name: Package the plugins
+        run: |
+          for manifest in crates/plugins/*/plugin.json; do
+            id="$(basename "$(dirname "$manifest")")"
+            ./scripts/plugin-package.sh "$id" --target "$TARGET"
+          done
+
+      - name: Pack the release files
+        run: |
+          mkdir -p out
+          ditto -c -k --keepParent target/release/bundle/macos/keyward.app "out/keyward-$VERSION-macos-arm64.zip"
+          tar -czf "out/keyward-cli-$VERSION-$TARGET.tar.gz" -C target/release keyward
+          cp dist/packages/*-"$TARGET".tar.gz out/
+          ( cd out && shasum -a 256 * > SHA256SUMS )
+          ls -l out
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/* --title "keyward $VERSION" --generate-notes --verify-tag

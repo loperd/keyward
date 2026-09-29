@@ -1,0 +1,63 @@
+/* The ssh plugin's own look: the routes and the line with the snippet for
+   ~/.ssh/config. It lives with the plugin and reaches the bundle because the
+   plugin's screens import it. */
+
+.section-title {
+  margin: 24px 0 8px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* A row with a snippet and a copy button in the settings. */
+.snippet-line { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+
+.snippet-line code { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The routes on an item's card. */
+.hosts > label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--dim);
+}
+
+
+/* The hosts on a key's card. */
+.hosts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+
+
+.hosts > label { font-size: 12px; color: var(--dim); }
+
+
+.hosts .chips:empty { display: none; }
+
+
+.pane .pane-card .hosts { margin-bottom: 4px; }
+
+
+.pane .pane-card .hosts { margin-bottom: 0; gap: 8px; }
+.pane .pane-card .hosts .hint { margin: 0; }
+
+/* An ssh key's key in the item form. */
+.ssh-key-editor { display: flex; flex-direction: column; gap: 16px; }
+
+.ssh-key-editor .field label { display: flex; align-items: center; gap: 8px; }
+
+.ssh-key-editor .chip.ssh-alg { font-family: var(--mono); font-size: 12px; }
+
+
+.ssh-key-editor .ssh-keep { display: flex; justify-content: flex-start; }
+
+/* The private key's caption carries its kind and the import button on the
+   same line: the button belongs to this field, not to the form. */
+.ssh-field-head { display: flex; align-items: center; gap: 8px; }
+
+.ssh-field-head .grow { flex: 1; }
+
+.ssh-pass { display: flex; gap: 8px; }
+
+.ssh-pass > :first-child { flex: 1; }

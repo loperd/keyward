@@ -1,0 +1,17 @@
+[package]
+name = "keyward-sshkey"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# An ssh key item's material, in one place for both sides that need it: the
+# vault, which writes the key into an item, and the ssh plugin, which shows a
+# pasted key before it is saved. Two parsers would drift apart.
+[dependencies]
+keyward-core.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+rand = "0.8"
+rsa = "0.9.10"
+zeroize = "1.9.0"
+ssh-key = { version = "0.6", features = ["ed25519", "rsa", "encryption", "alloc", "std"] }

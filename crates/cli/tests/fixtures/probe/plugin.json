@@ -1,0 +1,15 @@
+{
+  "id": "probe",
+  "title": "Probe",
+  "icon": "note",
+  "version": "1.0.0",
+  "description": "a plugin under test: it answers \"status\" and counts ssh keys",
+  "section": false,
+  "needs_unlocked": false,
+  "exec": "probe.py",
+  "protocol": 2,
+  "permissions": [
+    "entries",
+    "notices"
+  ]
+}

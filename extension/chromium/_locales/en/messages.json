@@ -1,0 +1,74 @@
+{
+  "extName": {
+    "message": "keyward"
+  },
+  "extDescription": {
+    "message": "Passkeys from your keyward vault: sign in and save new ones with Touch ID"
+  },
+  "signInTitle": {
+    "message": "Sign in with a passkey"
+  },
+  "signInLead": {
+    "message": "$SITE$ asks for a passkey. Choose the account",
+    "placeholders": {
+      "SITE": {
+        "content": "$1"
+      }
+    }
+  },
+  "createTitle": {
+    "message": "Save a passkey"
+  },
+  "createLead": {
+    "message": "$SITE$ wants to create a passkey. Choose where to keep it",
+    "placeholders": {
+      "SITE": {
+        "content": "$1"
+      }
+    }
+  },
+  "createLeadUser": {
+    "message": "$SITE$ wants to create a passkey for $USER$. Choose where to keep it",
+    "placeholders": {
+      "USER": {
+        "content": "$1"
+      },
+      "SITE": {
+        "content": "$2"
+      }
+    }
+  },
+  "newLogin": {
+    "message": "New login"
+  },
+  "replaces": {
+    "message": "Replaces passkey"
+  },
+  "noUser": {
+    "message": "No user name"
+  },
+  "signIn": {
+    "message": "Sign in"
+  },
+  "save": {
+    "message": "Save in keyward"
+  },
+  "otherWay": {
+    "message": "Another way"
+  },
+  "waitTouchId": {
+    "message": "Confirm with Touch ID…"
+  },
+  "tryAgain": {
+    "message": "Try again"
+  },
+  "lockedTitle": {
+    "message": "The vault is locked"
+  },
+  "lockedText": {
+    "message": "Unlock keyward, then press Try again"
+  },
+  "noKeyward": {
+    "message": "keyward did not answer: check that the app is running"
+  }
+}

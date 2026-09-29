@@ -1,0 +1,191 @@
+/* The interface is in Russian and in English, so the Cyrillic subsets are
+   compulsory: without them the text silently falls back to a system font. */
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/cyrillic-400.css";
+@import "@fontsource/ibm-plex-sans/cyrillic-500.css";
+@import "@fontsource/ibm-plex-sans/cyrillic-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/cyrillic-400.css";
+
+/*
+  The palette inherits Bitwarden's blue, but the ground is ink-blue rather than
+  white: the application lives next to a terminal. Indigo is left to actions and
+  to choices — so that it means "here" rather than "here is something pretty".
+
+  The scale of spacing is 4/8/12/16/20/28. The radii are 8 and 10. One stroke
+  width.
+*/
+:root {
+  --ink: #101016;
+  --rail: #14141d;
+  --surface: #1a1a25;
+  --panel: #171720;
+  --block: #20202c;
+  --field: #232330;
+  --field-focus: #2a2939;
+  --raise: #292837;
+  --edge: #343343;
+  --edge-soft: #292837;
+
+  /* The accent is a sea turquoise on graphite. Bitwarden's blue and the indigo
+     that replaced it are gone: indigo read as violet on a dark ground. The
+     fifth colour of the semantics (identities, keys, transit) is a saturated
+     orange rather than lilac or a pastel; the amber is shifted towards gold to
+     tell it apart. */
+  --blue: #7865f5;
+  --blue-hi: #8d7cff;
+  --sky: #b4a8ff;
+  --mint: #42d6a4;
+  --amber: #f2c14e;
+  --rose: #ff6f7d;
+  --orange: #ff9560;
+  /* The tones of the blocks and the marks — decoration, not meaning. They
+     start as the three colours above, and a palette turns them into shades of
+     its own colour; "done", "mind this" and "dangerous" keep theirs. */
+  --tone-1: var(--mint);
+  --tone-2: var(--amber);
+  --tone-3: var(--orange);
+
+  --text: #f0eff8;
+  /* The measurement showed 3.39:1 on the tallies and the sections' headings —
+     below the threshold. Both steps have been raised: 11px in a small face is
+     still readable. */
+  --dim: #a6a4b6;
+  --faint: #777587;
+
+  --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* One height for every control in the top bar: a mismatch between the search
+     field and the buttons reads as carelessness faster than anything. */
+  --bar: 64px;
+  /* One height for every control: the field, the list, the button. A mismatch
+     between them reads as carelessness faster than anything else. */
+  --control: 36px;
+  --titlebar: 28px;
+
+  /* The scale of radii — exactly four steps, and each has work of its own.
+     The measurement showed a jumble: 2, 3, 5, 6, 10, 12, 13, 14 plus the
+     tokens. The eye catches that as carelessness even where it cannot name
+     the reason. */
+  --r-in: 6px;    /* small things inside a control: a mark, an icon, a kbd */
+  --r-ctl: 10px;  /* everything that is pressed: a button, a field, a list cell */
+  --r-panel: 16px; /* a panel, a card, an empty state */
+  --r-win: 20px;  /* a window over a window: a dialogue, a palette, a drop-down */
+  --r-pill: 999px; /* only what is not a button: a pill mark, a switch */
+  /* The old names are aliases of the new ones: the edits went through the
+     files by degrees. */
+  --r: var(--r-ctl);
+  --r-lg: var(--r-panel);
+
+  /* Three shadows rather than eight. A shadow reports a height, and we have
+     three heights: lying in place, floated up beside a control, covering the
+     screen. */
+  --sh-1: 0 1px 2px rgb(0 0 0 / 0.25);
+  --sh-pop: 0 12px 28px rgb(0 0 0 / 0.45);
+  --sh-win: 0 24px 60px rgb(0 0 0 / 0.5);
+  /* One focus ring for the whole application. */
+  --ring: 0 0 0 3px color-mix(in srgb, var(--sky) 16%, transparent);
+  /* The built-in curves are too limp. These are the strong variants: the
+     movement begins at once, and that is the moment the eye watches most
+     closely. ease-in is not used in the interface at all: it drags at the start
+     and makes the response feel hesitant. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink: #f7f6fb;
+    --rail: #eeedf5;
+    --surface: #ffffff;
+    --panel: #fbfaff;
+    --block: #f2f1f8;
+    --field: #ffffff;
+    --field-focus: #ffffff;
+    --raise: #ebeaf3;
+    --edge: #dedce8;
+    --edge-soft: #e9e7f0;
+    --blue: #6250dc;
+    --blue-hi: #725fff;
+    --sky: #5544c7;
+    --mint: #158f6d;
+    --amber: #946d0c;
+    --rose: #d4475a;
+    --orange: #c45b26;
+    --text: #1d1c28;
+    --dim: #625f72;
+    --faint: #908ca0;
+    color-scheme: light;
+  }
+}
+
+* { box-sizing: border-box; }
+/* The browser's paragraph margin is 11.5px against a scale of 4/6/8/12: a hint
+   under a field stood 23.5px away instead of 12. */
+p { margin: 0; }
+
+html, body, #root { height: 100%; margin: 0; }
+html, body { overflow: hidden; overscroll-behavior: none; }
+
+/* The interface's text is not selectable: in native applications captions and
+   buttons do not turn into a blue smear from an accidental movement of the
+   mouse. Selection is left where it really is used — in the input fields and in
+   the values that are copied by eye and by hand. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  background: var(--ink);
+  color: var(--text);
+  /* The main size comes from the scale. It was 13px, and everything not
+     overridden explicitly (the values in input fields first of all) fell out
+     of it. */
+  font: 400 12px/16px var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+input, textarea, select, pre, code, .v, .host, .totp .code, .mono {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* A button in a browser has padding of its own — 1px on top and 6px on the
+   sides. Wherever we did not set it, it stayed: an icon in the rail sat not in
+   the middle of its cell but a pixel lower and six to the right of where it was
+   meant to be. It is zeroed; where padding is wanted it is set explicitly. */
+button { font: inherit; cursor: pointer; padding: 0; }
+/* The fields inherit the text's size explicitly: input and textarea have a
+   built-in size of their own, and `font: inherit` does not reach them from
+   body. */
+input, textarea, select { font: inherit; }
+button:disabled { opacity: 0.4; cursor: default; }
+/* A hard outline with an offset gave a second ring on top of the highlighted
+   border — the result was a target. In its place a soft halo of the same
+   colour: plain from the keyboard, calm to the eye and doubling with
+   nothing. */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sky) 18%, transparent);
+}
+
+/* A field has a border of its own anyway: a thick halo on top of it reads as a
+   second border. So a field gets the border itself highlighted and only the
+   lightest of glows. */
+input:focus-visible,
+textarea:focus-visible {
+  border-color: color-mix(in srgb, var(--sky) 55%, var(--edge));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sky) 10%, transparent);
+}
+
+.icon { flex: none; }
+
+/* Less movement does not mean no animation at all: opacity and colour help to
+   understand what happened, and it is the travelling that is taken away. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-property: opacity, color, background-color, border-color !important; }
+  .modal, .toast, .pane { animation: none !important; }
+}

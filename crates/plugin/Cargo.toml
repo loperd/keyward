@@ -1,0 +1,16 @@
+[package]
+name = "keyward-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+keyward-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+async-trait = "0.1"
+
+[features]
+# The strict in-memory host the plugins test themselves against.
+testing = []

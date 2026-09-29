@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@tauri-real/core": [
+        "../node_modules/@tauri-apps/api/core"
+      ],
+      "@keyward/*": [
+        "src/*"
+      ],
+      "@plugin/hashicorp/*": [
+        "../crates/plugins/hashicorp/*"
+      ],
+      "@plugin/ssh/*": [
+        "../crates/plugins/ssh/*"
+      ],
+      "@plugin/vaultwarden/*": [
+        "../crates/plugins/vaultwarden/*"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "../crates/plugins/*/ui"
+  ]
+}

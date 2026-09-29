@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>keyward store asset</title>
+<style>
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 400; src: url("../chromium/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-weight: 600; src: url("../chromium/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+  :root { --ink: #0e1116; --panel: #151a21; --block: #1c232c; --edge: #2a333e; --text: #eef2f5; --dim: #a3adb8; --blue: #1194a7; --sky: #4fc8d8; --mint: #42d6a4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--ink); color: var(--text); font-family: "IBM Plex Sans", -apple-system, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; }
+  .shot { position: relative; width: 1280px; height: 800px; display: grid; grid-template-columns: 500px 1fr; align-items: center; padding: 0 72px; gap: 48px; }
+  .copy h1 { margin: 0 0 16px; font-size: 44px; line-height: 52px; font-weight: 600; letter-spacing: -0.01em; }
+  .copy h1 em { font-style: normal; color: var(--sky); }
+  .copy p { margin: 0 0 32px; font-size: 20px; line-height: 30px; color: var(--dim); }
+  .copy ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+  .copy li { display: flex; gap: 12px; align-items: baseline; font-size: 18px; line-height: 26px; }
+  .copy li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); transform: translateY(-2px); }
+  .brand { position: absolute; left: 72px; top: 56px; display: flex; gap: 12px; align-items: center; font-weight: 600; font-size: 20px; }
+  .brand img { width: 36px; height: 36px; border-radius: 8px; }
+  .stage { position: relative; height: 640px; }
+  .browser { position: absolute; left: 0; top: 24px; width: 470px; height: 470px; border-radius: 14px; background: #f4f6f8; border: 1px solid var(--edge); overflow: hidden; }
+  .bar { height: 44px; background: #e3e7eb; display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #c6ccd2; }
+  .url { margin-left: 16px; flex: 1; height: 28px; border-radius: 14px; background: #fff; color: #56616d; font-size: 14px; line-height: 28px; padding: 0 14px; }
+  .site { padding: 40px 36px; color: #182029; }
+  .site h2 { margin: 0 0 8px; font-size: 28px; }
+  .site p { margin: 0 0 24px; color: #56616d; font-size: 16px; }
+  .field { height: 44px; border-radius: 10px; border: 1px solid #d0d6dc; background: #fff; margin-bottom: 14px; width: 260px; color: #8a949f; font-size: 15px; line-height: 44px; padding: 0 14px; }
+  .button { width: 260px; height: 44px; border-radius: 10px; background: #182029; color: #fff; font-weight: 600; text-align: center; line-height: 44px; }
+  .chooser { position: absolute; right: 0; bottom: 0; width: 378px; height: 468px; border-radius: 14px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.55), 0 0 0 1px rgb(255 255 255 / 0.06); overflow: hidden; }
+  .chooser img { width: 378px; height: 468px; display: block; }
+  /* The small promo tile */
+  .tile { width: 440px; height: 280px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; background: var(--ink); }
+  .tile .brand { position: static; font-size: 24px; }
+  .tile .brand img { width: 44px; height: 44px; }
+  .tile h1 { margin: 0; font-size: 30px; line-height: 38px; font-weight: 600; }
+  .tile h1 em { font-style: normal; color: var(--sky); }
+  .tile .tag { display: inline-flex; align-self: flex-start; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 999px; background: rgb(17 148 167 / 0.18); color: var(--sky); font-size: 15px; }
+</style>
+</head>
+<body>
+<script>
+  const q = new URLSearchParams(location.search);
+  const kind = q.get("kind");
+  const brand = `<div class="brand"><img src="../chromium/icons/128.png" alt=""> keyward</div>`;
+  if (kind === "tile") {
+    document.body.innerHTML = `<div class="tile">${brand}<h1>Passkeys from your vault, <em>with Touch ID</em></h1><span class="tag">Requires the keyward app for macOS</span></div>`;
+  } else {
+    const signIn = kind === "sign-in";
+    const copy = signIn
+      ? `<h1>Sign in with the passkeys <em>in your vault</em></h1><p>When a site asks for a passkey, keyward offers the accounts from your Bitwarden or Vaultwarden vault.</p>
+         <ul><li>Touch ID for every sign-in, naming the site and the account</li><li>The private key never leaves the keyward app</li><li>"Another way" hands the request back to the browser</li></ul>`
+      : `<h1>Save new passkeys <em>where you keep the rest</em></h1><p>A site offers a passkey — keep it in a new login or in the one you already have for that site.</p>
+         <ul><li>Stored in Bitwarden's format, readable by the official apps</li><li>The connection to the app is encrypted</li><li>Nothing is sent anywhere else: no analytics, no telemetry</li></ul>`;
+    const site = signIn
+      ? `<h2>Sign in</h2><p>Use a passkey or your password.</p><div class="field">alex@example.com</div><div class="button">Sign in with a passkey</div>`
+      : `<h2>Security</h2><p>Add a passkey to sign in faster, without a password.</p><div class="button">Create a passkey</div>`;
+    const url = signIn ? "https://accounts.example.com/login" : "https://shop.example.com/account/security";
+    document.body.innerHTML = `<div class="shot">${brand}<div class="copy">${copy}</div>
+      <div class="stage"><div class="browser"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="url">${url}</span></div><div class="site">${site}</div></div>
+      <div class="chooser"><img src="${q.get("chooser")}" alt=""></div></div></div>`;
+  }
+</script>
+</body>
+</html>
