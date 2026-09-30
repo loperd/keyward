@@ -5,6 +5,8 @@ import { t } from "@keyward/i18n";
 import { call } from "@keyward/plugins/call";
 import type { PluginScreenProps } from "@keyward/plugins/types";
 import type { SshKeyEntry } from "./types";
+import { HealthDot } from "./Health";
+import { useHealth } from "./terminalState";
 
 /// Routes: the ssh keys and the hosts they are bound to.
 ///
@@ -14,6 +16,9 @@ import type { SshKeyEntry } from "./types";
 export function SshScreen({ catalog, loading, onChanged }: PluginScreenProps) {
   const [keys, setKeys] = useState<SshKeyEntry[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
+  // The same health the terminal shows: whether each key still gets in where
+  // it is bound.
+  const health = useHealth();
   const editingEntry = keys.find((k) => k.id === editing) ?? null;
 
   // The keys are asked of the plugin: the core gives the catalogue of items,
@@ -47,7 +52,10 @@ export function SshScreen({ catalog, loading, onChanged }: PluginScreenProps) {
                     <Icon name="ssh_key" />
                   </span>
                   <span className="text">
-                    <b>{k.name}</b>
+                    <b className="ssh-key-name">
+                      {health && <HealthDot status={health.keys.find((h) => h.entry_id === k.id)?.status ?? "pending"} />}
+                      {k.name}
+                    </b>
                     <span>{k.hosts || "—"}</span>
                   </span>
                   <span className="side reveal">
@@ -89,6 +97,8 @@ function HostModal({
   onChanged: (keys: SshKeyEntry[]) => void;
 }) {
   const [hosts, setHosts] = useState(entry.hosts);
+  const [user, setUser] = useState(entry.user);
+  const [port, setPort] = useState(entry.port);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,7 +106,7 @@ function HostModal({
     setBusy(true);
     setError(null);
     try {
-      onChanged(await call<SshKeyEntry[]>("ssh", "set_hosts", { entry_id: entry.id, hosts: value }));
+      onChanged(await call<SshKeyEntry[]>("ssh", "set_hosts", { entry_id: entry.id, hosts: value, user: user.trim(), port: port.trim() }));
       onDone();
     } catch (e) {
       setError(String(e));
@@ -137,6 +147,24 @@ function HostModal({
         />
       </div>
       <p className="hint">{t("routes.empty.body")}</p>
+      <div className="routes-login">
+        <div className="field grow">
+          <label>{t("routes.login")}</label>
+          <input
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            placeholder="root"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+        </div>
+        <div className="field">
+          <label>{t("routes.port")}</label>
+          <input value={port} onChange={(e) => setPort(e.target.value.replace(/[^0-9]/g, ""))} placeholder="22" inputMode="numeric" />
+        </div>
+      </div>
+      <p className="hint">{t("routes.loginHint")}</p>
       {error && <Alert message={error} />}
     </Modal>
   );

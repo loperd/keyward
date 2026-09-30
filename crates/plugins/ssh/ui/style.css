@@ -61,3 +61,273 @@
 .ssh-pass { display: flex; gap: 8px; }
 
 .ssh-pass > :first-child { flex: 1; }
+
+/* ── The terminal ─────────────────────────────────────────────────────────
+   The section fills the working area itself: a strip of tabs, then the
+   overview or a shell. The shell is the card; nothing boxes it again. */
+
+.term-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 12px var(--gutter) var(--gutter);
+  gap: 12px;
+}
+
+.term-tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  min-width: 0;
+  padding: 3px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--edge-soft);
+  border-radius: calc(var(--r) + 3px);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+.term-tabs::-webkit-scrollbar { display: none; }
+
+.term-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: none;
+  color: var(--dim);
+  font-size: 12px;
+  flex: none;
+  max-width: 240px;
+  transition: background 160ms var(--ease), color 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+.term-tab:hover { background: var(--raise); color: var(--text); }
+/* The active shell belongs to the same accent family as the rail, but keeps
+   the terminal calm: a tinted surface is easier on the eye than another full
+   width blue control. */
+.term-tab.on {
+  background: color-mix(in srgb, var(--blue) 19%, var(--surface));
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--edge));
+  color: var(--text);
+  box-shadow: inset 0 1px color-mix(in srgb, #fff 13%, transparent), 0 5px 14px -12px color-mix(in srgb, var(--blue) 90%, transparent);
+}
+.term-tab.on .dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 25%, transparent); }
+.term-tab-open { display: inline-flex; align-items: center; gap: 8px; min-width: 0; height: 100%; padding: 0; border: none; background: none; color: inherit; font: inherit; }
+.term-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); }
+button.term-tab > .term-tab-label { font-family: var(--sans); font-weight: 500; }
+.term-tab-close {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-in);
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+}
+.term-tab-close:hover { opacity: 1; background: color-mix(in srgb, currentColor 16%, transparent); }
+.term-add-fab { z-index: 24; }
+
+.term-body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* A shell: the terminal on the card's ground, the states over it. */
+.term-pane { position: relative; flex: 1; min-height: 0; border-radius: var(--r-panel); background: var(--block); border: 1px solid var(--edge-soft); overflow: hidden; }
+.term-pane.hidden { display: none; }
+.term-host { position: absolute; inset: 8px 4px 8px 12px; }
+.term-host .xterm { height: 100%; }
+.term-host .xterm-viewport { background: transparent !important; }
+
+.term-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--block) 72%, transparent);
+  backdrop-filter: blur(2px);
+}
+.term-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  padding: 24px;
+  border-radius: var(--r-win);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: var(--sh-pop);
+  text-align: center;
+  color: var(--text);
+}
+.term-card.wide { max-width: 480px; }
+.term-card > .icon { color: var(--sky); }
+.term-card .hint { margin: 0; }
+.term-card .warn-text { color: var(--amber); }
+.term-fingerprint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; }
+.term-fingerprint code { font-family: var(--mono); font-size: 12px; user-select: all; word-break: break-all; color: var(--text); }
+.term-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.term-card .term-actions { margin-top: 8px; justify-content: center; }
+
+.term-spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--sky) 25%, transparent);
+  border-top-color: var(--sky);
+  animation: term-spin 800ms linear infinite;
+}
+@keyframes term-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .term-spinner { animation-duration: 2400ms; } }
+
+/* How a shell ended: a strip at the foot of the card, the output above
+   stays readable. */
+.term-ended {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: var(--sh-pop);
+}
+.term-ended > .alert { flex: 1; min-width: 200px; margin: 0; }
+.term-ended-text { flex: 1; display: inline-flex; align-items: center; gap: 8px; }
+.term-ended .term-actions { margin-left: auto; }
+
+.term-find {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: var(--sh-pop);
+  color: var(--dim);
+}
+.term-find input { width: 200px; height: 28px; border: none; background: none; color: var(--text); outline: none; font-size: 12px; }
+.term-find .btn.icon-only { width: 28px; height: 28px; }
+.term-find .btn.icon-only:first-of-type .icon { transform: rotate(180deg); }
+
+/* The overview: whether each key still gets in. */
+.term-overview {
+  width: min(100%, 980px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+  /* Keep the last route clear of the floating "new terminal" action. */
+  padding: 10px 2px 84px;
+}
+.term-overview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 6px 0 14px;
+  border-bottom: 1px solid var(--edge-soft);
+}
+.term-summary { display: flex; flex-direction: column; gap: 9px; }
+.term-summary h3 { margin: 0; letter-spacing: -0.025em; font-size: 22px; font-weight: 550; }
+.term-health-metrics { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.term-health-metrics .hint { margin-left: 4px; }
+.term-overview > .hint { margin: -3px 0 2px; max-width: 68ch; line-height: 1.5; }
+.term-keys { display: flex; flex-direction: column; gap: 10px; }
+.term-health-run { width: 36px; height: 36px; flex: none; }
+
+.block.term-key {
+  position: relative;
+  overflow: hidden;
+  border-left: 3px solid var(--edge);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(115deg, color-mix(in srgb, var(--surface) 96%, var(--blue)), var(--surface));
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 8%, transparent), 0 14px 28px -28px #000;
+}
+.block.term-key.health-ok { border-left-color: var(--mint); }
+.block.term-key.health-warn { border-left-color: var(--amber); }
+.block.term-key.health-bad { border-left-color: var(--rose); }
+.term-key-head { display: flex; align-items: center; gap: 9px; min-height: 34px; flex-wrap: wrap; }
+.term-key-head > .icon { color: var(--tone-1); }
+.term-key-head > b { white-space: nowrap; letter-spacing: -0.01em; }
+.term-key-head .grow { flex: 1; }
+.term-key-check, .term-connect-action { width: 30px; height: 30px; flex: none; }
+.term-key > .hint { margin: 0; }
+
+.term-checks { display: flex; flex-direction: column; }
+.term-check { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--edge-soft); }
+.term-check:first-child { border-top: none; }
+.term-check .health-dot { margin: 0 4px; }
+.term-check-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.term-check-text code { font-family: var(--mono); font-size: 12px; color: var(--text); overflow-wrap: anywhere; letter-spacing: -0.01em; }
+.term-check-text .hint { margin: 0; }
+.term-fp { font-size: 12px; }
+.bad-text { color: var(--rose) !important; }
+
+.dot.warn { background: var(--amber); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 20%, transparent); }
+.chip.dot.warn { background: none; box-shadow: none; }
+
+/* The hosts in the section's column. */
+.nav.term-target { align-items: flex-start; padding-block: 7px; }
+.term-target-dot { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.nav.term-target .label { display: flex; flex-direction: column; gap: 2px; font-family: var(--mono); }
+.nav.term-target .label small { font-family: var(--sans); color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.term-nohosts { padding: 0 8px; }
+
+/* The connect dialogue. */
+.term-connect { display: flex; flex-direction: column; gap: 18px; }
+.term-connect-row { display: flex; gap: 8px; align-items: flex-end; }
+.term-banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: -6px !important; padding: 8px 10px; border: 1px solid var(--edge-soft); border-radius: var(--r); background: color-mix(in srgb, var(--raise) 58%, transparent); }
+.term-banner code { font-family: var(--mono); font-size: 12px; }
+.term-connect-row .grow { flex: 1; }
+.term-connect-row .field:not(.grow) { width: 128px; }
+.term-connect .hint { margin: 0; }
+
+@media (max-width: 700px) {
+  .term-screen { padding: 8px 10px 12px; gap: 8px; }
+  .term-tabs { border-radius: var(--r); }
+  .term-overview { padding-top: 4px; }
+  .term-overview-head { gap: 12px; }
+  .term-summary h3 { font-size: 20px; }
+  .term-check { align-items: flex-start; flex-wrap: wrap; }
+  .term-check > .btn { margin-left: 26px; }
+  .term-connect-row .field:not(.grow), .routes-login .field:not(.grow) { width: 104px; }
+}
+
+/* A host being checked: its dot breathes. */
+.dot.checking { animation: health-pulse 1100ms var(--ease) infinite; }
+@keyframes health-pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .dot.checking { animation: none; opacity: 0.5; } }
+
+/* The login and the port of a key's hosts, under its hosts. */
+.routes-login { display: flex; gap: 8px; align-items: flex-end; }
+/* Side by side, not one under the other: the stacked fields' top margin
+   would push the second one down. */
+.routes-login .field + .field, .term-connect-row .field + .field { margin-top: 0; }
+.routes-login .grow { flex: 1; }
+.routes-login .field:not(.grow) { width: 128px; }
+
+/* A key's health beside its name in the routes. */
+.row .text b.ssh-key-name { display: flex; align-items: center; gap: 8px; }
