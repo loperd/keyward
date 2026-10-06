@@ -21,6 +21,7 @@ pub mod agent;
 pub mod glob;
 pub mod mapping;
 mod table;
+pub mod terminal;
 
 pub use mapping::{Mapping, MappingTable, Resolution};
 pub use table::build_table;
@@ -53,11 +54,14 @@ pub struct SshSettings {
     /// ssh_config and expect SSH_AUTH_SOCK. Off by default: it is the very
     /// trying of key after key that keyward walks away from.
     pub shared_socket: bool,
+    /// How often the terminal checks that each key still gets in where it is
+    /// bound, in minutes; zero is never. A check signs nothing and asks no one.
+    pub health_minutes: u32,
 }
 
 impl Default for SshSettings {
     fn default() -> Self {
-        Self { agent_enabled: true, ask: Ask::Never, shared_socket: false }
+        Self { agent_enabled: true, ask: Ask::Never, shared_socket: false, health_minutes: 30 }
     }
 }
 
@@ -68,7 +72,10 @@ impl SshSettings {
     fn read(host: &dyn Host) -> Self {
         let raw = host.settings();
         let untouched = raw.as_object().is_none_or(|o| {
-            !o.contains_key("agent_enabled") && !o.contains_key("ask") && !o.contains_key("shared_socket")
+            !o.contains_key("agent_enabled")
+                && !o.contains_key("ask")
+                && !o.contains_key("shared_socket")
+                && !o.contains_key("health_minutes")
         });
         if untouched {
             return Self::inherited();
@@ -114,6 +121,12 @@ struct InspectKeyArgs {
 struct SetHostsArgs {
     entry_id: String,
     hosts: String,
+    /// The login and the port, each in a field of its own. Absent leaves the
+    /// field as it is; empty takes it off.
+    #[serde(default)]
+    user: Option<String>,
+    #[serde(default)]
+    port: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,6 +179,8 @@ pub struct SshPlugin {
     /// it, and it needs a signature at that minute rather than inside somebody
     /// else's `call`. The runtime puts it here through `Plugin::attach`.
     core: std::sync::RwLock<Option<Arc<dyn Host>>>,
+    /// The terminal: its shells, the pages' links and the keys' health.
+    terminals: Arc<terminal::Terminals>,
 }
 
 impl Default for SshPlugin {
@@ -181,6 +196,7 @@ impl SshPlugin {
             inner: tokio::sync::Mutex::new(Inner::default()),
             shared_entries: Arc::new(std::sync::RwLock::new(Vec::new())),
             core: std::sync::RwLock::new(None),
+            terminals: Arc::new(terminal::Terminals::default()),
         }
     }
 
@@ -331,6 +347,12 @@ pub struct SshKeyEntry {
     pub name: String,
     /// The contents of `kw-host`; empty means the key is bound to no host yet.
     pub hosts: String,
+    /// `kw-user`: the login its hosts are entered with; empty when unset.
+    #[serde(default)]
+    pub user: String,
+    /// `kw-port` as written; empty when unset.
+    #[serde(default)]
+    pub port: String,
 }
 
 /// The vault's ssh keys in the shape the interface shows them.
@@ -343,6 +365,8 @@ fn keys(host: &dyn Host) -> Vec<SshKeyEntry> {
             id: e.id.clone(),
             name: e.name.clone(),
             hosts: e.field(crate::table::HOST).unwrap_or_default().to_string(),
+            user: e.field(crate::table::USER).unwrap_or_default().to_string(),
+            port: e.field(crate::table::PORT).unwrap_or_default().to_string(),
         })
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -370,12 +394,14 @@ impl Plugin for SshPlugin {
             enabled: true,
             // Exactly what the plugin uses: items with `kw-*` fields, writing
             // `kw-host` when a host is bound, a notification about a signature,
-            // and the signing itself — the plugin has no key, the core signs.
+            // the signing itself — the plugin has no key, the core signs — and
+            // the network, which the terminal and the health checks go out to.
             permissions: vec![
                 Permission::Entries,
                 Permission::ItemsWrite,
                 Permission::Notices,
                 Permission::SshSign,
+                Permission::Network,
             ],
             probe: false,
         }
@@ -405,8 +431,22 @@ impl Plugin for SshPlugin {
                 let a: SetHostsArgs = arg(payload)?;
                 // An empty value means "unbind"; the core decides, and the
                 // item lies with it.
-                host.set_fields(&a.entry_id, vec![(crate::table::HOST.to_string(), a.hosts.trim().to_string())])
-                    .await?;
+                let mut fields = vec![(crate::table::HOST.to_string(), a.hosts.trim().to_string())];
+                if let Some(user) = a.user {
+                    let user = user.trim().to_string();
+                    if user.contains(char::is_whitespace) || user.contains('@') {
+                        anyhow::bail!(keyward_core::fault!("err.sshBadLogin"));
+                    }
+                    fields.push((crate::table::USER.to_string(), user));
+                }
+                if let Some(port) = a.port {
+                    let port = port.trim().to_string();
+                    if !port.is_empty() && !port.parse::<u16>().is_ok_and(|p| p > 0) {
+                        anyhow::bail!(keyward_core::fault!("err.sshBadPortField", "port" => port.as_str(), "key" => a.entry_id.as_str()));
+                    }
+                    fields.push((crate::table::PORT.to_string(), port));
+                }
+                host.set_fields(&a.entry_id, fields).await?;
                 self.rebuild(host).await;
                 out(keys(host))
             }
@@ -456,7 +496,20 @@ impl Plugin for SshPlugin {
 
             "snippet" => out(keyward_core::paths::ssh_config_snippet()),
 
-            other => anyhow::bail!("the ssh plugin does not know the operation \"{other}\""),
+            other => {
+                // The terminal's reads wait for output; the routes' lock is not
+                // held for that, so a snapshot of the vault is what it gets.
+                let inner = self.inner.lock().await;
+                let entries = inner.entries.clone();
+                let table = inner.table.clone();
+                drop(inner);
+                let ssh = terminal::sshconfig::shared().await?;
+                let view = terminal::View { entries: &entries, table: &table, ssh: &ssh };
+                match self.terminals.call(host, self.core(), view, other, payload).await {
+                    Some(answer) => answer,
+                    None => anyhow::bail!("the ssh plugin does not know the operation \"{other}\""),
+                }
+            }
         }
     }
 
@@ -465,6 +518,9 @@ impl Plugin for SshPlugin {
             // Locked means the keys are gone: the sockets come down and the
             // items are forgotten, or the agent goes on signing from memory.
             HostEvent::Locked => {
+                // The shells were opened with the vault's keys: they close
+                // with it.
+                self.terminals.lock();
                 let mut inner = self.inner.lock().await;
                 drop_sockets(&mut inner);
                 inner.entries.clear();
@@ -476,8 +532,21 @@ impl Plugin for SshPlugin {
             }
             HostEvent::Unlocked | HostEvent::EntriesChanged => self.rebuild(host).await,
             // The agent has no use for the minute tick: the sockets live as
-            // long as the tasks do.
-            HostEvent::Tick => {}
+            // long as the tasks do. The terminal checks the keys' health on
+            // it when a round is due.
+            HostEvent::Tick => {
+                let every = std::time::Duration::from_secs(u64::from(SshSettings::read(host).health_minutes) * 60);
+                let ssh = match terminal::sshconfig::shared().await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        tracing::error!(error = %e, "no health round: ~/.ssh/config will not read");
+                        return;
+                    }
+                };
+                let inner = self.inner.lock().await;
+                let view = terminal::View { entries: &inner.entries, table: &inner.table, ssh: &ssh };
+                self.terminals.tick(view, every, &host.state_dir(), self.core().ok());
+            }
         }
     }
 }
@@ -579,13 +648,16 @@ mod tests {
     /// Every keyward path is read out of `KEYWARD_HOME` on each call, so they
     /// are led off into a directory of our own and the tests do not sweep real
     /// sockets away.
-    fn sandbox() -> PathBuf {
+    pub(crate) fn sandbox() -> PathBuf {
         use std::sync::Once;
         static ONCE: Once = Once::new();
         let dir = std::env::temp_dir().join(format!("keyward-ssh-tests-{}", std::process::id()));
         ONCE.call_once(|| {
             let _ = std::fs::create_dir_all(&dir);
             std::env::set_var("KEYWARD_HOME", &dir);
+            // The terminal reads `~/.ssh/known_hosts`: a test must not trust
+            // what a person's machine trusts.
+            std::env::set_var("HOME", &dir);
         });
         dir
     }

@@ -8,7 +8,7 @@ import {
   installEntry,
   installPlugin,
   pickPluginPackage,
-  pluginTitle,
+  pluginName,
   removePlugin,
   sources,
   trustPublisher,
@@ -324,7 +324,7 @@ export function PluginsSettings() {
 
       {dialog?.kind === "remove" && (
         <Modal
-          title={t("settings.plugins.remove.title", { name: pluginTitle(dialog.manifest) })}
+          title={t("settings.plugins.remove.title", { name: pluginName(dialog.manifest) })}
           onClose={() => setDialog(null)}
           footer={
             <button
@@ -343,7 +343,7 @@ export function PluginsSettings() {
             </button>
           }
         >
-          <p className="hint">{t("settings.plugins.remove.body", { name: pluginTitle(dialog.manifest) })}</p>
+          <p className="hint">{t("settings.plugins.remove.body", { name: pluginName(dialog.manifest) })}</p>
         </Modal>
       )}
     </>
@@ -627,7 +627,7 @@ function PluginCard({
       <div className="plugin-head">
         <Icon name={manifest.icon || "note"} size={16} />
         <div className="plugin-name">
-          <h3>{pluginTitle(manifest)}</h3>
+          <h3>{pluginName(manifest)}</h3>
           <div className="plugin-marks">
             {manifest.version && <span className="mono">{manifest.version}</span>}
             <span className={`chip ${external ? "on" : "ok"}`}>
@@ -697,7 +697,7 @@ function ConsentModal({
   onClose: () => void;
   onAgree: () => void;
 }) {
-  const name = pluginTitle(manifest);
+  const name = pluginName(manifest);
   const added = manifest.added_permissions ?? [];
   return (
     <Modal

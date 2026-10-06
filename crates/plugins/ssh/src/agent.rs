@@ -53,7 +53,7 @@ impl HostAgent {
 /// or what `ssh-keyscan` gives (`ssh-ed25519 AAAA...`), or plain base64. A
 /// comparison that ignores case and trailing equals signs covers all three
 /// forms without making anyone rewrite the field to our taste.
-fn same_key(pinned: &str, seen: &str) -> bool {
+pub(crate) fn same_key(pinned: &str, seen: &str) -> bool {
     let tidy = |v: &str| -> String {
         v.trim()
             .rsplit(' ')

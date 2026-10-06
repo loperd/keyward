@@ -21,6 +21,29 @@ pub const HOST: &str = "kw-host";
 pub const CERT: &str = "kw-cert";
 pub const CONFIRM: &str = "kw-confirm";
 pub const HOSTKEY: &str = "kw-hostkey";
+/// The login a key's hosts are entered with, when a route names none. Kept
+/// apart from `kw-host`: a pattern's `user@` is a condition the agent matches
+/// ssh's request against, while this is only what the terminal and the health
+/// checks log in as.
+pub const USER: &str = "kw-user";
+/// The port the same way: what to connect to when a route names none.
+pub const PORT: &str = "kw-port";
+
+/// The item's `kw-port`. A value that is not a port is an error rather than
+/// "no port": connecting to 22 instead of the port a person wrote is how a
+/// shell ends up on the wrong service.
+pub fn port_field(e: &VaultEntry) -> anyhow::Result<Option<u16>> {
+    let Some(raw) = e.field(PORT) else { return Ok(None) };
+    match raw.parse::<u16>() {
+        Ok(p) if p > 0 => Ok(Some(p)),
+        _ => Err(keyward_core::fault!("err.sshBadPortField", "port" => raw, "key" => e.name.as_str())),
+    }
+}
+
+/// The item's `kw-user`, when it holds one.
+pub fn user_field(e: &VaultEntry) -> Option<String> {
+    e.field(USER).map(str::to_string)
+}
 
 /// Unfolds the items into a table of mappings. It also returns a list of
 /// warnings: a broken pattern must not bring the whole agent down, but keeping

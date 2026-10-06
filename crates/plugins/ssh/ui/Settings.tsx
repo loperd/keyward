@@ -5,6 +5,13 @@ import { t } from "@keyward/i18n";
 import { call } from "@keyward/plugins/call";
 import type { SshSettings as Settings, SshStatus } from "./types";
 
+/// How often the keys' health may be checked, in minutes; zero is never.
+const HEALTH_EVERY = [0, 15, 30, 60, 180];
+
+function healthLabel(n: number): string {
+  return n === 0 ? t("settings.sshHealth.off") : t("settings.sshHealth.every", { n });
+}
+
 /// The ssh agent's settings. Its own: the core knows nothing about the agent,
 /// the sockets or the confirmation of a signature, and they are no longer in the
 /// shared `Settings`.
@@ -72,6 +79,16 @@ export function SshSettings() {
                     { id: "always", label: t("settings.sshAsk.always") },
                   ]}
                   onChange={(id) => void patch({ ask: id as Settings["ask"] })}
+                />
+              </div>
+            </Row>
+            <Row title={t("settings.sshHealth")} hint={t("settings.sshHealthHint")}>
+              <div className="control">
+                <Picker
+                  value={String(settings.health_minutes)}
+                  placeholder={healthLabel(settings.health_minutes)}
+                  options={HEALTH_EVERY.map((n) => ({ id: String(n), label: healthLabel(n) }))}
+                  onChange={(id) => void patch({ health_minutes: Number(id) })}
                 />
               </div>
             </Row>

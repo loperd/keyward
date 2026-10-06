@@ -173,8 +173,17 @@ export async function removePlugin(id: string): Promise<void> {
   await refreshPlugins();
 }
 
-/// A section's caption: the translation when there is one, otherwise the name
-/// from the manifest.
+/// A plugin's name: the package's own, exactly as the catalogue shows it. The
+/// card, the consent and the removal say this one, so that what was picked in
+/// the catalogue is recognised among the installed — "SSH" in both places, not
+/// "SSH" in one and a section's caption in the other.
+export function pluginName(manifest: Manifest): string {
+  return manifest.title || manifest.id;
+}
+
+/// A section's caption in the rail: the translation when there is one,
+/// otherwise the name from the manifest. A plugin's section may be named for
+/// what it shows ("Routes") rather than for the plugin ("SSH").
 export function pluginTitle(manifest: Manifest): string {
   return tMaybe(`plugin.${manifest.id}.title`, manifest.title);
 }
@@ -183,4 +192,10 @@ export function pluginTitle(manifest: Manifest): string {
 /// named differently — "Routes" in the rail, "SSH" in the settings.
 export function pluginSettingsTitle(manifest: Manifest): string {
   return tMaybe(`plugin.${manifest.id}.settings`, pluginTitle(manifest));
+}
+
+/// A further section's caption: `plugin.<id>.section.<section>`, and failing
+/// that the section's own name.
+export function pluginSectionTitle(manifest: Manifest, section: string): string {
+  return tMaybe(`plugin.${manifest.id}.section.${section}`, section);
 }

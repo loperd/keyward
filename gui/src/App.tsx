@@ -16,8 +16,8 @@ import { FolderEditor } from "./screens/Folders";
 import { VaultScreen, type Filter } from "./screens/Vault";
 import { GeneratorScreen } from "./screens/Generator";
 import { PROFILE_EVENT, SettingsScreen } from "./screens/Settings";
-import { call, pluginSettingsTitle, pluginTitle, refreshPlugins, usePlugins, type Manifest } from "./plugins/call";
-import { pluginEntry } from "./plugins";
+import { call, pluginSectionTitle, pluginSettingsTitle, pluginTitle, refreshPlugins, usePlugins, type Manifest } from "./plugins/call";
+import { pluginEntry, sectionView, splitSection } from "./plugins";
 import type { AccountProfile } from "./types";
 import { EditsScreen } from "./screens/Edits";
 import { DetailPane } from "./screens/Detail";
@@ -75,7 +75,7 @@ export default function App() {
   // answer for.
   useEffect(() => {
     if (isCore(tab) || plugins.length === 0) return;
-    const live = plugins.find((m) => m.id === tab);
+    const live = plugins.find((m) => m.id === splitSection(tab).plugin);
     if (live && !live.enabled) setTab("vault");
   }, [plugins, tab]);
 
@@ -411,11 +411,12 @@ export default function App() {
   // plugin has the one the daemon sent. A section the daemon does not know at
   // all may not exist either: then a stand-in manifest is assembled, so that the
   // screen can say so.
+  const tabPlugin = splitSection(tab);
   const manifest: Manifest | null = isCore(tab)
     ? null
-    : (plugins.find((m) => m.id === tab) ?? {
-        id: tab,
-        title: tab,
+    : (plugins.find((m) => m.id === tabPlugin.plugin) ?? {
+        id: tabPlugin.plugin,
+        title: tabPlugin.plugin,
         icon: "warn",
         section: true,
         needs_unlocked: false,
@@ -425,7 +426,8 @@ export default function App() {
         enabled: true,
         permissions: [],
       });
-  const entry = manifest ? pluginEntry(manifest.id) : null;
+  // What draws the tab: a plugin's main section or one of its further ones.
+  const entry = manifest ? sectionView(tab) : null;
   const hasContext = tab === "vault" || tab === "settings" || Boolean(entry?.Context);
   // A switched-off one is not in the rail: it receives no events and answers
   // calls with an error — its section would open into emptiness. It comes back
@@ -433,12 +435,20 @@ export default function App() {
   // A plugin that probes decides itself whether its section applies here —
   // the Vaultwarden panel exists only on such a server — and it shows on a
   // yes.
-  const sections = plugins.filter((m) => m.section && m.enabled && (!m.probe || available[m.id] === true));
+  const livePlugins = plugins.filter((m) => m.enabled && (!m.probe || available[m.id] === true));
+  // Each plugin's doors in the rail: its main section, then its further
+  // ones.
+  const sections = livePlugins.flatMap((m) => [
+    ...(m.section ? [{ tab: m.id, icon: m.icon, label: pluginTitle(m) }] : []),
+    ...(pluginEntry(m.id).sections ?? []).map((sec) => ({ tab: `${m.id}/${sec.id}`, icon: sec.icon, label: pluginSectionTitle(m, sec.id) })),
+  ]);
   // A section's caption in the breadcrumbs and the header: for our own from
   // the dictionary, for a plugin the translation by its name, and failing that
   // the name from the manifest.
   const tabLabel = manifest
-    ? pluginTitle(manifest)
+    ? tabPlugin.section
+      ? pluginSectionTitle(manifest, tabPlugin.section)
+      : pluginTitle(manifest)
     : tab === "vault"
       ? t("nav.items")
       : t(`nav.${tab}` as Key);
@@ -459,6 +469,14 @@ export default function App() {
           ...(filter.view.kind !== "all" && folderName === null ? [{ label: viewName }] : []),
         ]
       : [{ label: tabLabel }];
+
+  // The global creation action belongs exclusively to the item list. An open
+  // card is a reading/editing surface, not a second place to start a new one.
+  const addFab = tab === "vault" && !selected ? (
+    <button type="button" className="fab" onClick={() => setAdding(true)} title={t("item.new")} aria-label={t("item.new")}>
+      <Icon name="plus" size={18} />
+    </button>
+  ) : null;
 
   return (
     // A click past the account's menu closes it: a drop-down that cannot be
@@ -501,13 +519,13 @@ export default function App() {
           />
           {/* The plugins' sections in the order the daemon listed them: after
               the items and before the settings. */}
-          {sections.map((m) => (
+          {sections.map((sec) => (
             <RailItem
-              key={m.id}
-              icon={m.icon}
-              label={pluginTitle(m)}
-              on={tab === m.id}
-              onClick={() => setTab(m.id)}
+              key={sec.tab}
+              icon={sec.icon}
+              label={sec.label}
+              on={tab === sec.tab}
+              onClick={() => setTab(sec.tab)}
             />
           ))}
           <RailItem
@@ -955,7 +973,7 @@ export default function App() {
           </div>
         )}
 
-        <div className={`content ${tab === "vault" ? "flush" : ""}`}>
+        <div className={`content ${tab === "vault" || entry?.flush ? "flush" : ""}`}>
           {error && <Alert message={error} onRetry={() => void refresh(true)} />}
           {tab === "vault" && (
             <div className={selected ? "with-pane" : ""}>
@@ -1045,16 +1063,7 @@ export default function App() {
         <NewItem catalog={catalog} onClose={() => setAdding(false)} onCreated={() => void refresh(true)} />
       )}
 
-      {/* A new item comes from a floating button in the bottom right corner
-          rather than from the header: the screen's main action is always to
-          hand and does not depend on the window's width. */}
-      {/* Not over an open item: there the button covered the card's corner,
-          and making a new item is not what one does while reading one. */}
-      {tab === "vault" && !selected && (
-        <button type="button" className="fab" onClick={() => setAdding(true)} title={t("item.new")} aria-label={t("item.new")}>
-          <Icon name="plus" size={18} />
-        </button>
-      )}
+      {addFab}
 
       {spot && (
         <Spotlight

@@ -7,10 +7,12 @@ import { SshScreen } from "@plugin/ssh/ui/Screen";
 import { SshSettings } from "@plugin/ssh/ui/Settings";
 import { SshItemCard } from "@plugin/ssh/ui/ItemCard";
 import { SshKeyEditor } from "@plugin/ssh/ui/KeyEditor";
+import { TerminalScreen } from "@plugin/ssh/ui/TerminalScreen";
+import { TerminalContext } from "@plugin/ssh/ui/TerminalContext";
 import { VaultwardenScreen } from "@plugin/vaultwarden/ui/Screen";
-import type { Manifest, PluginItemEditor } from "./types";
+import type { Manifest, PluginItemEditor, PluginSection } from "./types";
 
-export type { PluginScreenProps, PluginEntry } from "./types";
+export type { PluginScreenProps, PluginEntry, PluginSection } from "./types";
 
 /// The only place in the core that knows a plugin by name.
 ///
@@ -26,6 +28,7 @@ const REGISTRY: Record<string, PluginEntry> = {
     SettingsSection: SshSettings,
     ItemCard: SshItemCard,
     ItemEditor: { kind: "ssh_key", code: 5, Component: SshKeyEditor },
+    sections: [{ id: "terminal", icon: "terminal", Screen: TerminalScreen, Context: TerminalContext, flush: true }],
   },
   vaultwarden: { Screen: VaultwardenScreen },
 };
@@ -44,4 +47,20 @@ export function itemEditors(plugins: Manifest[]): PluginItemEditor[] {
 /// the daemon may be newer than the interface.
 export function pluginEntry(id: string): PluginEntry {
   return REGISTRY[id] ?? { Screen: UnknownPlugin };
+}
+
+/// A rail tab of a plugin's further section is `<plugin>/<section>`; a plain
+/// name is a plugin's main section.
+export function splitSection(tab: string): { plugin: string; section: string | null } {
+  const at = tab.indexOf("/");
+  return at < 0 ? { plugin: tab, section: null } : { plugin: tab.slice(0, at), section: tab.slice(at + 1) };
+}
+
+/// What draws a rail tab: the plugin's main section or one of its further
+/// ones. An unfamiliar section is no reason to fall over either.
+export function sectionView(tab: string): Pick<PluginSection, "Screen" | "Context" | "flush"> {
+  const { plugin, section } = splitSection(tab);
+  const entry = pluginEntry(plugin);
+  if (section === null) return { Screen: entry.Screen, Context: entry.Context };
+  return entry.sections?.find((s) => s.id === section) ?? { Screen: UnknownPlugin };
 }
