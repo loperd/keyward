@@ -1,0 +1,27 @@
+[package]
+name = "keyward-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# A plugin's screens as data: the plugin declares, the window draws. And the
+# sealed link between a page and a plugin, which every such screen travels on.
+
+[features]
+# The page's side of a link, for the tests of the plugins that speak through it.
+testing = []
+
+[dependencies]
+keyward-core.workspace = true
+keyward-plugin.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait = "0.1"
+p256 = { version = "0.13", features = ["ecdh"] }
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+base64 = "0.22"
+zeroize = { version = "1.9.0", features = ["serde"] }

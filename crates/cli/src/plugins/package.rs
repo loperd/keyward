@@ -9,7 +9,7 @@
 
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{bail, Context as _};
+use anyhow::Context as _;
 use keyward_plugin::{Manifest, Origin};
 use serde::{Deserialize, Serialize};
 

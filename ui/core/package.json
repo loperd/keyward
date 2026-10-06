@@ -1,0 +1,34 @@
+{
+  "name": "@keyward/core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The window's core, shared by the desktop app (gui/) and the web app (web/): the model, the path and its query language, the words, and the components. It knows nothing of Tauri or of the browser's crypto; a backend is handed to it.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./demo": "./src/demo-entry.ts",
+    "./theme.css": "./src/ui/theme.css"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19",
+    "happy-dom": "^20.14.5",
+    "typescript": "^5.9",
+    "vitest": "^3"
+  }
+}

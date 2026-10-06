@@ -9,3 +9,9 @@ node_modules/
 gui/dist/
 gui/node_modules/
 gui/src-tauri/gen/
+
+# The stand's records of the declared plugins, written by their tests.
+gui/stand/
+
+# Python bytecode from the probe fixtures.
+__pycache__/

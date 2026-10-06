@@ -33,7 +33,9 @@ fn timeout_for(req: &Request) -> Duration {
         | Request::BiometricRemember { .. }
         | Request::PluginWithFields { .. }
         | Request::PasskeySignIn { .. }
-        | Request::PasskeyRegister { .. } => BIOMETRIC_TIMEOUT,
+        | Request::PasskeyRegister { .. }
+        | Request::PasskeyBridge { .. }
+        | Request::ExtensionPair { .. } => BIOMETRIC_TIMEOUT,
         _ => TIMEOUT,
     }
 }
@@ -74,11 +76,13 @@ pub fn call_with_timeout(req: &Request, timeout: Duration) -> anyhow::Result<Res
 /// Whether the process holding the socket is our daemon. An unsigned client
 /// (a build run from the tree) has nothing to compare with and goes on; the
 /// handshake still has to pass.
+///
+/// The daemon is the CLI's binary (`keyward daemon`): our signature with any
+/// other role at the socket is not the daemon.
 fn check_daemon(stream: &UnixStream) -> anyhow::Result<()> {
-    let pid = crate::peer::pid(stream)?;
-    match crate::peer::trust(pid) {
-        crate::peer::Trust::Alien => Err(crate::fault!("err.daemonNotOurs")),
-        _ => Ok(()),
+    match crate::peer::trust_of(stream) {
+        crate::peer::Trust::Cli | crate::peer::Trust::Unknown => Ok(()),
+        _ => Err(crate::fault!("err.daemonNotOurs")),
     }
 }
 

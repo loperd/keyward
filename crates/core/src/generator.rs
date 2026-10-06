@@ -203,6 +203,71 @@ fn rand_below(n: u32) -> u32 {
     }
 }
 
+/// What a passphrase is made of: words out of a list, the way Bitwarden makes
+/// them.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PassphraseSpec {
+    pub words: usize,
+    /// What stands between the words: one character, or none.
+    pub separator: String,
+    /// Each word with a capital first letter.
+    pub capitalize: bool,
+    /// A digit after one of the words, chosen at random.
+    pub number: bool,
+}
+
+impl PassphraseSpec {
+    pub fn validate(&self) -> Result<(), String> {
+        // Bitwarden's own bounds: three words out of 7776 is about 39 bits,
+        // and twenty is past any form's limit already.
+        if self.words < 3 {
+            return Err("err.passphraseTooShort".into());
+        }
+        if self.words > 20 {
+            return Err("err.passphraseTooLong".into());
+        }
+        if self.separator.chars().count() > 1 || self.separator.chars().any(char::is_control) {
+            return Err("err.passphraseBadSeparator".into());
+        }
+        Ok(())
+    }
+}
+
+/// Assembles a passphrase out of `list`. The list is the caller's (the
+/// daemon has the EFF list); one that is too short to be worth anything is
+/// refused rather than used.
+pub fn passphrase(spec: &PassphraseSpec, list: &[&str]) -> Result<crate::proto::Secret, String> {
+    spec.validate()?;
+    if list.len() < 1024 || list.len() > u32::MAX as usize || list.iter().any(|w| w.is_empty()) {
+        return Err("err.passphraseWordList".into());
+    }
+    let n = list.len() as u32;
+    let chosen: Vec<&str> = (0..spec.words).map(|_| list[rand_below(n) as usize]).collect();
+    let with_digit = spec.number.then(|| rand_below(spec.words as u32) as usize);
+    let digit = char::from(b'0' + rand_below(10) as u8);
+
+    // Sized up front: a string that grows leaves copies of its start behind
+    // in the memory it outgrew.
+    let room = chosen.iter().map(|w| w.len() + 1).sum::<usize>() + spec.separator.len() * spec.words + 1;
+    let mut out = crate::proto::Secret::new(String::with_capacity(room));
+    for (i, word) in chosen.iter().enumerate() {
+        if i > 0 {
+            out.push_str(&spec.separator);
+        }
+        let mut chars = word.chars();
+        if spec.capitalize {
+            if let Some(first) = chars.next() {
+                out.extend(first.to_uppercase());
+            }
+        }
+        out.push_str(chars.as_str());
+        if with_digit == Some(i) {
+            out.push(digit);
+        }
+    }
+    Ok(out)
+}
+
 /// An even choice of one character.
 ///
 /// Values from the tail of the range are thrown away: a plain remainder makes
@@ -361,5 +426,47 @@ mod tests {
     fn two_passwords_in_a_row_do_not_match() {
         let spec = Spec::default();
         assert_ne!(password(&spec).expect("the first"), password(&spec).expect("the second"));
+    }
+}
+
+#[cfg(test)]
+mod passphrase_tests {
+    use super::*;
+
+    fn list() -> Vec<String> {
+        (0..2048).map(|i| format!("w{i:04}")).collect()
+    }
+
+    #[test]
+    fn a_passphrase_has_its_words_its_separator_and_one_digit() {
+        let words = list();
+        let refs: Vec<&str> = words.iter().map(String::as_str).collect();
+        let spec = PassphraseSpec { words: 5, separator: "-".into(), capitalize: true, number: true };
+        let phrase = passphrase(&spec, &refs).expect("made");
+        let parts: Vec<&str> = phrase.split('-').collect();
+        assert_eq!(parts.len(), 5);
+        assert!(parts.iter().all(|p| p.starts_with('W')), "{parts:?}");
+        // Every word of the list is five characters long: the digit makes
+        // exactly one of them six.
+        assert_eq!(parts.iter().filter(|p| p.len() == 6).count(), 1, "{parts:?}");
+        assert!(parts.iter().all(|p| refs.contains(&p[..5].to_lowercase().as_str())));
+
+        let plain = PassphraseSpec { words: 3, separator: String::new(), capitalize: false, number: false };
+        let phrase = passphrase(&plain, &refs).expect("made");
+        assert_eq!(phrase.len(), 15);
+        assert!(phrase.starts_with('w'));
+    }
+
+    #[test]
+    fn a_passphrase_out_of_bounds_or_from_a_poor_list_is_refused() {
+        let words = list();
+        let refs: Vec<&str> = words.iter().map(String::as_str).collect();
+        let spec = |words: usize, separator: &str| PassphraseSpec { words, separator: separator.into(), capitalize: false, number: false };
+        assert!(passphrase(&spec(2, "-"), &refs).is_err());
+        assert!(passphrase(&spec(21, "-"), &refs).is_err());
+        assert!(passphrase(&spec(4, "--"), &refs).is_err());
+        assert!(passphrase(&spec(4, "\n"), &refs).is_err());
+        assert!(passphrase(&spec(4, "-"), &refs[..100]).is_err());
+        assert!(passphrase(&spec(4, " "), &refs).is_ok());
     }
 }

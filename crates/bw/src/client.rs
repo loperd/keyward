@@ -11,9 +11,12 @@ use std::time::Duration;
 /// The client name out of Bitwarden's list.
 const CLIENT_NAME: &str = "desktop";
 
-/// The version from which the server reckons a client can understand ssh
-/// keys. It must not be lowered: the items simply vanish from the answer.
-const CLIENT_VERSION: &str = "2024.12.0";
+/// The version the client introduces itself with. Two servers read it: below
+/// 2024.12 Vaultwarden hides the ssh keys from the answer, and bitwarden.com
+/// refuses a login from a version it calls too old ("Please update your app
+/// to continue using Bitwarden" — it refused 2024.12.0 in October 2026). It
+/// follows the current desktop release; it must not be lowered.
+const CLIENT_VERSION: &str = "2026.6.0";
 
 /// `DeviceType.MacOsDesktop` in Bitwarden's classification.
 const DEVICE_TYPE: &str = "7";

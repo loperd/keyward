@@ -140,13 +140,22 @@ impl std::fmt::Display for WriteError {
 }
 
 async fn send(req: reqwest::RequestBuilder) -> Result<(), WriteError> {
+    send_text(req).await.map(drop)
+}
+
+/// [`send`], keeping the answer's body: a creation's answer names what it
+/// made.
+async fn send_text(req: reqwest::RequestBuilder) -> Result<String, WriteError> {
     let res = req
         .send()
         .await
         .map_err(|e| WriteError::Other(anyhow::anyhow!("the server is unreachable: {e}")))?;
     let status = res.status();
     if status.is_success() {
-        return Ok(());
+        return res
+            .text()
+            .await
+            .map_err(|e| WriteError::Other(anyhow::anyhow!("the server's answer broke off: {e}")));
     }
     if status == reqwest::StatusCode::UNAUTHORIZED {
         return Err(WriteError::Unauthorized);
@@ -232,17 +241,76 @@ pub async fn purge_ciphers(
     }
 }
 
-/// Creating an item.
-pub async fn post_cipher(base_url: &str, access_token: &str, cipher: &Cipher) -> Result<(), WriteError> {
-    let url = format!("{}/api/ciphers", base_url.trim_end_matches('/'));
-    let body = cipher_json(cipher);
+/// Creating an item; the answer is its identifier.
+///
+/// An organisation's item goes to `/api/ciphers/create` with the collections
+/// it lies in: the server refuses one in no collection, and one's own item
+/// has none.
+pub async fn post_cipher(
+    base_url: &str,
+    access_token: &str,
+    cipher: &Cipher,
+    collection_ids: &[String],
+) -> Result<String, WriteError> {
+    let base = base_url.trim_end_matches('/');
     let http = client().map_err(WriteError::Other)?;
-    send(http.post(url).bearer_auth(access_token).json(&body)).await
+    let req = match (&cipher.organization_id, collection_ids.is_empty()) {
+        (None, true) => http.post(format!("{base}/api/ciphers")).json(&cipher_json(cipher)),
+        (Some(_), false) => {
+            for id in collection_ids {
+                path_id(id)?;
+            }
+            let body = serde_json::json!({ "cipher": cipher_json(cipher), "collectionIds": collection_ids });
+            http.post(format!("{base}/api/ciphers/create")).json(&body)
+        }
+        (None, false) => return Err(WriteError::Other(keyward_core::fault!("err.collectionsNeedOrg"))),
+        (Some(_), true) => return Err(WriteError::Other(keyward_core::fault!("err.collectionRequired"))),
+    };
+    let text = send_text(req.bearer_auth(access_token)).await?;
+    created_id(&text)
+}
+
+/// The item's identifier out of the server's answer to a creation.
+fn created_id(text: &str) -> Result<String, WriteError> {
+    #[derive(serde::Deserialize)]
+    struct Created {
+        #[serde(alias = "Id")]
+        id: String,
+    }
+    let created: Created = serde_json::from_str(text)
+        .map_err(|e| WriteError::Other(anyhow::anyhow!("the answer about the created item will not parse: {e}")))?;
+    path_id(&created.id)?;
+    Ok(created.id)
+}
+
+/// The collections an organisation's item lies in, replaced whole.
+pub async fn put_collections(
+    base_url: &str,
+    access_token: &str,
+    id: &str,
+    collection_ids: &[String],
+) -> Result<(), WriteError> {
+    let id = path_id(id)?;
+    for c in collection_ids {
+        path_id(c)?;
+    }
+    let url = format!("{}/api/ciphers/{id}/collections", base_url.trim_end_matches('/'));
+    let body = serde_json::json!({ "collectionIds": collection_ids });
+    let http = client().map_err(WriteError::Other)?;
+    send(http.put(url).bearer_auth(access_token).json(&body)).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_created_item_is_named_by_the_answer_or_the_answer_is_refused() {
+        assert_eq!(created_id(r#"{"id":"6f4b2c1e-9a3d","object":"cipherDetails"}"#).unwrap(), "6f4b2c1e-9a3d");
+        for raw in ["{}", r#"{"id":""}"#, r#"{"id":"../../x"}"#, "", "null"] {
+            assert!(created_id(raw).is_err(), "{raw}");
+        }
+    }
 
     /// The server's answer for an item, taken from a live vault but with
     /// everything we do not show: the item's own key, password history, a

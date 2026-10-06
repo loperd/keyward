@@ -72,6 +72,26 @@ pub struct VaultItem {
     pub collection_ids: Vec<String>,
     /// The item asks for the master password again.
     pub reprompt: bool,
+    /// When the item was last changed on the server (ISO 8601): the ledger's
+    /// "updated" column.
+    #[serde(default)]
+    pub revised: Option<String>,
+    /// When a login's password was last changed (ISO 8601): an old one is a
+    /// warning.
+    #[serde(default)]
+    pub password_revised: Option<String>,
+    /// A card's expiry as `YYYY-MM`: expired or close to it is a signal.
+    #[serde(default)]
+    pub expires: Option<String>,
+    /// How many other items carry the very same password. Counted inside the
+    /// daemon from salted hashes; no password and no hash leaves it.
+    #[serde(default)]
+    pub reused: u32,
+    /// Which items share a password with this one: a number within one
+    /// catalogue, the same for all of them; `None` when the password is its
+    /// own. A number, not a hash.
+    #[serde(default)]
+    pub reuse_group: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -262,6 +282,57 @@ impl MemberStatus {
     }
 }
 
+/// A member's level of access to one collection: the server's three flags
+/// (`readOnly`, `hidePasswords`, `manage`) read as the one level they mean,
+/// the way Bitwarden's own clients read them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CollectionPermission {
+    /// Edit the items and manage the collection itself.
+    Manage,
+    /// Edit the items, passwords included.
+    Edit,
+    /// Edit the items without seeing their passwords.
+    EditHidden,
+    /// See the items, passwords included.
+    Read,
+    /// See the items without their passwords.
+    ReadHidden,
+}
+
+impl CollectionPermission {
+    /// `manage` outranks the rest: the server sends it with the other two
+    /// flags clear, but a manager is a manager whatever they say.
+    pub fn from_flags(read_only: bool, hide_passwords: bool, manage: bool) -> Self {
+        match (manage, read_only, hide_passwords) {
+            (true, _, _) => Self::Manage,
+            (false, true, true) => Self::ReadHidden,
+            (false, true, false) => Self::Read,
+            (false, false, true) => Self::EditHidden,
+            (false, false, false) => Self::Edit,
+        }
+    }
+
+    /// The flags a level is sent to the server as: `(read_only,
+    /// hide_passwords, manage)`.
+    pub fn flags(self) -> (bool, bool, bool) {
+        match self {
+            Self::Manage => (false, false, true),
+            Self::Edit => (false, false, false),
+            Self::EditHidden => (false, true, false),
+            Self::Read => (true, false, false),
+            Self::ReadHidden => (true, true, false),
+        }
+    }
+}
+
+/// One collection a member was given by name, and at what level.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CollectionAccess {
+    pub id: String,
+    pub permission: CollectionPermission,
+}
+
 /// A member of an organisation, already in the shape they are shown in.
 ///
 /// The server's numbers are a detail of the protocol, and one layer should be
@@ -279,8 +350,13 @@ pub struct OrgMember {
     pub two_factor: bool,
     /// Access to every collection of the organisation at once.
     pub access_all: bool,
-    /// How many collections were given by name.
+    /// How many collections were given by name. Kept for the old window;
+    /// `access` says which and how.
     pub collections: usize,
+    /// The collections given by name, each with its level. Empty with
+    /// `access_all`.
+    #[serde(default)]
+    pub access: Vec<CollectionAccess>,
     /// This is the owner of the account we are looking from.
     pub is_you: bool,
     /// Whether the one looking may change this member's role or remove them.
@@ -293,6 +369,35 @@ pub struct OrgMember {
 #[cfg(test)]
 mod rights_tests {
     use super::*;
+
+    #[test]
+    fn the_servers_flags_read_as_one_level_and_back() {
+        use CollectionPermission as P;
+        assert_eq!(P::from_flags(false, false, false), P::Edit);
+        assert_eq!(P::from_flags(false, true, false), P::EditHidden);
+        assert_eq!(P::from_flags(true, false, false), P::Read);
+        assert_eq!(P::from_flags(true, true, false), P::ReadHidden);
+        // A manager is a manager, whatever the other flags say.
+        for (ro, hide) in [(false, false), (true, false), (false, true), (true, true)] {
+            assert_eq!(P::from_flags(ro, hide, true), P::Manage);
+        }
+        for p in [P::Manage, P::Edit, P::EditHidden, P::Read, P::ReadHidden] {
+            let (ro, hide, manage) = p.flags();
+            assert_eq!(P::from_flags(ro, hide, manage), p, "{p:?} must survive the round trip");
+        }
+        assert_eq!(serde_json::to_string(&P::ReadHidden).unwrap(), r#""read_hidden""#);
+        assert_eq!(serde_json::to_string(&P::EditHidden).unwrap(), r#""edit_hidden""#);
+    }
+
+    #[test]
+    fn a_member_from_an_older_daemon_has_no_access_list() {
+        let raw = r#"{"id":"m","user_id":null,"name":null,"email":"a@b.c","role":"user",
+            "status":"confirmed","two_factor":false,"access_all":false,"collections":2,
+            "is_you":false,"can_edit":true,"can_confirm":false}"#;
+        let m: OrgMember = serde_json::from_str(raw).expect("parses");
+        assert_eq!(m.collections, 2);
+        assert!(m.access.is_empty());
+    }
 
     fn rights(role: OrgRole, manage_users: bool) -> OrgRights {
         OrgRights {
@@ -479,6 +584,11 @@ mod tests {
             org_name: None,
             collection_ids: Vec::new(),
             reprompt: false,
+            revised: None,
+            password_revised: None,
+            expires: None,
+            reused: 0,
+            reuse_group: None,
         }
     }
 

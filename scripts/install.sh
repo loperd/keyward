@@ -227,6 +227,16 @@ do_install() {
   # build directory. bootout comes back before the job really disappears, so we
   # wait — otherwise the next bootstrap falls over with "Input/output error".
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+  # The agent under its old label, from before the label changed: left loaded,
+  # it starts a second daemon that takes the socket from this one.
+  for old in net.0x2c.keyward; do
+    if [ -e "$HOME/Library/LaunchAgents/$old.plist" ] || launchctl print "gui/$(id -u)/$old" >/dev/null 2>&1; then
+      launchctl bootout "gui/$(id -u)/$old" 2>/dev/null || true
+      mkdir -p "$LOG_DIR/backup"
+      [ -e "$HOME/Library/LaunchAgents/$old.plist" ] && mv "$HOME/Library/LaunchAgents/$old.plist" "$LOG_DIR/backup/"
+      note "the old agent $old was unloaded; its plist is in $LOG_DIR/backup"
+    fi
+  done
   for _ in $(seq 1 20); do
     launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || break
     sleep 0.25

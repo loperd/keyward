@@ -1,0 +1,322 @@
+/* The core's theme: the app's palette (the same tokens as gui/src/theme.css,
+   both themes, a theme chosen by hand overruling the system's), the base
+   rules every screen stands on, and the layout system of the window. Every
+   size a component uses comes from here; no rule uses a stray number.
+
+   The interface is in Russian and in English, so the Cyrillic subsets are
+   compulsory: without them the text silently falls back to a system font. */
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/cyrillic-400.css";
+@import "@fontsource/ibm-plex-sans/cyrillic-500.css";
+@import "@fontsource/ibm-plex-sans/cyrillic-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/cyrillic-400.css";
+
+/* ================= the palette ================= */
+:root {
+  --ink: #101016;
+  --rail: #14141d;
+  --surface: #1a1a25;
+  --panel: #171720;
+  --block: #20202c;
+  --field: #232330;
+  --field-focus: #2a2939;
+  --raise: #292837;
+  --edge: #343343;
+  --edge-soft: #292837;
+
+  /* The accent is a sea turquoise on graphite. Bitwarden's blue and the indigo
+     that replaced it are gone: indigo read as violet on a dark ground. The
+     fifth colour of the semantics (identities, keys, transit) is a saturated
+     orange rather than lilac or a pastel; the amber is shifted towards gold to
+     tell it apart. */
+  --blue: #7865f5;
+  --blue-hi: #8d7cff;
+  --sky: #b4a8ff;
+  --mint: #42d6a4;
+  /* Cyan for what a terminal paints cyan: no accent stands in for it. */
+  --cyan: #4fc8d8;
+  /* Words on a filled accent: a primary button, its ring while at work. */
+  --on-accent: #fff;
+  /* Dark words on a bright fill (a light folder colour, a card's chip). */
+  --on-bright: #111419;
+  /* A sheen and a shade: what light and shadow are mixed from. Every
+     highlight and every shadow is a share of these, so a theme moves them
+     all at once. */
+  --hi: #fff;
+  --shade: #000;
+  --amber: #f2c14e;
+  --rose: #ff6f7d;
+  --orange: #ff9560;
+  /* The tones of the blocks and the marks — decoration, not meaning. They
+     start as the three colours above, and a palette turns them into shades of
+     its own colour; "done", "mind this" and "dangerous" keep theirs. */
+  --tone-1: var(--mint);
+  --tone-2: var(--amber);
+  --tone-3: var(--orange);
+
+  --text: #f0eff8;
+  /* The measurement showed 3.39:1 on the tallies and the sections' headings —
+     below the threshold. Both steps have been raised: 11px in a small face is
+     still readable. */
+  --dim: #a6a4b6;
+  --faint: #777587;
+
+  --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* One height for every control in the top bar: a mismatch between the search
+     field and the buttons reads as carelessness faster than anything. */
+  --bar: 48px;
+  /* One height for every control: the field, the list, the button. A mismatch
+     between them reads as carelessness faster than anything else. */
+  --control: 32px;
+  --titlebar: 28px;
+
+  /* The scale of radii — exactly four steps, and each has work of its own.
+     The measurement showed a jumble: 2, 3, 5, 6, 10, 12, 13, 14 plus the
+     tokens. The eye catches that as carelessness even where it cannot name
+     the reason. */
+  --r-in: 6px;    /* small things inside a control: a mark, an icon, a kbd */
+  --r-ctl: 10px;  /* everything that is pressed: a button, a field, a list cell */
+  --r-panel: 16px; /* a panel, a card, an empty state */
+  --r-win: 20px;  /* a window over a window: a dialogue, a palette, a drop-down */
+  --r-pill: 999px; /* only what is not a button: a pill mark, a switch */
+  /* The old names are aliases of the new ones: the edits went through the
+     files by degrees. */
+  --r: var(--r-ctl);
+  --r-lg: var(--r-panel);
+
+  /* Three shadows rather than eight. A shadow reports a height, and we have
+     three heights: lying in place, floated up beside a control, covering the
+     screen. */
+  --sh-1: 0 1px 2px rgb(0 0 0 / 0.25);
+  --sh-pop: 0 12px 28px rgb(0 0 0 / 0.45);
+  --sh-win: 0 24px 60px rgb(0 0 0 / 0.5);
+  /* One focus ring for the whole application. */
+  --ring: 0 0 0 3px color-mix(in srgb, var(--sky) 16%, transparent);
+  /* The built-in curves are too limp. These are the strong variants: the
+     movement begins at once, and that is the moment the eye watches most
+     closely. ease-in is not used in the interface at all: it drags at the start
+     and makes the response feel hesitant. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ink: #f7f6fb;
+    --rail: #eeedf5;
+    --surface: #ffffff;
+    --panel: #fbfaff;
+    --block: #f2f1f8;
+    --field: #ffffff;
+    --field-focus: #ffffff;
+    --raise: #ebeaf3;
+    --edge: #dedce8;
+    --edge-soft: #e9e7f0;
+    --blue: #6250dc;
+    --blue-hi: #725fff;
+    --sky: #5544c7;
+    --mint: #158f6d;
+    --cyan: #0f7f8f;
+    --amber: #946d0c;
+    --rose: #d4475a;
+    --orange: #c45b26;
+    --text: #1d1c28;
+    --dim: #625f72;
+    --faint: #908ca0;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #101016; --rail: #14141d; --surface: #1a1a25; --raise: #292837;
+  --edge: #343343; --edge-soft: #292837; --sky: #b4a8ff; --mint: #42d6a4;
+  --amber: #f2c14e; --rose: #ff6f7d; --text: #f0eff8; --dim: #a6a4b6; --faint: #777587;
+  --panel: #171720; --block: #20202c; --field: #232330; --field-focus: #2a2939; --orange: #ff9560; --blue: #7865f5; --blue-hi: #8d7cff;
+  --cyan: #4fc8d8;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --ink: #f7f6fb; --rail: #eeedf5; --surface: #fff; --raise: #ebeaf3;
+  --edge: #dedce8; --edge-soft: #e9e7f0; --sky: #5544c7; --mint: #158f6d;
+  --amber: #946d0c; --rose: #d4475a; --text: #1d1c28; --dim: #625f72; --faint: #908ca0;
+  --panel: #fbfaff; --block: #f2f1f8; --field: #fff; --field-focus: #fff; --orange: #c45b26; --blue: #6250dc; --blue-hi: #725fff;
+  --cyan: #0f7f8f;
+  color-scheme: light;
+}
+
+/* ================= the layout system =================
+   Unit 8, 4 only as a half-step inside small groups.
+   One horizontal gutter: the strip, the column captions and the rows' content
+   all stand --gutter in from their sheet's edge; a hover surface (row, field,
+   relation) reaches --pad past the content, so content edges stay on one line
+   whether the pointer is there or not. The inspector has a wider gutter of
+   its own, the same in every answer (document, list, preview, map).
+   A list's lead slot is one tile wide in every list; a 16px mark or icon sits
+   centred in it, so the text column starts at the same x in every row.
+   Vertical: the first two-line row's tile, the hero tile and every answer's
+   first line stand on --first-line from the top of their sheet.
+   Type: 12/16 body, 16/24 a value to read, 20/28 a title. Weights by role:
+   400 text, 500 a name, 600 a heading. */
+:root {
+  --u: 8px; --half: 4px;
+  --u2: calc(var(--u) * 2); --u3: calc(var(--u) * 3); --u4: calc(var(--u) * 4); --u5: calc(var(--u) * 5); --u6: calc(var(--u) * 6);
+  --traffic: calc(var(--u) * 10);   /* the window's own buttons sit in this blank */
+  --strip-h: var(--u6);
+  --ctl: var(--u4);                 /* a button, the line, a menu option */
+  --chip: var(--u3);                /* a crumb, a finding, an icon button inside the line */
+  --row-1: var(--u5);               /* a row of one line */
+  --row-2: var(--u6);               /* a row of two lines */
+  --col-w: calc(var(--u) * 36);     /* every list column: 288 */
+  --spine: var(--u6);
+  --gutter: var(--u2);              /* content inset from a sheet's edge */
+  --pad: var(--u);                  /* how far a hover surface reaches past its content */
+  --lead-gap: var(--u);             /* lead slot → text */
+  --insp-gutter: var(--u5);         /* the inspector's own inset */
+  --insp-max: calc(var(--u) * 80);  /* a document's text measure: 640 */
+  --insp-wide: calc(var(--u) * 100);/* a document with a table: 800 */
+  --insp-flat: calc(var(--u) * 130);/* the calm list: 1040 */
+  --narrow: calc(var(--u) * 162);   /* below this window width one list stays open */
+  --first-line: var(--u3);          /* the first line of every sheet */
+  --label-w: calc(var(--u) * 20);   /* a field's label column: 160 */
+  --sec-gap: var(--u4);             /* between sections */
+  --head-gap: var(--u2);            /* a section heading → its content */
+  --grp-gap: var(--u);              /* within a group */
+  --ic: var(--u2); --ic-h: calc(var(--u) * 2.5);   /* icons: 16 in rows and controls, 20 in heads */
+  --mark: var(--u2);
+  --tile: var(--u4); --tile-hero: var(--u6);
+  --node-h: var(--row-1);
+  --bar-w: 2px;                     /* the focus bar */
+  --fs-s: 12px; --lh-s: 16px;
+  --fs-m: 16px; --lh-m: 24px;
+  --fs-l: 20px; --lh-l: 28px;
+  --w-text: 400; --w-name: 500; --w-head: 600;
+  /* the map's canvas: where the first point may stand, the least room left
+     under the last, the least step between points of a lane, the most */
+  --map-top: calc(var(--u) * 9);
+  --map-bottom: var(--u4);
+  --map-gap: calc(var(--u) * 7);
+  --map-step: calc(var(--u) * 17);
+  --map-lane-gap: calc(var(--u) * 40);
+  --map-min-w: calc(var(--u) * 70);
+  /* Motion: every action shows that it started and that it ended. Three
+     durations — a press or a hover, a sheet or a toast coming in, a width
+     folding — and the curves above (--ease-out, --ease-in-out, --ease). A
+     loader that does not know how long it waits turns once per --dur-loop;
+     rows coming in one after another are --stagger apart; a sheet travels
+     --travel as it comes in, a refused button nudges --nudge each way. */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --dur-spin: 700ms;
+  --dur-loop: 1200ms;
+  --stagger: 20ms;
+  --travel: var(--u2);
+  --nudge: var(--half);
+}
+
+/* ================= the window's surfaces =================
+   Dark: the tiers are the rail and the block; light: they must read as steps,
+   not as a haze. */
+:root {
+  --tier-lo: var(--rail);
+  --tier-hi: var(--block);
+  --pill: var(--raise);
+  --pill-edge: color-mix(in srgb, var(--hi) 6%, transparent);
+  --sheet-shadow: color-mix(in srgb, var(--shade) 48%, transparent);
+  --sheet-edge: color-mix(in srgb, var(--shade) 36%, transparent);
+  --sheet-lit: color-mix(in srgb, var(--hi) 4%, transparent);
+  --hover: color-mix(in srgb, var(--text) 5%, transparent);
+  --press: color-mix(in srgb, var(--text) 8%, transparent);
+  --line-bg: color-mix(in srgb, var(--text) 6%, transparent);
+  --line-edge: transparent;
+  --bar-c: var(--blue-hi);
+  --dot: color-mix(in srgb, var(--edge) 90%, transparent);
+  --m-crit: var(--rose); --m-act: var(--orange); --m-warn: var(--amber); --m-ok: var(--mint); --m-unk: var(--faint);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --tier-lo: color-mix(in srgb, var(--edge) 78%, var(--rail));
+    --tier-hi: var(--surface);
+    --pill: var(--surface);
+    --pill-edge: var(--edge);
+    --sheet-shadow: color-mix(in srgb, var(--shade) 20%, transparent);
+    --sheet-edge: color-mix(in srgb, var(--edge) 60%, var(--faint));
+    --sheet-lit: color-mix(in srgb, var(--hi) 80%, transparent);
+    --hover: color-mix(in srgb, var(--text) 6%, transparent);
+    --line-bg: var(--surface);
+    --line-edge: color-mix(in srgb, var(--edge) 70%, var(--faint));
+    --bar-c: var(--blue);
+    --dot: color-mix(in srgb, var(--edge) 100%, var(--shade) 8%);
+  }
+}
+:root[data-theme="light"] {
+  --tier-lo: color-mix(in srgb, var(--edge) 78%, var(--rail));
+  --tier-hi: var(--surface);
+  --pill: var(--surface);
+  --pill-edge: var(--edge);
+  --sheet-shadow: color-mix(in srgb, var(--shade) 20%, transparent);
+  --sheet-edge: color-mix(in srgb, var(--edge) 60%, var(--faint));
+  --sheet-lit: color-mix(in srgb, var(--hi) 80%, transparent);
+  --hover: color-mix(in srgb, var(--text) 6%, transparent);
+  --line-bg: var(--surface);
+  --line-edge: color-mix(in srgb, var(--edge) 70%, var(--faint));
+  --bar-c: var(--blue);
+  --dot: color-mix(in srgb, var(--edge) 100%, var(--shade) 8%);
+}
+:root[data-theme="dark"] {
+  --tier-lo: var(--rail);
+  --tier-hi: var(--block);
+  --pill: var(--raise);
+  --pill-edge: color-mix(in srgb, var(--hi) 6%, transparent);
+  --sheet-shadow: color-mix(in srgb, var(--shade) 48%, transparent);
+  --sheet-edge: color-mix(in srgb, var(--shade) 36%, transparent);
+  --sheet-lit: color-mix(in srgb, var(--hi) 4%, transparent);
+  --hover: color-mix(in srgb, var(--text) 5%, transparent);
+  --line-bg: color-mix(in srgb, var(--text) 6%, transparent);
+  --line-edge: transparent;
+  --bar-c: var(--blue-hi);
+  --dot: color-mix(in srgb, var(--edge) 90%, transparent);
+}
+
+/* ================= the base ================= */
+* { box-sizing: border-box; }
+/* The browser's paragraph and heading margins are off the scale. */
+p, h1, h2, h6 { margin: 0; }
+html, body, #root { height: 100%; margin: 0; }
+html, body { overflow: hidden; overscroll-behavior: none; }
+/* The interface's text is not selectable, as in a native application;
+   selection is left to the input and to the values copied by eye. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  background: var(--tier-lo);
+  color: var(--text);
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+input, textarea, .kw-mono, .kw-selectable { -webkit-user-select: text; user-select: text; }
+/* A browser's button has padding and a font of its own; both are zeroed, and
+   set explicitly where they are wanted. */
+button { font: inherit; cursor: pointer; padding: 0; color: inherit; }
+input, textarea, select { font: inherit; }
+button:disabled { opacity: 0.4; cursor: default; }
+:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--sky) 18%, transparent); }
+
+/* Less movement: nothing travels (a transform gives way to opacity) and
+   every duration is near zero. A loader still says that something is under
+   way: it breathes in place instead of turning or sweeping. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 1ms; --dur: 1ms; --dur-slow: 1ms; --stagger: 0ms; --travel: 0px; --nudge: 0px; }
+  *, *::before, *::after { transition-property: opacity, color, background-color, border-color !important; animation-duration: 1ms !important; }
+  .kw-spin, .kw-turning, .kw-sync.kw-syncing svg, .kw-activity.kw-on::before { animation: kw-breathe var(--dur-loop) ease-in-out infinite !important; transform: none; translate: none; }
+  .kw-activity.kw-on::before { width: 100% !important; }
+}
+@keyframes kw-breathe { 50% { opacity: 0.35; } }

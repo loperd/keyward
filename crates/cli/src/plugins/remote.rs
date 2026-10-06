@@ -22,7 +22,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use anyhow::{bail, Context as _};
+use anyhow::Context as _;
 use sha2::{Digest, Sha256};
 
 use super::catalog;

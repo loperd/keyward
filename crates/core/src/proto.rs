@@ -64,7 +64,50 @@ pub enum Request {
     InviteMember { org_id: String, email: String, role: crate::items::OrgRole },
     SetMemberRole { org_id: String, member_id: String, role: crate::items::OrgRole },
     RemoveMember { org_id: String, member_id: String },
-    ConfirmMember { org_id: String, member_id: String, user_id: String },
+    /// `fingerprint` is the five words the person was shown
+    /// (`MemberFingerprint`): the daemon seals to the member's key only while
+    /// it still makes them.
+    ConfirmMember { org_id: String, member_id: String, user_id: String, fingerprint: Vec<String> },
+    /// A member's fingerprint phrase, to compare with them before confirming.
+    MemberFingerprint { org_id: String, member_id: String, user_id: String },
+    /// Invite people with a role and their access: to every collection, or
+    /// to the named ones at their levels.
+    InviteMembers {
+        org_id: String,
+        emails: Vec<String>,
+        role: crate::items::OrgRole,
+        access_all: bool,
+        access: Vec<crate::items::CollectionAccess>,
+    },
+    /// Change a member's role and access in one step.
+    SetMember {
+        org_id: String,
+        member_id: String,
+        role: crate::items::OrgRole,
+        access_all: bool,
+        access: Vec<crate::items::CollectionAccess>,
+    },
+    /// Folders and collections made with an answer that names them:
+    /// `Created { id }`.
+    NewFolder { name: String },
+    NewCollection { org_id: String, name: String },
+    /// Create an item in one's own vault or in an organisation's
+    /// collections; the answer is `Created { id }`.
+    NewItem {
+        kind: u8,
+        folder_id: Option<String>,
+        org_id: Option<String>,
+        collection_ids: Vec<String>,
+        edit: ItemEdit,
+    },
+    /// Put an organisation's item into these collections, and only these.
+    SetItemCollections { entry_id: String, collection_ids: Vec<String> },
+    /// Whether this is the master password, checked against the open vault
+    /// and changing nothing: what an item marked for a re-prompt asks. The
+    /// answer is `PasswordChecked`.
+    VerifyPassword { password: Secret },
+    /// Generate a passphrase out of the EFF list, here in the daemon.
+    GeneratePassphrase { spec: crate::generator::PassphraseSpec },
     /// Create an organisation.
     CreateOrg { name: String, billing_email: String },
     /// Rename an organisation.
@@ -162,7 +205,18 @@ pub enum Request {
     Login { password: Secret },
     /// The second step of logging in: the code from the chosen method. The
     /// password does not travel again — it waits in the daemon's memory.
-    LoginTwoFactor { provider: u8, token: Secret },
+    /// `remember`: the server is asked to remember this device, and the token
+    /// it hands out is kept sealed in the daemon's store for the next login.
+    LoginTwoFactor {
+        provider: u8,
+        token: Secret,
+        #[serde(default)]
+        remember: bool,
+    },
+    /// The active account's saved session does not read
+    /// (`VaultState::Damaged`): forget it, so the person can sign in again.
+    /// Refused for a session that reads.
+    ResetSession,
     /// Ask the server to send a code by email.
     SendTwoFactorEmail,
     /// Unlocking with the master password.
@@ -290,6 +344,23 @@ pub enum Request {
     PasskeyHomes { sign_in: crate::passkey::SignIn },
     /// Register a new passkey in the vault. Touch ID every time.
     PasskeyRegister { request: crate::passkey::Register },
+    /// A passkey request as the browser extension signed it, passed on by the
+    /// bridge untouched: `signed` is the extension's JSON
+    /// (`crate::passkey::Signed`), `sig` its ECDSA P-256 signature, `key` the
+    /// extension's public key. The daemon checks the signature and that the
+    /// key is paired before it reads a word of the request — the bridge
+    /// decides nothing.
+    PasskeyBridge { key: String, signed: String, sig: String },
+
+    // -- Browser extensions ---------------------------------------------------
+    /// The paired extensions, and those that asked lately without being
+    /// paired.
+    Extensions,
+    /// Pair an extension that asked lately: its key may sign passkey
+    /// requests from now on. The finger, every time.
+    ExtensionPair { key: String },
+    /// Unpair one.
+    ExtensionUnpair { key: String },
 }
 
 /// `Debug` for `Request` is written by hand: a derived one would print the
@@ -324,6 +395,32 @@ impl std::fmt::Debug for Request {
             }
             Self::RemoveMember { member_id, .. } => write!(f, "RemoveMember({member_id})"),
             Self::ConfirmMember { member_id, .. } => write!(f, "ConfirmMember({member_id})"),
+            Self::MemberFingerprint { member_id, .. } => write!(f, "MemberFingerprint({member_id})"),
+            // Addresses are people's: a count is what a log needs.
+            Self::InviteMembers { emails, role, access_all, access, .. } => write!(
+                f,
+                "InviteMembers({} of them, {role:?}, all={access_all}, {} collections)",
+                emails.len(),
+                access.len()
+            ),
+            Self::SetMember { member_id, role, access_all, access, .. } => write!(
+                f,
+                "SetMember({member_id}, {role:?}, all={access_all}, {} collections)",
+                access.len()
+            ),
+            Self::NewFolder { .. } => write!(f, "NewFolder"),
+            Self::NewCollection { org_id, .. } => write!(f, "NewCollection({org_id})"),
+            Self::NewItem { kind, org_id, collection_ids, edit, .. } => write!(
+                f,
+                "NewItem(kind {kind}, org {org_id:?}, {} collections, fields {:?})",
+                collection_ids.len(),
+                edit.labels()
+            ),
+            Self::SetItemCollections { entry_id, collection_ids } => {
+                write!(f, "SetItemCollections({entry_id}, {} of them)", collection_ids.len())
+            }
+            Self::VerifyPassword { .. } => write!(f, "VerifyPassword {{ password: <hidden> }}"),
+            Self::GeneratePassphrase { spec } => write!(f, "GeneratePassphrase({} words)", spec.words),
             Self::CreateOrg { name, .. } => write!(f, "CreateOrg({name})"),
             Self::UpdateOrg { org_id, .. } => write!(f, "UpdateOrg({org_id})"),
             // The password will not travel into a log.
@@ -380,9 +477,10 @@ impl std::fmt::Debug for Request {
                 "Setup {{ base_url: {base_url:?}, email: {email:?}, identity_url: {identity_url:?} }}"
             ),
             Self::Login { .. } => write!(f, "Login {{ password: <hidden> }}"),
-            Self::LoginTwoFactor { provider, .. } => {
-                write!(f, "LoginTwoFactor {{ provider: {provider}, token: <hidden> }}")
+            Self::LoginTwoFactor { provider, remember, .. } => {
+                write!(f, "LoginTwoFactor {{ provider: {provider}, token: <hidden>, remember: {remember} }}")
             }
+            Self::ResetSession => write!(f, "ResetSession"),
             Self::SendTwoFactorEmail => write!(f, "SendTwoFactorEmail"),
             Self::Unlock { .. } => write!(f, "Unlock {{ password: <hidden> }}"),
             Self::BiometricUnlock => write!(f, "BiometricUnlock"),
@@ -428,6 +526,10 @@ impl std::fmt::Debug for Request {
             Self::PasskeySignIn { request } => write!(f, "PasskeySignIn {{ {:?} }}", request.sign_in.origin),
             Self::PasskeyRegister { request } => write!(f, "PasskeyRegister {{ {:?} }}", request.origin),
             Self::PasskeyHomes { sign_in } => write!(f, "PasskeyHomes {{ {:?} }}", sign_in.origin),
+            Self::PasskeyBridge { .. } => write!(f, "PasskeyBridge"),
+            Self::Extensions => write!(f, "Extensions"),
+            Self::ExtensionPair { .. } => write!(f, "ExtensionPair"),
+            Self::ExtensionUnpair { .. } => write!(f, "ExtensionUnpair"),
         }
     }
 }
@@ -443,6 +545,8 @@ pub enum Response {
     Items { catalog: Catalog },
     /// An organisation's members.
     OrgMembers { members: Vec<crate::items::OrgMember> },
+    /// A member's fingerprint phrase: five words of the EFF list.
+    MemberFingerprint { words: Vec<String> },
     /// The picture's `data:` URL, or nothing when there is no icon or it is a
     /// placeholder.
     SiteIcon { data_url: Option<String> },
@@ -465,6 +569,8 @@ pub enum Response {
     PasskeySignedIn { signed: crate::passkey::SignedIn },
     /// A registered passkey: the public key and the attestation.
     PasskeyRegistered { registered: crate::passkey::Registered },
+    /// The browser extensions: paired, and asking.
+    Extensions { paired: Vec<crate::passkey::ExtensionRow>, pending: Vec<crate::passkey::ExtensionRow> },
     /// A secret that was shown. Its `Debug` is not derived: the value will not
     /// travel into a log.
     Secret { value: Secret },
@@ -511,6 +617,10 @@ pub enum Response {
     PluginSources { sources: Vec<String> },
     /// The plugin's answer as it is.
     Plugin { payload: serde_json::Value },
+    /// Something was made, and this is its identifier.
+    Created { id: String },
+    /// Whether the password was the master password.
+    PasswordChecked { ok: bool },
     /// Done; there is nothing more to say.
     Done,
     Error {
@@ -546,6 +656,7 @@ impl std::fmt::Debug for Response {
             }
             Self::Items { catalog } => write!(f, "Items({} of them)", catalog.items.len()),
             Self::OrgMembers { members } => write!(f, "OrgMembers({} of them)", members.len()),
+            Self::MemberFingerprint { words } => write!(f, "MemberFingerprint({} words)", words.len()),
             Self::SiteIcon { data_url } => write!(f, "SiteIcon({})", if data_url.is_some() { "there is one" } else { "none" }),
             Self::Recent { ids } => write!(f, "Recent({} of them)", ids.len()),
             Self::SshDraft { draft } => write!(f, "SshDraft({})", draft.id),
@@ -561,6 +672,7 @@ impl std::fmt::Debug for Response {
             Self::PasskeySignedIn { .. } => write!(f, "PasskeySignedIn"),
             Self::PasskeyHomes { homes } => write!(f, "PasskeyHomes({})", homes.len()),
             Self::PasskeyRegistered { .. } => write!(f, "PasskeyRegistered"),
+            Self::Extensions { paired, pending } => write!(f, "Extensions({} paired, {} pending)", paired.len(), pending.len()),
             Self::Secret { .. } => write!(f, "Secret {{ value: <hidden> }}"),
             Self::Edit { edit } => write!(f, "Edit({:?}, {:?})", edit.id, edit.state),
             Self::Edits { edits } => write!(f, "Edits({} of them)", edits.len()),
@@ -579,6 +691,8 @@ impl std::fmt::Debug for Response {
             Self::PluginCatalog { entries } => write!(f, "PluginCatalog({} of them)", entries.len()),
             Self::PluginSources { sources } => write!(f, "PluginSources({} of them)", sources.len()),
             Self::Plugin { .. } => write!(f, "Plugin(<the plugin's answer>)"),
+            Self::Created { id } => write!(f, "Created({id})"),
+            Self::PasswordChecked { ok } => write!(f, "PasswordChecked({ok})"),
             Self::Done => write!(f, "Done"),
             Self::Error { message } => write!(f, "Error({message:?})"),
         }
@@ -660,6 +774,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_new_writes_keep_their_secrets_and_addresses_out_of_a_log() {
+        let r = Request::VerifyPassword { password: "very-secret".to_string().into() };
+        assert!(!format!("{r:?}").contains("very-secret"));
+        let r = Request::NewItem {
+            kind: 1,
+            folder_id: None,
+            org_id: Some("o".into()),
+            collection_ids: vec!["c".into()],
+            edit: ItemEdit { password: Some("hunter2".to_string().into()), ..Default::default() },
+        };
+        assert!(!format!("{r:?}").contains("hunter2"));
+        let r = Request::InviteMembers {
+            org_id: "o".into(),
+            emails: vec!["someone@example.com".into()],
+            role: crate::items::OrgRole::User,
+            access_all: false,
+            access: vec![],
+        };
+        assert!(!format!("{r:?}").contains("someone@"));
+        // The wire shape the window sends.
+        let parsed: Request = serde_json::from_str(
+            r#"{"op":"set_member","org_id":"o","member_id":"m","role":"user","access_all":false,
+                "access":[{"id":"c","permission":"read_hidden"}]}"#,
+        )
+        .expect("parses");
+        assert!(matches!(parsed, Request::SetMember { access, .. } if access[0].permission == crate::items::CollectionPermission::ReadHidden));
+    }
+
+    #[test]
     fn debug_never_prints_a_revealed_secret() {
         let r = Response::Secret { value: "very-secret".to_string().into() };
         assert!(!format!("{r:?}").contains("very-secret"));
@@ -683,6 +826,28 @@ mod tests {
         let r = Request::BiometricRemember { password: "very-secret".to_string().into() };
         let shown = format!("{r:?}");
         assert!(!shown.contains("very-secret"), "the password leaked into Debug: {shown}");
+    }
+
+    #[test]
+    fn a_second_factor_remembers_only_when_asked() {
+        // An older window sends no `remember`: the device is not remembered.
+        let old: Request = serde_json::from_str(r#"{"op":"login_two_factor","provider":0,"token":"123456"}"#).unwrap();
+        assert!(matches!(old, Request::LoginTwoFactor { remember: false, .. }));
+        let asked: Request = serde_json::from_str(r#"{"op":"login_two_factor","provider":0,"token":"123456","remember":true}"#).unwrap();
+        assert!(matches!(asked, Request::LoginTwoFactor { remember: true, .. }));
+        let shown = format!("{asked:?}");
+        assert!(!shown.contains("123456"), "the code leaked into Debug: {shown}");
+        let reset: Request = serde_json::from_str(r#"{"op":"reset_session"}"#).unwrap();
+        assert!(matches!(reset, Request::ResetSession));
+    }
+
+    #[test]
+    fn a_damaged_session_travels_with_its_reason() {
+        let s = VaultState::Damaged { email: "a@x".into(), server: "https://x".into(), reason: "err.sessionTampered".into() };
+        let line = serde_json::to_string(&Response::Vault { state: s.clone() }).unwrap();
+        assert!(line.contains(r#""state":"damaged""#), "{line}");
+        let Response::Vault { state } = serde_json::from_str(&line).unwrap() else { panic!("a vault answer") };
+        assert_eq!(state, s);
     }
 
     #[test]

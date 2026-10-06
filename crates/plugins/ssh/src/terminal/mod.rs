@@ -4,10 +4,9 @@
 //! All of it lives in this plugin; the core routes calls and knows nothing of
 //! terminals. The pieces:
 //!
-//! - `link` — the page and the plugin seal what a terminal carries end to end;
-//!   the window and the daemon in between see ciphertext.
-//! - `connect` — russh, the host key check and signing through the core.
-//! - `hostkeys` — which host keys are trusted, and where that is written.
+//! - `link`, `connect`, `hostkeys`, `sshconfig`, `probe` — the way to a server
+//!   and the sealed link to the page, from `keyward-ssh-client`, which every
+//!   plugin that goes to a server over ssh shares.
 //! - `session` — one live shell, its task and its scrollback.
 //! - `health` — whether each key still gets in where it is bound, checked
 //!   without signing anything.
@@ -29,13 +28,10 @@
 //! Inside `term`, on the input lane: `open`, `attach`, `write`, `resize`,
 //! `trust`, `close`; on the output lane: `read`.
 
-pub mod connect;
 pub mod health;
-pub mod hostkeys;
-pub mod link;
-pub mod probe;
 pub mod session;
-pub mod sshconfig;
+
+pub use keyward_ssh_client::{connect, hostkeys, link, probe, sshconfig};
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -242,10 +238,16 @@ impl Terminals {
                 Err(e) => Err(e),
             },
             "term_config_hosts" => out(view.ssh.named()),
-            "term_forget_host" => (|| {
-                let a: ForgetArgs = arg(payload)?;
-                out(store.forget(a.host.trim(), a.port.unwrap_or(22))?)
-            })(),
+            "term_forget_host" => match arg::<ForgetArgs>(payload) {
+                Ok(a) => {
+                    let (h, port) = (a.host.trim(), a.port.unwrap_or(22));
+                    match (store.forget(h, port), hostkeys::forget_in_items(host, h, port).await) {
+                        (Ok(own), Ok(items)) => out(own + items),
+                        (Err(e), _) | (_, Err(e)) => Err(e),
+                    }
+                }
+                Err(e) => Err(e),
+            },
             "health" => out(self.board.report(&self.plans(&view, None))),
             "health_run" => {
                 let a: HealthArgs = if payload.is_null() { HealthArgs::default() } else { match arg(payload) {
@@ -259,7 +261,7 @@ impl Terminals {
                 let core = core.ok();
                 let (started_tx, started_rx) = tokio::sync::oneshot::channel();
                 tokio::spawn(async move {
-                    let run = board.run(plans, store);
+                    let run = board.run(plans, store, core.clone());
                     tokio::pin!(run);
                     // Polled once so the round has marked what it checks
                     // before the answer goes out.
@@ -276,6 +278,12 @@ impl Terminals {
             }
             _ => return None,
         })
+    }
+
+    /// The health board over the keys as they are now: what the window's
+    /// path is built from.
+    pub fn health(&self, view: &View<'_>) -> health::Report {
+        self.board.report(&self.plans(view, None))
     }
 
     /// Everything that lived on the keys comes down: the shells close, the
@@ -304,7 +312,7 @@ impl Terminals {
         let store = hostkeys::Store::new(plugin_dir);
         let board = Arc::clone(&self.board);
         tokio::spawn(async move {
-            let updates = board.run(plans, store).await;
+            let updates = board.run(plans, store, core.clone()).await;
             apply(core, updates).await;
         });
     }

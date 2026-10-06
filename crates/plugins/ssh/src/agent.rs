@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Context as _;
 use crate::mapping::Mapping;
+use keyward_ssh_client::hostkeys::same_key;
 use keyward_core::source::VaultEntry;
 use keyward_plugin::Host;
 use ssh_agent_lib::error::AgentError;
@@ -45,29 +46,6 @@ impl HostAgent {
         raw.parse::<PublicKey>()
             .map_err(|e| AgentError::Other(anyhow::anyhow!("the public key of {} will not parse: {e}", self.entry.name).into()))
     }
-}
-
-/// Are two host key fingerprints the same?
-///
-/// In the item's field a person may write the full `SHA256:...` fingerprint,
-/// or what `ssh-keyscan` gives (`ssh-ed25519 AAAA...`), or plain base64. A
-/// comparison that ignores case and trailing equals signs covers all three
-/// forms without making anyone rewrite the field to our taste.
-pub(crate) fn same_key(pinned: &str, seen: &str) -> bool {
-    let tidy = |v: &str| -> String {
-        v.trim()
-            .rsplit(' ')
-            .next()
-            .unwrap_or("")
-            .trim_start_matches("SHA256:")
-            .trim_end_matches('=')
-            .to_ascii_lowercase()
-    };
-    let seen = tidy(seen);
-    pinned
-        .split(|c: char| c == ',' || c.is_whitespace() && false)
-        .map(tidy)
-        .any(|p| !p.is_empty() && p == seen)
 }
 
 #[ssh_agent_lib::async_trait]

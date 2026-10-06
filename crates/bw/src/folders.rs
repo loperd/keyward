@@ -7,10 +7,11 @@
 
 use crate::orgs::{checked_id, send};
 
-pub async fn create(base_url: &str, access_token: &str, encrypted_name: &str) -> anyhow::Result<()> {
+/// Creates a folder and returns its identifier.
+pub async fn create(base_url: &str, access_token: &str, encrypted_name: &str) -> anyhow::Result<String> {
     let body = serde_json::json!({ "name": encrypted_name });
-    send(base_url, access_token, reqwest::Method::POST, "api/folders", Some(body)).await?;
-    Ok(())
+    let text = send(base_url, access_token, reqwest::Method::POST, "api/folders", Some(body)).await?;
+    crate::orgs::created_id(&text, "folder")
 }
 
 pub async fn rename(base_url: &str, access_token: &str, folder_id: &str, encrypted_name: &str) -> anyhow::Result<()> {

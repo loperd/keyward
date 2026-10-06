@@ -42,29 +42,26 @@ fn conceal(value: &str) -> anyhow::Result<isize> {
     use objc2_app_kit::NSPasteboard;
     use objc2_foundation::{NSString, NSUTF8StringEncoding};
 
-    // SAFETY: working with the shared clipboard; every object lives in the
-    // call's autorelease pool.
-    unsafe {
-        let board = NSPasteboard::generalPasteboard();
-        board.clearContents();
+    // Every object lives in the call's autorelease pool.
+    let board = NSPasteboard::generalPasteboard();
+    board.clearContents();
 
-        let text = NSString::from_str(value);
-        let plain = NSString::from_str("public.utf8-plain-text");
-        let concealed = NSString::from_str("org.nspasteboard.ConcealedType");
-        let transient = NSString::from_str("org.nspasteboard.TransientType");
+    let text = NSString::from_str(value);
+    let plain = NSString::from_str("public.utf8-plain-text");
+    let concealed = NSString::from_str("org.nspasteboard.ConcealedType");
+    let transient = NSString::from_str("org.nspasteboard.TransientType");
 
-        let ok = board.setString_forType(&text, &plain);
-        // The marks are the same value under another type: that is how the
-        // clipboard managers that honour this agreement read them.
-        let _ = board.setString_forType(&text, &concealed);
-        let _ = board.setString_forType(&NSString::from_str(""), &transient);
-        let _ = NSUTF8StringEncoding;
+    let ok = board.setString_forType(&text, &plain);
+    // The marks are the same value under another type: that is how the
+    // clipboard managers that honour this agreement read them.
+    let _ = board.setString_forType(&text, &concealed);
+    let _ = board.setString_forType(&NSString::from_str(""), &transient);
+    let _ = NSUTF8StringEncoding;
 
-        if !ok {
-            anyhow::bail!("the clipboard did not take the value");
-        }
-        Ok(board.changeCount())
+    if !ok {
+        anyhow::bail!("the clipboard did not take the value");
     }
+    Ok(board.changeCount())
 }
 
 /// The text on the clipboard, read by the daemon for itself — a pasted
@@ -74,12 +71,9 @@ pub fn read_text() -> Option<keyward_core::proto::Secret> {
     #[cfg(target_os = "macos")]
     {
         use objc2_foundation::NSString;
-        // SAFETY: a read of the shared clipboard inside the call's pool.
-        unsafe {
-            let board = objc2_app_kit::NSPasteboard::generalPasteboard();
-            let kind = NSString::from_str("public.utf8-plain-text");
-            board.stringForType(&kind).map(|s| keyward_core::proto::Secret::new(s.to_string()))
-        }
+        let board = objc2_app_kit::NSPasteboard::generalPasteboard();
+        let kind = NSString::from_str("public.utf8-plain-text");
+        board.stringForType(&kind).map(|s| keyward_core::proto::Secret::new(s.to_string()))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -92,8 +86,7 @@ pub fn read_text() -> Option<keyward_core::proto::Secret> {
 fn change_count() -> Option<isize> {
     #[cfg(target_os = "macos")]
     {
-        // SAFETY: a read of the shared clipboard's counter.
-        Some(unsafe { objc2_app_kit::NSPasteboard::generalPasteboard().changeCount() })
+        Some(objc2_app_kit::NSPasteboard::generalPasteboard().changeCount())
     }
     #[cfg(not(target_os = "macos"))]
     {

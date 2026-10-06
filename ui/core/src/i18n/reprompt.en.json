@@ -1,0 +1,10 @@
+{
+  "reprompt.title": "Master password again",
+  "reprompt.lede": "This item asks for the master password before it shows or copies anything",
+  "reprompt.password": "Master password",
+  "reprompt.confirm": "Confirm",
+  "reprompt.checking": "Checking…",
+  "reprompt.cancel": "Cancel",
+  "reprompt.show": "Show with the master password",
+  "reprompt.failed": "The password was not checked: {reason}"
+}

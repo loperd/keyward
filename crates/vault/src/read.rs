@@ -285,6 +285,11 @@ fn field(cipher: &Cipher, keys: &Keys, item: Option<&Keys>, name: &str) -> Optio
 /// The catalogue for the interface.
 pub fn catalog(snapshot: &Sync, ring: &Ring<'_>) -> Catalog {
     let mut items = Vec::new();
+    // Reused passwords are found by salted hashes kept here and nowhere else:
+    // the salt is new for every build of the catalogue, so a hash is of no
+    // use outside it, and neither it nor the password reaches the window.
+    let salt: [u8; 32] = rand::random();
+    let mut password_hashes: Vec<(usize, [u8; 32])> = Vec::new();
 
     let folders: Vec<(String, String)> = snapshot
         .folders
@@ -400,6 +405,24 @@ pub fn catalog(snapshot: &Sync, ring: &Ring<'_>) -> Catalog {
             ItemKind::SecureNote => None,
         };
 
+        if !cipher.in_trash() {
+            if let Some(password) = cipher.login.as_ref().and_then(|l| l.password.as_deref()).and_then(dec).map(zeroize::Zeroizing::new) {
+                if !password.is_empty() {
+                    use sha2::Digest as _;
+                    let mut h = sha2::Sha256::new();
+                    h.update(salt);
+                    h.update(password.as_bytes());
+                    password_hashes.push((items.len(), h.finalize().into()));
+                }
+            }
+        }
+        let expires = cipher.card.as_ref().and_then(|c| {
+            let month: u32 = c.exp_month.as_deref().and_then(dec)?.trim().parse().ok()?;
+            let year: u32 = c.exp_year.as_deref().and_then(dec)?.trim().parse().ok()?;
+            let year = if year < 100 { 2000 + year } else { year };
+            (1..=12).contains(&month).then(|| format!("{year:04}-{month:02}"))
+        });
+
         items.push(VaultItem {
             id: cipher.id.clone(),
             name: dec(&cipher.name)
@@ -445,7 +468,30 @@ pub fn catalog(snapshot: &Sync, ring: &Ring<'_>) -> Catalog {
                 .map(|n| (*n).to_string()),
             collection_ids: cipher.collection_ids.clone(),
             reprompt: cipher.reprompt != 0,
+            revised: cipher.revision_date.clone(),
+            password_revised: cipher.login.as_ref().and_then(|l| l.password_revision_date.clone()),
+            expires,
+            reused: 0,
+            reuse_group: None,
         });
+    }
+
+    // Each login learns how many others share its password, and the shared
+    // ones get one group number between them.
+    let mut groups: Vec<[u8; 32]> = Vec::new();
+    for (index, hash) in &password_hashes {
+        let same = password_hashes.iter().filter(|(_, h)| h == hash).count() as u32;
+        items[*index].reused = same.saturating_sub(1);
+        if same > 1 {
+            let group = match groups.iter().position(|g| g == hash) {
+                Some(g) => g,
+                None => {
+                    groups.push(*hash);
+                    groups.len() - 1
+                }
+            };
+            items[*index].reuse_group = Some(group as u32);
+        }
     }
 
     items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -876,6 +922,53 @@ fn linked_name(id: Option<u32>) -> String {
         return format!("#{id}");
     }
     keyward_core::text::t(&format!("linked.{id}"), &[])
+}
+
+#[cfg(test)]
+mod signal_tests {
+    use super::*;
+
+    fn keys() -> Keys {
+        let mut v = rbw::locked::Vec::new();
+        v.extend((0..64u8).map(|i| i.wrapping_mul(37).wrapping_add(11)));
+        Keys::new(v)
+    }
+
+    /// A login, a card: the catalogue reads their signals — a password two
+    /// items share, a card's expiry, the dates — without the window ever
+    /// seeing a password.
+    #[test]
+    fn shared_passwords_and_expiry_are_read_in_the_daemon() {
+        let user = keys();
+        let orgs = HashMap::new();
+        let ring = Ring { user: &user, orgs: &orgs };
+        let enc = |t: &str| encrypt_blob(&ring, t).unwrap();
+        let login = |id: &str, pw: &str| serde_json::json!({
+            "id": id, "type": 1, "name": enc(id), "revisionDate": "2026-09-01T10:00:00Z",
+            "login": { "username": enc("u"), "password": enc(pw), "passwordRevisionDate": "2024-01-01T00:00:00Z" }
+        });
+        let snapshot: Sync = serde_json::from_value(serde_json::json!({
+            "profile": { "id": "me", "email": "a@b" },
+            "folders": [], "collections": [],
+            "ciphers": [
+                login("a", "same-secret"),
+                login("b", "same-secret"),
+                login("c", "own-secret"),
+                { "id": "d", "type": 3, "name": enc("card"), "card": { "expMonth": enc("9"), "expYear": enc("29") } }
+            ]
+        })).unwrap();
+        let c = catalog(&snapshot, &ring);
+        let by = |id: &str| c.items.iter().find(|i| i.id == id).unwrap();
+        assert_eq!((by("a").reused, by("b").reused, by("c").reused), (1, 1, 0));
+        assert_eq!(by("a").reuse_group, by("b").reuse_group);
+        assert!(by("a").reuse_group.is_some() && by("c").reuse_group.is_none());
+        assert_eq!(by("d").expires.as_deref(), Some("2029-09"));
+        assert_eq!(by("a").revised.as_deref(), Some("2026-09-01T10:00:00Z"));
+        assert_eq!(by("a").password_revised.as_deref(), Some("2024-01-01T00:00:00Z"));
+        // Nothing of a password in what the window is given.
+        let wire = serde_json::to_string(&c).unwrap();
+        assert!(!wire.contains("same-secret") && !wire.contains("own-secret"));
+    }
 }
 
 #[cfg(test)]

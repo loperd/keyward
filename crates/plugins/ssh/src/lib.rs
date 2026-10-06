@@ -18,10 +18,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod agent;
-pub mod glob;
-pub mod mapping;
-mod table;
+pub mod places;
 pub mod terminal;
+
+pub use keyward_ssh_client::{glob, mapping};
+use keyward_ssh_client::table;
 
 pub use mapping::{Mapping, MappingTable, Resolution};
 pub use table::build_table;
@@ -181,6 +182,8 @@ pub struct SshPlugin {
     core: std::sync::RwLock<Option<Arc<dyn Host>>>,
     /// The terminal: its shells, the pages' links and the keys' health.
     terminals: Arc<terminal::Terminals>,
+    /// The sealed road the window asks for the plugin's places on.
+    ui: keyward_ui::UiServer,
 }
 
 impl Default for SshPlugin {
@@ -197,6 +200,7 @@ impl SshPlugin {
             shared_entries: Arc::new(std::sync::RwLock::new(Vec::new())),
             core: std::sync::RwLock::new(None),
             terminals: Arc::new(terminal::Terminals::default()),
+            ui: keyward_ui::UiServer::default(),
         }
     }
 
@@ -379,7 +383,7 @@ impl Plugin for SshPlugin {
         Manifest {
             id: "ssh".into(),
             title: "SSH".into(),
-            icon: "route".into(),
+            icon: "terminal".into(),
             section: true,
             needs_unlocked: true,
             // A built-in plugin has the application's version: it is the
@@ -404,6 +408,8 @@ impl Plugin for SshPlugin {
                 Permission::Network,
             ],
             probe: false,
+            declared: false,
+            places: true,
         }
     }
 
@@ -496,6 +502,11 @@ impl Plugin for SshPlugin {
 
             "snippet" => out(keyward_core::paths::ssh_config_snippet()),
 
+            "ui_link" | "ui" => match self.ui.call(self, host, op, payload).await {
+                Some(answer) => answer,
+                None => anyhow::bail!("the ssh plugin's sealed road does not know the operation \"{op}\""),
+            },
+
             other => {
                 // The terminal's reads wait for output; the routes' lock is not
                 // held for that, so a snapshot of the vault is what it gets.
@@ -521,6 +532,7 @@ impl Plugin for SshPlugin {
                 // The shells were opened with the vault's keys: they close
                 // with it.
                 self.terminals.lock();
+                self.ui.lock();
                 let mut inner = self.inner.lock().await;
                 drop_sockets(&mut inner);
                 inner.entries.clear();
@@ -877,6 +889,7 @@ mod tests {
         assert_eq!(declared["section"], Value::Bool(m.section), "the section differs");
         assert_eq!(declared["needs_unlocked"], Value::Bool(m.needs_unlocked), "\"needs an open vault\" differs");
         assert_eq!(declared["exec"], "keyward-plugin-ssh", "the wrong program");
+        assert_eq!(declared["places"], Value::Bool(m.places), "whether it declares places differs");
         assert!(declared.get("version").is_none(), "a version does not live in plugin.json: the package build puts it there");
 
         let mut promised: Vec<String> = declared["permissions"]
@@ -933,7 +946,7 @@ mod tests {
     async fn manifest_is_what_the_rail_draws() {
         let m = SshPlugin::new().manifest();
         assert_eq!(m.id, "ssh");
-        assert_eq!(m.icon, "route");
+        assert_eq!(m.icon, "terminal");
         assert!(m.section && m.needs_unlocked);
     }
 }

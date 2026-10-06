@@ -1,0 +1,52 @@
+[package]
+name = "keyward-ssh-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# What every plugin that goes to a server over ssh shares: the routes out of
+# the vault's fields, the host key check, ~/.ssh/config, the login signed by
+# the core, and the sealed link between a page and its plugin. A library
+# rather than a plugin, so that one plugin needs no other installed beside it.
+
+[features]
+# The page's side of a link, for the tests of the plugins that speak through it.
+testing = ["keyward-ui/testing"]
+
+[dependencies]
+keyward-core.workspace = true
+keyward-plugin.workspace = true
+# The sealed link to a page lives with the declared screens; re-exported here.
+keyward-ui.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+ssh-key = { version = "0.6", features = ["ed25519", "rsa", "p256", "p384", "p521", "dsa", "alloc", "std"] }
+# The signature arrives from the core in ssh's wire form and has to be parsed
+# back.
+ssh-encoding = { version = "0.2", features = ["alloc"] }
+# Pure Rust on tokio: the same code on macOS, Linux and Windows, with no system
+# ssh and no local pty. `ring` rather than the default aws-lc-rs: it builds
+# everywhere without cmake or nasm.
+russh = { version = "0.63", default-features = false, features = ["ring", "rsa", "flate2"] }
+# A page talks to its plugin sealed end to end, the same exchange the browser
+# bridge uses: ECDH P-256, HKDF-SHA256, AES-256-GCM.
+p256 = { version = "0.13", features = ["ecdh"] }
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+rand_core = { version = "0.6", features = ["getrandom"] }
+base64 = "0.22"
+zeroize = { version = "1.9.0", features = ["serde"] }
+# Hashed host names in a plugin's own known_hosts, in OpenSSH's format.
+hmac = "0.12"
+sha1 = "0.10"
+
+[dev-dependencies]
+# A vault that refuses exactly as the daemon does.
+keyward-plugin = { workspace = true, features = ["testing"] }
+serde_json.workspace = true
+# The setup timeout is tested on a paused clock rather than by waiting.
+tokio = { workspace = true, features = ["test-util"] }

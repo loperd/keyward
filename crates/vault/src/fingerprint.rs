@@ -33,6 +33,16 @@ fn words() -> &'static [&'static str] {
     })
 }
 
+/// The whole EFF list, checked: a passphrase out of a damaged one would be
+/// weaker than it looks.
+pub fn wordlist() -> anyhow::Result<&'static [&'static str]> {
+    let list = words();
+    if list.len() != 7776 {
+        anyhow::bail!("the word list is damaged: {} lines instead of 7776", list.len());
+    }
+    Ok(list)
+}
+
 /// Five words from the user identifier and the DER (SPKI) of the public key.
 pub fn phrase(user_id: &str, public_key_der: &[u8]) -> anyhow::Result<Vec<String>> {
     let list = words();
@@ -54,6 +64,30 @@ pub fn phrase(user_id: &str, public_key_der: &[u8]) -> anyhow::Result<Vec<String
         out.push(list[rem as usize].to_string());
     }
     Ok(out)
+}
+
+/// A member's public key as the server hands it out (base64 of the DER), parsed,
+/// with the five words it makes for them: what the owner compares with the
+/// member before confirming, and the key the organisation key is then sealed to.
+pub fn member_key(user_id: &str, public_b64: &str) -> anyhow::Result<(rsa::RsaPublicKey, Vec<String>)> {
+    use base64::Engine as _;
+    use rsa::pkcs8::DecodePublicKey as _;
+    let der = base64::engine::general_purpose::STANDARD
+        .decode(public_b64.trim())
+        .map_err(|e| keyward_core::fault!("err.memberKeyNotBase64", "reason" => e))?;
+    let public = rsa::RsaPublicKey::from_public_key_der(&der)
+        .map_err(|e| keyward_core::fault!("err.memberKeyUnparsable", "reason" => e))?;
+    let words = phrase(user_id, &der)?;
+    Ok((public, words))
+}
+
+/// A refusal unless the words the person was shown are the words of the key
+/// about to be sealed to: a key swapped between the two is not trusted.
+pub fn ensure_shown(shown: &[String], now: &[String]) -> anyhow::Result<()> {
+    if shown.len() != WORDS || shown != now {
+        return Err(keyward_core::fault!("err.fingerprintChanged"));
+    }
+    Ok(())
 }
 
 /// Divides a big-endian number in place by `divisor` and returns the
@@ -102,6 +136,39 @@ mod tests {
         let der: Vec<u8> = (0..=255u8).chain(0..=255u8).collect();
         let words = phrase("11111111-2222-3333-4444-555555555555", &der).expect("a fingerprint");
         assert_eq!(words, ["preamble", "dispersed", "spree", "doorknob", "stable"]);
+    }
+
+    /// Bitwarden's own known answer (sdk-internal,
+    /// crates/bitwarden-crypto/src/fingerprint.rs, `test_fingerprint`): the
+    /// words the official clients show for this user and this key.
+    const BW_USER: &str = "a09726a0-9590-49d1-a5f5-afe300b6a515";
+    const BW_KEY: &str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuyYs8W7NWf0Zv35Ueco93730dtRKi4Jhc6Snar+86drE+ruSfaCWMcbgsAoAj2Pm6KAzaJrTIVCqBERQ23OncpzjfcGAeyf+v3w/gSw/EjihMJ4AG5ICY4hLFYcGdgwa+7is+TVO0i6PEWjKQa3l2+mQo2XY7pg2ngHDMssV4gxSqq+qoBX3+FBhewCYdOV+3cebwsAzz7HwoFTxKViwNW8crbHonhZPhZgfIAzEkzo5MvzQg5azhLKW6vuPfaOQFC5HqPykVnh8OPzO0uzUi3+97CguAu4N2CgwVYXltZuw2fGamdVw3kjbxQPbOE1tL0j7gyTwYKkfUl2m8gMh1QIDAQAB";
+
+    #[test]
+    fn it_matches_bitwardens_known_answer() {
+        let (_, words) = member_key(BW_USER, BW_KEY).expect("the member's key");
+        assert_eq!(words, ["turban", "deftly", "anime", "chatroom", "unselfish"]);
+    }
+
+    #[test]
+    fn a_member_key_that_is_not_one_is_refused() {
+        let e = member_key(BW_USER, "not base64!").unwrap_err();
+        assert!(e.to_string().starts_with("err.memberKeyNotBase64"), "{e}");
+        let e = member_key(BW_USER, "Z2FyYmFnZQ==").unwrap_err();
+        assert!(e.to_string().starts_with("err.memberKeyUnparsable"), "{e}");
+    }
+
+    #[test]
+    fn the_words_shown_must_be_the_words_of_the_key_sealed_to() {
+        let (_, now) = member_key(BW_USER, BW_KEY).unwrap();
+        ensure_shown(&now, &now).expect("the same words pass");
+        let mut other = now.clone();
+        other[4] = "zoom".into();
+        assert_eq!(ensure_shown(&other, &now).unwrap_err().to_string(), "err.fingerprintChanged");
+        assert_eq!(ensure_shown(&[], &now).unwrap_err().to_string(), "err.fingerprintChanged");
+        // Another user's words for the very same key are not this member's.
+        let (_, theirs) = member_key("someone-else", BW_KEY).unwrap();
+        assert_eq!(ensure_shown(&theirs, &now).unwrap_err().to_string(), "err.fingerprintChanged");
     }
 
     #[test]

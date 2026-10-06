@@ -3,8 +3,14 @@
 //! Mode 0600 on `~/.keyward/d.sock` cuts off another user but not another
 //! process under the same uid: `nc -U ~/.keyward/d.sock` used to read the
 //! password exactly as the application does. Here the daemon learns the peer's
-//! pid (`getsockopt(SOL_LOCAL, LOCAL_PEERPID)`) and compares its code signature
-//! with its own through Security.framework.
+//! audit token (`getsockopt(SOL_LOCAL, LOCAL_PEERTOKEN)`) and checks its code
+//! signature through Security.framework.
+//!
+//! The audit token rather than the pid: a pid names whatever runs under it
+//! now. A process could connect, hand the socket to a child and `exec` a
+//! signed keyward binary in its own pid — the pid would then pass the check.
+//! The audit token carries the process's version, which `exec` moves on, so
+//! the check is of the very program that connected.
 //!
 //! The requirement is built out of our own signature rather than hard-coded:
 //! the `keyward-dev` identity is created afresh on every machine
@@ -25,10 +31,18 @@
 use std::os::fd::AsRawFd;
 
 /// What the daemon managed to learn about a peer's signature.
+///
+/// Our identity alone is not enough: each of our programs has a role of its
+/// own, and a program of ours with an identifier the daemon does not know is
+/// an outsider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trust {
-    /// Signed with the same identity as the daemon itself.
-    Ours,
+    /// The application (`me.loper`): the window a person works in.
+    App,
+    /// The CLI (`me.loper.cli`): scripts, the install, ssh's `resolve`. It is
+    /// ours, but anything the person runs can run it, so it gets its own,
+    /// narrower list.
+    Cli,
     /// The signature belongs to somebody else, is ad hoc, or is not there at
     /// all.
     Alien,
@@ -71,10 +85,19 @@ pub enum Peer {
 }
 
 impl Peer {
-    /// Learn a connection's peer: pid, path, signature.
+    /// Learn a connection's peer: its audit token, and from it the pid, the
+    /// path and the signature.
     pub fn inspect(stream: &impl AsRawFd) -> Self {
-        let pid = pid(stream).unwrap_or(-1);
-        Self::Socket { pid, path: imp::binary_path(pid), trust: imp::trust(pid) }
+        match token(stream) {
+            Ok(t) => {
+                let pid = t.pid();
+                Self::Socket { pid, path: imp::binary_path(pid), trust: imp::trust(&t) }
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "a connection's audit token could not be read; it is an outsider");
+                Self::Socket { pid: -1, path: None, trust: Trust::Alien }
+            }
+        }
     }
 
     /// The pid, for the log. Plugins have no process of their own, so zero.
@@ -98,7 +121,8 @@ impl Peer {
     /// Whether the peer was verified, in one word for the log.
     pub fn verdict(&self) -> &'static str {
         match self {
-            Self::Socket { trust: Trust::Ours, .. } => "ours",
+            Self::Socket { trust: Trust::App, .. } => "ours, the application",
+            Self::Socket { trust: Trust::Cli, .. } => "ours, the CLI",
             Self::Socket { trust: Trust::Bridge, .. } => "ours, the passkey bridge",
             Self::Socket { trust: Trust::Alien, .. } => "alien",
             Self::Socket { trust: Trust::Unknown, .. } => "nothing to check with",
@@ -117,10 +141,103 @@ pub fn init() {
     imp::init();
 }
 
-/// Whether a process carries our signature. The client asks it of the daemon
-/// the way the daemon asks it of the client.
-pub fn trust(pid: i32) -> Trust {
-    imp::trust(pid)
+/// Whose signature the program at the other end of the socket carries. The
+/// client asks it of the daemon the way the daemon asks it of the client.
+pub fn trust_of(stream: &impl AsRawFd) -> Trust {
+    match token(stream) {
+        Ok(t) => imp::trust(&t),
+        Err(_) => Trust::Alien,
+    }
+}
+
+/// A process's audit token: `audit_token_t`, eight words.
+#[derive(Debug, Clone, Copy)]
+pub struct AuditToken(pub [u32; 8]);
+
+impl AuditToken {
+    /// The pid, where the kernel puts it (`audit_token_to_pid`).
+    pub fn pid(&self) -> i32 {
+        self.0[5] as i32
+    }
+}
+
+/// The audit token of whoever connected the socket, taken by the kernel at
+/// the connection.
+pub fn token(stream: &impl AsRawFd) -> std::io::Result<AuditToken> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut t = [0u32; 8];
+        let mut len = std::mem::size_of_val(&t) as libc::socklen_t;
+        // SAFETY: the descriptor is alive, the buffer is ours, the length
+        // matches `audit_token_t`.
+        let ok = unsafe {
+            libc::getsockopt(stream.as_raw_fd(), libc::SOL_LOCAL, libc::LOCAL_PEERTOKEN, t.as_mut_ptr().cast(), &mut len)
+        };
+        if ok != 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        if len as usize != std::mem::size_of_val(&t) {
+            return Err(std::io::Error::other("the audit token came back the wrong size"));
+        }
+        Ok(AuditToken(t))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let pid = pid(stream)?;
+        Ok(AuditToken([0, 0, 0, 0, 0, pid as u32, 0, 0]))
+    }
+}
+
+/// A browser the passkey bridge may be started by: its name, for the words a
+/// person reads, and its developer's Team ID, which is what is checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Browser {
+    pub name: &'static str,
+    pub team: &'static str,
+}
+
+/// The browsers whose Team ID was read off a signed build
+/// (`codesign -dv`), not written from memory. One that is missing is refused
+/// until it is checked and added: a wrong Team ID here would let another
+/// developer's program pass for a browser.
+pub const BROWSERS: &[Browser] = &[
+    Browser { name: "Google Chrome", team: "EQHXZ8M8AV" },
+    Browser { name: "Arc", team: "S6N382Y83G" },
+];
+
+/// Which browser a process is, by its signature; `None` for anything else.
+pub fn browser(pid: i32) -> Option<Browser> {
+    imp::browser(pid)
+}
+
+/// A process's parent. `None` when the process is gone or its parent is
+/// launchd — an orphan was started by nobody.
+pub fn parent(pid: i32) -> Option<i32> {
+    #[cfg(target_os = "macos")]
+    {
+        let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+        let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+        // SAFETY: the buffer is ours and its size is honest.
+        let n = unsafe { libc::proc_pidinfo(pid, libc::PROC_PIDTBSDINFO, 0, std::ptr::addr_of_mut!(info).cast(), size) };
+        if n != size {
+            return None;
+        }
+        let ppid = info.pbi_ppid as i32;
+        (ppid > 1).then_some(ppid)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = pid;
+        None
+    }
+}
+
+/// The process whose window is in front: the owner of the first ordinary
+/// window on screen. Read from the window server rather than from
+/// `NSWorkspace`, whose idea of the front application is refreshed on a run
+/// loop the daemon does not have.
+pub fn front() -> Option<i32> {
+    imp::front()
 }
 
 /// Whose process is at the other end of the socket.
@@ -163,7 +280,7 @@ mod imp {
     use std::ffi::c_void;
     use std::sync::OnceLock;
 
-    use super::Trust;
+    use super::{AuditToken, Trust};
 
     type CFTypeRef = *const c_void;
     type OSStatus = i32;
@@ -173,8 +290,6 @@ mod imp {
     /// `kSecCSSigningInformation`: asking the system for the signing
     /// certificates.
     const SIGNING_INFO: u32 = 1 << 1;
-    /// `kCFNumberSInt32Type`: the pid, as `kSecGuestAttributePid` expects it.
-    const NUMBER_I32: i32 = 3;
     /// `kCFStringEncodingUTF8`.
     const UTF8: u32 = 0x0800_0100;
 
@@ -190,7 +305,7 @@ mod imp {
             value_callbacks: *const c_void,
         ) -> CFTypeRef;
         fn CFDictionaryGetValue(dict: CFTypeRef, key: CFTypeRef) -> CFTypeRef;
-        fn CFNumberCreate(allocator: CFTypeRef, kind: i32, value: *const c_void) -> CFTypeRef;
+        fn CFDataCreate(allocator: CFTypeRef, bytes: *const u8, len: isize) -> CFTypeRef;
         fn CFStringCreateWithBytes(
             allocator: CFTypeRef,
             bytes: *const u8,
@@ -206,8 +321,27 @@ mod imp {
         static kCFTypeDictionaryValueCallBacks: c_void;
     }
 
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        fn CGWindowListCopyWindowInfo(option: u32, relative_to: u32) -> CFTypeRef;
+        static kCGWindowLayer: CFTypeRef;
+        static kCGWindowOwnerPID: CFTypeRef;
+    }
+
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
+        fn CFNumberGetValue(number: CFTypeRef, kind: i32, value: *mut c_void) -> u8;
+        fn CFNumberCreate(allocator: CFTypeRef, kind: i32, value: *const c_void) -> CFTypeRef;
+    }
+
+    /// `kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements`.
+    const ON_SCREEN: u32 = (1 << 0) | (1 << 4);
+    /// `kCFNumberSInt32Type`.
+    const NUMBER_I32: i32 = 3;
+
     #[link(name = "Security", kind = "framework")]
     extern "C" {
+        static kSecGuestAttributeAudit: CFTypeRef;
         static kSecGuestAttributePid: CFTypeRef;
         static kSecCodeInfoCertificates: CFTypeRef;
         fn SecCodeCopySelf(flags: u32, code: *mut CFTypeRef) -> OSStatus;
@@ -259,9 +393,13 @@ mod imp {
 
     static REQUIREMENT: OnceLock<Option<Requirement>> = OnceLock::new();
     static BRIDGE: OnceLock<Option<Requirement>> = OnceLock::new();
+    static APP: OnceLock<Option<Requirement>> = OnceLock::new();
+    static CLI: OnceLock<Option<Requirement>> = OnceLock::new();
 
-    /// The signing identifier of the passkey bridge.
+    /// The signing identifiers of our programs (`scripts/signing.sh`).
     const BRIDGE_ID: &str = "me.loper.passkey-host";
+    const APP_ID: &str = "me.loper";
+    const CLI_ID: &str = "me.loper.cli";
 
     pub fn init() {
         let _ = requirement();
@@ -287,6 +425,8 @@ mod imp {
                 // with it); together with the root it can only be ours.
                 let bridge = format!("{text} and identifier \"{BRIDGE_ID}\"");
                 let _ = BRIDGE.set(create(&bridge));
+                let _ = APP.set(create(&format!("{text} and identifier \"{APP_ID}\"")));
+                let _ = CLI.set(create(&format!("{text} and identifier \"{CLI_ID}\"")));
                 match create(&text) {
                     Some(req) => {
                         tracing::info!(requirement = %text, "the lock on the socket: passwords to our own only");
@@ -301,19 +441,26 @@ mod imp {
             .as_ref()
     }
 
-    /// A peer's signature: ours, somebody else's, or nothing to check with.
-    pub fn trust(pid: i32) -> Trust {
+    /// A peer's signature: which of our programs, somebody else's, or
+    /// nothing to check with.
+    pub fn trust(token: &AuditToken) -> Trust {
         let Some(req) = requirement() else { return Trust::Unknown };
-        if pid <= 0 {
+        if token.pid() <= 0 || !matches(token, req) {
             return Trust::Alien;
         }
-        if !matches(pid, req) {
-            return Trust::Alien;
-        }
-        // The narrower requirement second: a bridge is ours first.
-        match BRIDGE.get().and_then(Option::as_ref) {
-            Some(bridge) if matches(pid, bridge) => Trust::Bridge,
-            _ => Trust::Ours,
+        // The narrower requirements second: each is ours first.
+        let is = |cell: &OnceLock<Option<Requirement>>| cell.get().and_then(Option::as_ref).is_some_and(|r| matches(token, r));
+        if is(&BRIDGE) {
+            Trust::Bridge
+        } else if is(&APP) {
+            Trust::App
+        } else if is(&CLI) {
+            Trust::Cli
+        } else {
+            // Signed by us, but none of the programs the daemon knows: a role
+            // nobody gave it is no role at all.
+            tracing::warn!(pid = token.pid(), "a program with our signature but an unknown identifier was refused");
+            Trust::Alien
         }
     }
 
@@ -391,6 +538,87 @@ mod imp {
         }
     }
 
+    static BROWSER_REQS: OnceLock<Vec<(super::Browser, Option<Requirement>)>> = OnceLock::new();
+
+    /// A browser by its signature. Checked by pid: a browser's process has no
+    /// audit token to hand here, and it is alive for as long as the bridge it
+    /// started holds its pipes.
+    pub fn browser(pid: i32) -> Option<super::Browser> {
+        if pid <= 1 {
+            return None;
+        }
+        let reqs = BROWSER_REQS.get_or_init(|| {
+            super::BROWSERS
+                .iter()
+                .map(|b| (*b, create(&format!("anchor apple generic and certificate leaf[subject.OU] = \"{}\"", b.team))))
+                .collect()
+        });
+        reqs.iter().find(|(_, r)| r.as_ref().is_some_and(|r| matches_pid(pid, r))).map(|(b, _)| *b)
+    }
+
+    pub fn front() -> Option<i32> {
+        // SAFETY: the array is released by `Owned`; its dictionaries and
+        // numbers are borrowed by the Get rule and not released.
+        unsafe {
+            let list = Owned(CGWindowListCopyWindowInfo(ON_SCREEN, 0));
+            if list.0.is_null() {
+                return None;
+            }
+            let n = |dict: CFTypeRef, key: CFTypeRef| -> Option<i32> {
+                let v = CFDictionaryGetValue(dict, key);
+                if v.is_null() {
+                    return None;
+                }
+                let mut out: i32 = 0;
+                (CFNumberGetValue(v, NUMBER_I32, std::ptr::addr_of_mut!(out).cast()) != 0).then_some(out)
+            };
+            for i in 0..CFArrayGetCount(list.0) {
+                let w = CFArrayGetValueAtIndex(list.0, i);
+                if w.is_null() {
+                    continue;
+                }
+                // Layer 0 is ordinary windows; menus, the dock and the like
+                // lie above it.
+                if n(w, kCGWindowLayer) == Some(0) {
+                    return n(w, kCGWindowOwnerPID);
+                }
+            }
+            None
+        }
+    }
+
+    fn matches_pid(pid: i32, req: &Requirement) -> bool {
+        // SAFETY: as in `matches`.
+        unsafe {
+            if kSecGuestAttributePid.is_null() {
+                return false;
+            }
+            let number = Owned(CFNumberCreate(std::ptr::null(), NUMBER_I32, std::ptr::addr_of!(pid).cast()));
+            if number.0.is_null() {
+                return false;
+            }
+            let keys = [kSecGuestAttributePid];
+            let values = [number.0];
+            let attrs = Owned(CFDictionaryCreate(
+                std::ptr::null(),
+                keys.as_ptr(),
+                values.as_ptr(),
+                1,
+                std::ptr::addr_of!(kCFTypeDictionaryKeyCallBacks),
+                std::ptr::addr_of!(kCFTypeDictionaryValueCallBacks),
+            ));
+            if attrs.0.is_null() {
+                return false;
+            }
+            let mut guest: CFTypeRef = std::ptr::null();
+            if SecCodeCopyGuestWithAttributes(std::ptr::null(), attrs.0, DEFAULT_FLAGS, &mut guest) != 0 || guest.is_null() {
+                return false;
+            }
+            let guest = Owned(guest);
+            SecCodeCheckValidity(guest.0, DEFAULT_FLAGS, req.0) == 0
+        }
+    }
+
     fn create(text: &str) -> Option<Requirement> {
         // SAFETY: the string lives to the end of the call and the result is
         // checked for null.
@@ -418,24 +646,20 @@ mod imp {
     /// Any refusal from the system — the process died, there is no code, the
     /// signature did not check out — is a "no" rather than a panic: the daemon
     /// is obliged to outlive its peer.
-    fn matches(pid: i32, req: &Requirement) -> bool {
+    fn matches(token: &AuditToken, req: &Requirement) -> bool {
         // SAFETY: the dictionary is built out of our own objects, and every
         // result is checked for null and for a return code.
         unsafe {
-            if kSecGuestAttributePid.is_null() {
+            if kSecGuestAttributeAudit.is_null() {
                 return false;
             }
-            let number = Owned(CFNumberCreate(
-                std::ptr::null(),
-                NUMBER_I32,
-                std::ptr::addr_of!(pid).cast(),
-            ));
-            if number.0.is_null() {
+            let data = Owned(CFDataCreate(std::ptr::null(), token.0.as_ptr().cast(), std::mem::size_of_val(&token.0) as isize));
+            if data.0.is_null() {
                 return false;
             }
 
-            let keys = [kSecGuestAttributePid];
-            let values = [number.0];
+            let keys = [kSecGuestAttributeAudit];
+            let values = [data.0];
             let attrs = Owned(CFDictionaryCreate(
                 std::ptr::null(),
                 keys.as_ptr(),
@@ -464,17 +688,44 @@ mod imp {
 
 #[cfg(not(target_os = "macos"))]
 mod imp {
-    use super::Trust;
+    use super::{AuditToken, Trust};
 
     pub fn init() {
         tracing::warn!("checking a peer's signature exists on macOS only");
     }
 
-    pub fn trust(_pid: i32) -> Trust {
+    pub fn trust(_token: &AuditToken) -> Trust {
         Trust::Unknown
     }
 
     pub fn binary_path(_pid: i32) -> Option<String> {
         None
+    }
+
+    pub fn browser(_pid: i32) -> Option<super::Browser> {
+        None
+    }
+
+    pub fn front() -> Option<i32> {
+        None
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    /// Run by hand with a browser open: `cargo test -p keyward-core live_ -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn live_front_window_and_browsers() {
+        let front = super::front();
+        println!("front window's owner: {front:?} -> {:?}", front.and_then(super::browser));
+        for name in ["Arc", "Google Chrome"] {
+            if let Ok(out) = std::process::Command::new("pgrep").args(["-x", name]).output() {
+                for pid in String::from_utf8_lossy(&out.stdout).split_whitespace().filter_map(|p| p.parse::<i32>().ok()) {
+                    println!("{name} {pid} -> {:?}", super::browser(pid));
+                }
+            }
+        }
+        println!("this process -> {:?}", super::browser(std::process::id() as i32));
     }
 }

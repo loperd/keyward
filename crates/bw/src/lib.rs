@@ -9,6 +9,8 @@ pub mod account;
 pub mod client;
 pub mod crypto;
 pub mod folders;
+pub mod identity;
+pub mod login;
 pub mod model;
 pub mod orgs;
 pub mod sync;

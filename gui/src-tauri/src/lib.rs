@@ -16,13 +16,14 @@ use keyward_core::proto::Secret;
 use keyward_core::detail::{ItemDetail, SecretField};
 use keyward_core::edits::{ItemEdit, PendingEdit};
 use keyward_core::items::{Catalog, OrgMember};
-use keyward_core::settings::Settings as AppSettings;
+use keyward_core::settings::{Interface, Settings as AppSettings};
 use keyward_core::proto::AccountView;
 use keyward_core::proto::{Request, Response, Status};
 use keyward_core::two_factor::TwoFactorProvider;
 use keyward_core::vault_state::VaultState;
 use tauri::menu::{Menu, MenuItem};
 mod notices;
+mod probe;
 mod seal;
 
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -49,6 +50,12 @@ async fn daemon_status() -> Result<Status, String> {
         Response::Error { message } => Err(message),
         other => Err(format!("an unexpected answer from the daemon: {other:?}")),
     }
+}
+
+/// Why the daemon did not answer: coming up (a loader) or not (its reason).
+#[tauri::command]
+async fn daemon_probe() -> Result<probe::Probe, String> {
+    tauri::async_runtime::spawn_blocking(probe::probe).await.map_err(|e| format!("an internal error: {e}"))
 }
 
 /// The plugins' cards: the interface draws its sections from them.
@@ -185,6 +192,39 @@ async fn plugin_sources(set: Option<Vec<String>>) -> Result<Vec<String>, String>
 async fn plugin_trust(publisher: String) -> Result<(), String> {
     let _ = publisher;
     Err("err.daemonCannotTrustYet".to_string())
+}
+
+/// The browser extensions: paired, and those that asked lately without being
+/// paired.
+#[derive(serde::Serialize)]
+struct Extensions {
+    paired: Vec<keyward_core::passkey::ExtensionRow>,
+    pending: Vec<keyward_core::passkey::ExtensionRow>,
+}
+
+fn extensions_of(r: Response) -> Result<Extensions, String> {
+    match r {
+        Response::Extensions { paired, pending } => Ok(Extensions { paired, pending }),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
+}
+
+#[tauri::command]
+async fn extensions() -> Result<Extensions, String> {
+    extensions_of(ask(Request::Extensions).await?)
+}
+
+/// Pairing: the daemon asks for the finger itself, with the key's five words
+/// in the prompt.
+#[tauri::command]
+async fn extension_pair(key: String) -> Result<Extensions, String> {
+    extensions_of(ask(Request::ExtensionPair { key }).await?)
+}
+
+#[tauri::command]
+async fn extension_unpair(key: String) -> Result<Extensions, String> {
+    extensions_of(ask(Request::ExtensionUnpair { key }).await?)
 }
 
 /// Remove a plugin along with its settings and its state. An external one
@@ -501,9 +541,20 @@ async fn pin_unlock(pin: Secret) -> Result<VaultState, String> {
     vault_op(Request::PinUnlock { pin }).await
 }
 
+/// `remember`: "remember this device" — the daemon keeps the server's token
+/// sealed and the next login skips the second factor. Absent from an older
+/// window, it is no.
 #[tauri::command]
-async fn vault_login_two_factor(provider: u8, token: Secret) -> Result<VaultState, String> {
-    vault_op(Request::LoginTwoFactor { provider, token }).await
+async fn vault_login_two_factor(provider: u8, token: Secret, remember: Option<bool>) -> Result<VaultState, String> {
+    vault_op(Request::LoginTwoFactor { provider, token, remember: remember.unwrap_or(false) }).await
+}
+
+/// Forgets the active account's damaged session (`VaultState::Damaged`) so
+/// the person can sign in again; the daemon refuses it for a session that
+/// reads.
+#[tauri::command]
+async fn vault_reset_session() -> Result<VaultState, String> {
+    vault_op(Request::ResetSession).await
 }
 
 #[tauri::command]
@@ -761,13 +812,116 @@ async fn remove_member(org_id: String, member_id: String) -> Result<VaultState, 
     vault_op(Request::RemoveMember { org_id, member_id }).await
 }
 
+/// `fingerprint` is the words the person was shown (`member_fingerprint`):
+/// the daemon refuses if the member's key no longer makes them.
 #[tauri::command]
 async fn confirm_member(
     org_id: String,
     member_id: String,
     user_id: String,
+    fingerprint: Vec<String>,
 ) -> Result<VaultState, String> {
-    vault_op(Request::ConfirmMember { org_id, member_id, user_id }).await
+    vault_op(Request::ConfirmMember { org_id, member_id, user_id, fingerprint }).await
+}
+
+/// A member's fingerprint phrase, to compare with them before confirming.
+#[tauri::command]
+async fn member_fingerprint(org_id: String, member_id: String, user_id: String) -> Result<Vec<String>, String> {
+    match ask(Request::MemberFingerprint { org_id, member_id, user_id }).await? {
+        Response::MemberFingerprint { words } => Ok(words),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
+}
+
+// -- The new window's writes ---------------------------------------------------
+//
+// What the shared UI core asks of the desktop app (`gui/app/writes.ts`): the
+// same operations as above, with an answer that names what was made, an
+// access to collections that is said per collection, and the two checks the
+// old window did not need.
+
+/// The answer to an operation that makes something: its identifier.
+async fn created_op(req: Request) -> Result<String, String> {
+    match ask(req).await? {
+        Response::Created { id } => Ok(id),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
+}
+
+#[tauri::command]
+async fn folder_create(name: String) -> Result<String, String> {
+    created_op(Request::NewFolder { name }).await
+}
+
+#[tauri::command]
+async fn collection_create(org_id: String, name: String) -> Result<String, String> {
+    created_op(Request::NewCollection { org_id, name }).await
+}
+
+/// An item, in one's own vault or in an organisation's collections. The
+/// draft's typed secrets are in `edit` as `Secret`s: wiped here once the
+/// request is sent, and sealed on the way to the daemon.
+#[tauri::command]
+async fn item_create(
+    kind: u8,
+    folder_id: Option<String>,
+    org_id: Option<String>,
+    collection_ids: Vec<String>,
+    edit: ItemEdit,
+) -> Result<String, String> {
+    created_op(Request::NewItem { kind, folder_id, org_id, collection_ids, edit }).await
+}
+
+#[tauri::command]
+async fn item_set_collections(entry_id: String, collection_ids: Vec<String>) -> Result<VaultState, String> {
+    vault_op(Request::SetItemCollections { entry_id, collection_ids }).await
+}
+
+#[tauri::command]
+async fn members_invite(
+    org_id: String,
+    emails: Vec<String>,
+    role: keyward_core::items::OrgRole,
+    access_all: bool,
+    access: Vec<keyward_core::items::CollectionAccess>,
+) -> Result<VaultState, String> {
+    vault_op(Request::InviteMembers { org_id, emails, role, access_all, access }).await
+}
+
+#[tauri::command]
+async fn member_set(
+    org_id: String,
+    member_id: String,
+    role: keyward_core::items::OrgRole,
+    access_all: bool,
+    access: Vec<keyward_core::items::CollectionAccess>,
+) -> Result<VaultState, String> {
+    vault_op(Request::SetMember { org_id, member_id, role, access_all, access }).await
+}
+
+/// The master password checked against the open vault; nothing changes.
+#[tauri::command]
+async fn verify_password(password: Secret) -> Result<bool, String> {
+    match ask(Request::VerifyPassword { password }).await? {
+        Response::PasswordChecked { ok } => Ok(ok),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
+}
+
+/// A passphrase made in the daemon, sealed for this webview.
+#[tauri::command]
+async fn generate_passphrase(
+    window: tauri::WebviewWindow,
+    spec: keyward_core::generator::PassphraseSpec,
+) -> Result<seal::Sealed, String> {
+    match ask(Request::GeneratePassphrase { spec }).await? {
+        Response::Secret { value } => seal::seal(window.label(), &value),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
 }
 
 #[tauri::command]
@@ -1159,6 +1313,67 @@ async fn apply_window_prefs(app: tauri::AppHandle) -> Result<(), String> {
     app.run_on_main_thread(move || apply_prefs(&handle)).map_err(|e| e.to_string())
 }
 
+/// The page the window opens for a choice of interface: the old window or the
+/// new one on the shared core, while both live side by side.
+fn interface_page(ui: Interface) -> &'static str {
+    match ui {
+        Interface::Old => "index.html",
+        Interface::New => "app.html",
+    }
+}
+
+fn parse_interface(value: &str) -> Result<Interface, String> {
+    match value {
+        "new" => Ok(Interface::New),
+        "old" => Ok(Interface::Old),
+        other => Err(format!("expected \"new\" or \"old\", got {other:?}")),
+    }
+}
+
+/// Which interface the window opens at launch: `KEYWARD_UI=new|old` wins over
+/// the setting, so the new window can be tried without touching the settings.
+/// Any other value stops the launch rather than being guessed at.
+fn launch_interface() -> Result<Interface, String> {
+    match std::env::var("KEYWARD_UI") {
+        Ok(value) => parse_interface(&value).map_err(|e| format!("KEYWARD_UI: {e}")),
+        Err(std::env::VarError::NotPresent) => Ok(AppSettings::load().interface),
+        Err(e) => Err(format!("KEYWARD_UI: {e}")),
+    }
+}
+
+/// The main window is described in tauri.conf.json (`"create": false`) and
+/// built here, so that it opens the chosen page from the first frame instead
+/// of loading the old one and navigating away.
+fn open_main_window(app: &tauri::App, ui: Interface) -> Result<(), Box<dyn std::error::Error>> {
+    let mut config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .ok_or("tauri.conf.json describes no \"main\" window")?
+        .clone();
+    config.url = tauri::WebviewUrl::App(interface_page(ui).into());
+    tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
+    Ok(())
+}
+
+/// Saves the choice of interface and reloads the window into that page, with
+/// no restart. The page reopens its sealed channel (`window_seal_open`) on its
+/// first secret, as after any reload.
+#[tauri::command]
+async fn set_interface(window: tauri::WebviewWindow, ui: String) -> Result<(), String> {
+    let ui = parse_interface(&ui)?;
+    let mut settings = get_settings().await?;
+    settings.interface = ui;
+    set_settings(settings).await?;
+    let mut url = window.url().map_err(|e| e.to_string())?;
+    url.set_path(&format!("/{}", interface_page(ui)));
+    url.set_query(None);
+    url.set_fragment(None);
+    window.navigate(url).map_err(|e| e.to_string())
+}
+
 /// Quitting the application altogether: the daemon dies, the keys are
 /// forgotten, the agent's sockets come down. The window used to close while the
 /// vault stayed open until the automatic lock, and ssh went on signing as if
@@ -1244,7 +1459,9 @@ pub fn run() {
             pin_clear,
             pin_unlock,
             apply_window_prefs,
+            set_interface,
             daemon_status,
+            daemon_probe,
             plugins,
             plugin_call,
             plugin_call_with_fields,
@@ -1253,6 +1470,9 @@ pub fn run() {
             plugin_catalog,
             plugin_sources,
             plugin_trust,
+            extensions,
+            extension_pair,
+            extension_unpair,
             plugin_remove,
             plugin_enable,
             daemon_reload,
@@ -1286,6 +1506,15 @@ pub fn run() {
             set_member_role,
             remove_member,
             confirm_member,
+            member_fingerprint,
+            folder_create,
+            collection_create,
+            item_create,
+            item_set_collections,
+            members_invite,
+            member_set,
+            verify_password,
+            generate_passphrase,
             create_org,
             update_org,
             delete_org,
@@ -1314,6 +1543,7 @@ pub fn run() {
             biometric_state,
             vault_login,
             vault_login_two_factor,
+            vault_reset_session,
             vault_send_two_factor_email,
             vault_unlock,
             vault_lock,
@@ -1323,6 +1553,9 @@ pub fn run() {
             biometric_forget,
         ])
         .setup(|app| {
+            // First of all: the rest of the setup reaches for the "main" window.
+            open_main_window(app, launch_interface()?)?;
+
             {
                 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt as _, Modifiers, Shortcut};
                 let fill = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyL);

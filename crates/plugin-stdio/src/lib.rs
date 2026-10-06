@@ -537,6 +537,8 @@ mod tests {
                 enabled: true,
                 permissions: Vec::new(),
                 probe: false,
+                declared: false,
+                places: false,
             }
         }
 

@@ -3,7 +3,10 @@ export type VaultState =
   | { state: "logged_out"; email: string; server: string }
   | { state: "locked"; email: string; server: string }
   | { state: "unlocked"; email: string; server: string; entries: number; tagged: number }
-  | { state: "disabled" };
+  | { state: "disabled" }
+  /// The saved session does not read; `reason` is the daemon's code.
+  /// `vault_reset_session` forgets it so the person can log in again.
+  | { state: "damaged"; email: string; server: string; reason: string };
 
 export type Account = { id: string; base_url: string; email: string; identity_url: string | null };
 export type AccountView = {
@@ -38,6 +41,16 @@ export type VaultItem = {
   org_name: string | null;
   collection_ids: string[];
   reprompt: boolean;
+  /// When the item, and its password, last changed (ISO 8601).
+  revised?: string | null;
+  password_revised?: string | null;
+  /// A card's expiry, `YYYY-MM`.
+  expires?: string | null;
+  /// How many other items share this password, worked out in the daemon from
+  /// salted hashes; the password itself never comes here.
+  reused?: number;
+  /// Items with the same number share one password.
+  reuse_group?: number | null;
 };
 
 /// One's role in an organisation — `keyward_core::items::OrgRole`.
@@ -206,6 +219,9 @@ export type LockTimeout =
   | { kind: "minutes"; minutes: number }
   | { kind: "never" };
 
+/// A member's level in one collection — `CollectionPermission`.
+export type CollectionPermission = "manage" | "edit" | "edit_hidden" | "read" | "read_hidden";
+
 export type OrgMember = {
   id: string;
   user_id: string | null;
@@ -216,6 +232,9 @@ export type OrgMember = {
   two_factor: boolean;
   access_all: boolean;
   collections: number;
+  /// The collections given by name, each at its level
+  /// (`keyward_core::items::CollectionAccess`). Empty with `access_all`.
+  access: { id: string; permission: CollectionPermission }[];
   is_you: boolean;
   /// Set by the daemon: may the one looking change or remove this member.
   can_edit: boolean;
@@ -245,6 +264,8 @@ export type AppSettings = {
   theme: "system" | "dark" | "light";
   accent_color: string | null;
   language: "auto" | "ru" | "en";
+  /// The desktop window's page: the old window or the new one (beta).
+  interface: "old" | "new";
 };
 
 // -- The Bitwarden account (a mirror of crates/core/src/account.rs) --------

@@ -47,6 +47,69 @@ pub struct OrgUserCollection {
     pub read_only: bool,
     #[serde(default, deserialize_with = "crate::model::null_as_default")]
     pub hide_passwords: bool,
+    /// May manage the collection: its members and its name. Newer servers
+    /// send it; an older one that does not knows no such level.
+    #[serde(default, deserialize_with = "crate::model::null_as_default")]
+    pub manage: bool,
+}
+
+/// A collection handed to a member, in the server's three flags: what an
+/// invite and a change of a member send.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CollectionGrant {
+    pub id: String,
+    pub read_only: bool,
+    pub hide_passwords: bool,
+    pub manage: bool,
+}
+
+/// The body's `collections`: every id checked, so a crooked one is refused
+/// here rather than sent.
+fn grants_json(grants: &[CollectionGrant]) -> anyhow::Result<Vec<serde_json::Value>> {
+    grants
+        .iter()
+        .map(|g| {
+            Ok(serde_json::json!({
+                "id": checked_id(&g.id)?,
+                "readOnly": g.read_only,
+                "hidePasswords": g.hide_passwords,
+                "manage": g.manage,
+            }))
+        })
+        .collect()
+}
+
+/// A member's role and access, as an invite and a change of a member send
+/// them. With `access_all` the list of collections means nothing and goes
+/// empty.
+fn member_body(kind: i32, access_all: bool, grants: &[CollectionGrant]) -> anyhow::Result<serde_json::Value> {
+    if access_all && !grants.is_empty() {
+        anyhow::bail!("err.memberAccessAllWithCollections");
+    }
+    Ok(serde_json::json!({
+        "type": kind,
+        "accessAll": access_all,
+        "collections": grants_json(grants)?,
+        // No `groups`: on a change the server reads an empty list as "out of
+        // every group", and groups are not this window's to touch.
+        "permissions": {},
+    }))
+}
+
+/// The identifier out of the server's answer to a creation. Without it the
+/// caller cannot point at what it made, so its absence is an error.
+pub(crate) fn created_id(text: &str, what: &str) -> anyhow::Result<String> {
+    #[derive(Deserialize)]
+    struct Created {
+        #[serde(alias = "Id")]
+        id: String,
+    }
+    let created: Created = serde_json::from_str(text)
+        .map_err(|e| anyhow::anyhow!("the answer about the created {what} will not parse: {e}"))?;
+    if !crate::client::is_path_id(&created.id) {
+        anyhow::bail!("the server returned no valid identifier for the created {what}");
+    }
+    Ok(created.id)
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,7 +140,9 @@ pub async fn users(base_url: &str, access_token: &str, org_id: &str) -> anyhow::
         anyhow::bail!("that is not a valid organisation identifier");
     }
     let http = crate::client::build(TIMEOUT)?;
-    let url = format!("{}/api/organizations/{org_id}/users", base_url.trim_end_matches('/'));
+    // `includeCollections`: without it the server leaves each member's
+    // collections out, and every member looks as if they had none.
+    let url = format!("{}/api/organizations/{org_id}/users?includeCollections=true", base_url.trim_end_matches('/'));
 
     let res = http
         .get(url)
@@ -103,6 +168,18 @@ pub async fn users(base_url: &str, access_token: &str, org_id: &str) -> anyhow::
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_rename_keeps_the_collections_users_and_groups() {
+        let details = r#"{"id":"c","name":"2.x","users":[{"id":"u1","readOnly":true,"hidePasswords":false,"manage":false}],"groups":[{"id":"g1","readOnly":false,"hidePasswords":false,"manage":true}]}"#;
+        let body = super::rename_body(details, "2.new").unwrap();
+        assert_eq!(body["name"], "2.new");
+        assert_eq!(body["users"][0]["id"], "u1");
+        assert_eq!(body["groups"][0]["id"], "g1");
+        let pascal = r#"{"Users":[],"Groups":[]}"#;
+        assert!(super::rename_body(pascal, "2.n").unwrap()["users"].as_array().unwrap().is_empty());
+        assert!(super::rename_body(r#"{"users":[]}"#, "2.n").is_err(), "a missing list must not be sent as empty");
+    }
+
     use super::*;
 
     #[test]
@@ -116,6 +193,44 @@ mod tests {
         assert_eq!(parsed.data.len(), 1);
         assert_eq!(parsed.data[0].email.as_deref(), Some("k@example.com"));
         assert_eq!(parsed.data[0].kind, 0);
+    }
+
+    #[test]
+    fn a_members_collections_carry_all_three_flags() {
+        let raw = r#"{"data":[{"id":"a","accessAll":false,"collections":[
+            {"id":"c1","readOnly":true,"hidePasswords":true,"manage":false},
+            {"id":"c2","readOnly":false,"hidePasswords":false,"manage":true},
+            {"id":"c3","readOnly":false,"hidePasswords":false}
+        ]}]}"#;
+        let users = parse_users(raw).expect("parses");
+        let c = &users[0].collections;
+        assert_eq!(c.len(), 3);
+        assert!(c[0].read_only && c[0].hide_passwords && !c[0].manage);
+        assert!(c[1].manage);
+        assert!(!c[2].manage, "an older server sends no manage: it is not given");
+    }
+
+    #[test]
+    fn a_member_body_sends_each_grant_and_refuses_a_contradiction() {
+        let grant = CollectionGrant { id: "c1".into(), read_only: true, hide_passwords: true, manage: false };
+        let body = member_body(2, false, std::slice::from_ref(&grant)).expect("builds");
+        assert_eq!(body["accessAll"], false);
+        assert_eq!(body["collections"][0]["id"], "c1");
+        assert_eq!(body["collections"][0]["readOnly"], true);
+        assert_eq!(body["collections"][0]["hidePasswords"], true);
+        assert_eq!(body["collections"][0]["manage"], false);
+        assert!(member_body(2, true, &[grant]).is_err(), "access to all and a list at once");
+        let crooked = CollectionGrant { id: "../x".into(), read_only: false, hide_passwords: false, manage: false };
+        assert!(member_body(2, false, &[crooked]).is_err());
+    }
+
+    #[test]
+    fn a_creation_answer_must_name_what_it_made() {
+        assert_eq!(created_id(r#"{"id":"0b2c","object":"folder"}"#, "folder").unwrap(), "0b2c");
+        assert_eq!(created_id(r#"{"Id":"0b2c"}"#, "folder").unwrap(), "0b2c");
+        for raw in [r#"{}"#, r#"{"id":""}"#, r#"{"id":"../x"}"#, "null", ""] {
+            assert!(created_id(raw, "folder").is_err(), "{raw}");
+        }
     }
 
     #[test]
@@ -325,11 +440,11 @@ pub async fn create_collection(
     access_token: &str,
     org_id: &str,
     encrypted_name: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let body = serde_json::json!({ "name": encrypted_name, "groups": [], "users": [] });
     let path = format!("api/organizations/{}/collections", checked_id(org_id)?);
-    send(base_url, access_token, reqwest::Method::POST, &path, Some(body)).await?;
-    Ok(())
+    let text = send(base_url, access_token, reqwest::Method::POST, &path, Some(body)).await?;
+    created_id(&text, "collection")
 }
 
 pub async fn rename_collection(
@@ -339,14 +454,32 @@ pub async fn rename_collection(
     collection_id: &str,
     encrypted_name: &str,
 ) -> anyhow::Result<()> {
-    let body = serde_json::json!({ "name": encrypted_name, "groups": [], "users": [] });
     let path = format!(
         "api/organizations/{}/collections/{}",
         checked_id(org_id)?,
         checked_id(collection_id)?
     );
+    // The server replaces the collection's users and groups with whatever the
+    // update carries: sending empty lists would take everyone's access away on
+    // a rename. The current ones are read first and sent back as they are.
+    let details = send(base_url, access_token, reqwest::Method::GET, &format!("{path}/details"), None).await?;
+    let body = rename_body(&details, encrypted_name)?;
     send(base_url, access_token, reqwest::Method::PUT, &path, Some(body)).await?;
     Ok(())
+}
+
+/// The rename's body: the new name with the collection's own users and
+/// groups, read from its details in either casing.
+fn rename_body(details: &str, encrypted_name: &str) -> anyhow::Result<serde_json::Value> {
+    let v: serde_json::Value = serde_json::from_str(details).map_err(|e| anyhow::anyhow!("the collection's details are not JSON: {e}"))?;
+    let list = |a: &str, b: &str| -> anyhow::Result<serde_json::Value> {
+        match v.get(a).or_else(|| v.get(b)) {
+            Some(x @ serde_json::Value::Array(_)) => Ok(x.clone()),
+            Some(serde_json::Value::Null) | None => anyhow::bail!("the collection's details carry no {a} list"),
+            Some(_) => anyhow::bail!("the collection's {a} is not a list"),
+        }
+    };
+    Ok(serde_json::json!({ "name": encrypted_name, "groups": list("groups", "Groups")?, "users": list("users", "Users")? }))
 }
 
 pub async fn delete_collection(
@@ -376,13 +509,26 @@ pub async fn invite(
     email: &str,
     kind: i32,
 ) -> anyhow::Result<()> {
-    let body = serde_json::json!({
-        "emails": [email],
-        "type": kind,
-        "accessAll": true,
-        "collections": [],
-        "permissions": {},
-    });
+    invite_with_access(base_url, access_token, org_id, &[email.to_string()], kind, true, &[]).await
+}
+
+/// Inviting several people at once, each with the same role and access.
+pub async fn invite_with_access(
+    base_url: &str,
+    access_token: &str,
+    org_id: &str,
+    emails: &[String],
+    kind: i32,
+    access_all: bool,
+    grants: &[CollectionGrant],
+) -> anyhow::Result<()> {
+    if emails.is_empty() {
+        anyhow::bail!("err.memberEmailRequired");
+    }
+    let mut body = member_body(kind, access_all, grants)?;
+    body["emails"] = serde_json::json!(emails);
+    // A new member is in no group yet; the server wants the list said.
+    body["groups"] = serde_json::json!([]);
     let path = format!("api/organizations/{}/users/invite", checked_id(org_id)?);
     send(base_url, access_token, reqwest::Method::POST, &path, Some(body)).await?;
     Ok(())
@@ -396,12 +542,21 @@ pub async fn set_role(
     member_id: &str,
     kind: i32,
 ) -> anyhow::Result<()> {
-    let body = serde_json::json!({
-        "type": kind,
-        "accessAll": true,
-        "collections": [],
-        "permissions": {},
-    });
+    set_member(base_url, access_token, org_id, member_id, kind, true, &[]).await
+}
+
+/// Changing a member's role and access together: the server takes them in
+/// one body and replaces the old ones whole.
+pub async fn set_member(
+    base_url: &str,
+    access_token: &str,
+    org_id: &str,
+    member_id: &str,
+    kind: i32,
+    access_all: bool,
+    grants: &[CollectionGrant],
+) -> anyhow::Result<()> {
+    let body = member_body(kind, access_all, grants)?;
     let path = format!(
         "api/organizations/{}/users/{}",
         checked_id(org_id)?,

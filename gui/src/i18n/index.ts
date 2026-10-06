@@ -78,6 +78,11 @@ export function t(key: Key, vars?: Record<string, string | number>): string {
   );
 }
 
+/// Whether the dictionary has a word for this key.
+export function has(key: string): boolean {
+  return key in dict;
+}
+
 /// A translation that may not exist. Section captions arrive on plugins'
 /// cards: the dictionary knows nothing about somebody else's plugin, and then
 /// what the plugin called itself is shown.

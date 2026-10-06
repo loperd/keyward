@@ -1,0 +1,21 @@
+{
+  "id": "kube",
+  "title": "Kubernetes",
+  "icon": "cluster",
+  "description": "plugin.kube.description",
+  "section": true,
+  "needs_unlocked": true,
+  "permissions": [
+    "entries",
+    "items",
+    "items_write",
+    "secrets",
+    "notices",
+    "ssh_sign",
+    "network"
+  ],
+  "protocol": 2,
+  "exec": "keyward-plugin-kube",
+  "declared": true,
+  "places": true
+}

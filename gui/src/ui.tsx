@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { t, tError } from "./i18n";
 
@@ -49,6 +49,22 @@ export function Icon({ name, size = 16 }: IconProps & { name: string }) {
     mobile: <><rect x="4.6" y="2.2" width="6.8" height="11.6" rx="1.6" {...stroke} /><path d="M7.2 11.6h1.6" {...stroke} /></>,
     globe: <><circle cx="8" cy="8" r="5.6" {...stroke} /><path d="M2.4 8h11.2M8 2.4c-2 2-2 9.2 0 11.2M8 2.4c2 2 2 9.2 0 11.2" {...stroke} /></>,
     terminal: <><rect x="2.2" y="3" width="11.6" height="10" rx="1.6" {...stroke} /><path d="M4.8 6.2 7 8l-2.2 1.8M8.4 10h3" {...stroke} /></>,
+    // Kubernetes' own dialect: what a cluster is made of.
+    pod: <><path d="M8 2.2 13.4 5v6L8 13.8 2.6 11V5L8 2.2Z" {...stroke} /><path d="M2.6 5 8 7.8 13.4 5M8 7.8v6" {...stroke} /></>,
+    layers: <><path d="M8 2.4 14 5.4 8 8.4 2 5.4 8 2.4Z" {...stroke} /><path d="M2 8.4l6 3 6-3M2 11.2l6 3 6-3" {...stroke} /></>,
+    network: <><circle cx="8" cy="3.4" r="1.4" {...stroke} /><circle cx="3.4" cy="12.4" r="1.4" {...stroke} /><circle cx="12.6" cy="12.4" r="1.4" {...stroke} /><path d="M8 4.8v3.6M8 8.4 4.5 11.3M8 8.4l3.5 2.9" {...stroke} /></>,
+    sliders: <><path d="M2.6 4.4h3M8.4 4.4h5M2.6 8h6.4M11.8 8h1.6M2.6 11.6h1.2M6.6 11.6h6.8" {...stroke} /><circle cx="7" cy="4.4" r="1.4" {...stroke} /><circle cx="10.4" cy="8" r="1.4" {...stroke} /><circle cx="5.2" cy="11.6" r="1.4" {...stroke} /></>,
+    server: <><rect x="2.6" y="2.6" width="10.8" height="4.4" rx="1.2" {...stroke} /><rect x="2.6" y="9" width="10.8" height="4.4" rx="1.2" {...stroke} /><path d="M5 4.8h.4M5 11.2h.4" {...stroke} /></>,
+    logs: <><path d="M3 4h10M3 6.8h7M3 9.6h10M3 12.4h5" {...stroke} /></>,
+    code: <><path d="M6 4.4 2.6 8 6 11.6M10 4.4 13.4 8 10 11.6" {...stroke} /></>,
+    bolt: <><path d="M9 1.8 3.6 9h4l-1 5.2L12.4 7h-4L9 1.8Z" {...stroke} /></>,
+    link: <><path d="M6.6 9.4 9.4 6.6" {...stroke} /><path d="M7.4 4.6l1-1a2.4 2.4 0 0 1 3.4 3.4l-1 1M8.6 11.4l-1 1a2.4 2.4 0 0 1-3.4-3.4l1-1" {...stroke} /></>,
+    database: <><ellipse cx="8" cy="4" rx="4.8" ry="1.8" {...stroke} /><path d="M3.2 4v8c0 1 2.1 1.8 4.8 1.8s4.8-.8 4.8-1.8V4M3.2 8c0 1 2.1 1.8 4.8 1.8s4.8-.8 4.8-1.8" {...stroke} /></>,
+    grid: <><rect x="2.6" y="2.6" width="4.4" height="4.4" rx="1" {...stroke} /><rect x="9" y="2.6" width="4.4" height="4.4" rx="1" {...stroke} /><rect x="2.6" y="9" width="4.4" height="4.4" rx="1" {...stroke} /><rect x="9" y="9" width="4.4" height="4.4" rx="1" {...stroke} /></>,
+    plug: <><path d="M6 2.4v3M10 2.4v3M4.4 5.4h7.2v2.4a3.6 3.6 0 0 1-7.2 0V5.4ZM8 11.4v2.2" {...stroke} /></>,
+    "shield-check": <><path d="M8 1.7 13.3 3.7v4.1c0 3.1-2.1 5.7-5.3 6.9C4.8 13.5 2.7 10.9 2.7 7.8V3.7L8 1.7Z" {...stroke} /><path d="M5.8 8l1.6 1.6 3-3.2" {...stroke} /></>,
+    // A cluster: a hub and the nodes round it.
+    cluster: <><circle cx="8" cy="8" r="1.8" {...stroke} /><circle cx="8" cy="2.9" r="1.3" {...stroke} /><circle cx="12.4" cy="10.6" r="1.3" {...stroke} /><circle cx="3.6" cy="10.6" r="1.3" {...stroke} /><path d="M8 4.2v2M9.6 8.9l1.7 1M6.4 8.9l-1.7 1" {...stroke} /></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" className="icon">
@@ -457,18 +473,24 @@ export function Modal({
         </header>
         {/* A form rather than a div: Enter confirms by the browser's own means,
             and only from the fields it ought to confirm from. */}
-        <form
-          className="body"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit?.();
-          }}
-        >
-          {children}
-          {/* A hidden submit button: the main action lives in the footer,
-              outside the form, so Enter has to catch on to something. */}
-          {onSubmit && <button type="submit" className="submit-proxy" tabIndex={-1} aria-hidden="true" />}
-        </form>
+        {onSubmit ? (
+          <form
+            className="body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit();
+            }}
+          >
+            {children}
+            {/* A hidden submit button: the main action lives in the footer,
+                outside the form, so Enter has to catch on to something. */}
+            <button type="submit" className="submit-proxy" tabIndex={-1} aria-hidden="true" />
+          </form>
+        ) : (
+          // Nothing to confirm with Enter: the contents may hold forms of
+          // their own, and a form inside a form is not one.
+          <div className="body">{children}</div>
+        )}
         {footer && <footer>{footer}</footer>}
       </div>
     </div>,
@@ -480,14 +502,19 @@ export function Modal({
    They live outside the screens' tree, so that switching sections does not
    clear them. */
 
-export type Toast = { id: number; text: string; leaving?: boolean };
+/// A toast's look: what happened, said by its icon and colour as well as by
+/// its words.
+export type ToastKind = "ok" | "trash" | "restore" | "error" | "copy" | "info";
+export type Toast = { id: number; text: string; kind: ToastKind; leaving?: boolean };
+
+const TOAST_ICON: Record<ToastKind, string> = { ok: "check", trash: "trash", restore: "undo", error: "warn", copy: "copy", info: "shield" };
 
 export function useToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const push = useCallback((text: string) => {
+  const push = useCallback((text: string, kind: ToastKind = "ok") => {
     const id = Date.now() + Math.random();
-    setToasts((list) => [...list, { id, text }]);
+    setToasts((list) => [...list, { id, text, kind }]);
     // Leaving is quicker than arriving: the system answers quickly, the
     // person decides.
     setTimeout(() => setToasts((l) => l.map((x) => (x.id === id ? { ...x, leaving: true } : x))), 2600);
@@ -502,8 +529,10 @@ export function Toasts({ toasts }: { toasts: Toast[] }) {
   return (
     <div className="toasts">
       {toasts.map((x) => (
-        <div className={`toast ${x.leaving ? "leaving" : ""}`} key={x.id} role="status">
-          <Icon name="shield" size={14} />
+        <div className={`toast toast-${x.kind} ${x.leaving ? "leaving" : ""}`} key={x.id} role="status">
+          <span className="toast-icon">
+            <Icon name={TOAST_ICON[x.kind]} size={14} />
+          </span>
           {x.text}
         </div>
       ))}
@@ -792,14 +821,25 @@ export function Disclosure({ title, children, open: initial = false }: { title: 
 function useInk(active: string, deps: unknown[] = []) {
   const box = useRef<HTMLDivElement | null>(null);
   const [ink, setInk] = useState<{ x: number; w: number; ready: boolean }>({ x: 0, w: 0, ready: false });
-  useLayoutEffect(() => {
+  const measure = useCallback(() => {
     const el = box.current?.querySelector<HTMLElement>('[data-active="true"]');
     if (!el || !box.current) return;
     const b = box.current.getBoundingClientRect();
     const r = el.getBoundingClientRect();
-    setInk((cur) => ({ x: r.left - b.left, w: r.width, ready: cur.ready || true }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, ...deps]);
+    setInk((cur) => (cur.ready && cur.x === r.left - b.left && cur.w === r.width ? cur : { x: r.left - b.left, w: r.width, ready: true }));
+  }, []);
+  useLayoutEffect(measure, [measure, active, ...deps]);
+  // Measured once, the backing stayed where the tabs were before the font
+  // came in or the column narrowed, and moved under its tab only on a click.
+  // It follows every change of the tabs' size, and the fonts' arrival.
+  useEffect(() => {
+    if (!box.current) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(box.current);
+    for (const c of box.current.children) ro.observe(c);
+    void document.fonts?.ready.then(measure);
+    return () => ro.disconnect();
+  }, [measure, ...deps]);
   return { box, ink };
 }
 
@@ -841,7 +881,8 @@ export function Tabs<T extends string>({
   onChange,
 }: {
   value: T;
-  options: { id: T; label: string; count?: number; icon?: string }[];
+  /// `title` is the word of an option drawn as an icon alone.
+  options: { id: T; label: string; count?: number; icon?: string; title?: string }[];
   onChange: (id: T) => void;
 }) {
   const onKeyDown = useRoving(value, options, onChange);
@@ -859,6 +900,8 @@ export function Tabs<T extends string>({
           data-active={o.id === value}
           tabIndex={o.id === value ? 0 : -1}
           className={o.id === value ? "on" : ""}
+          title={o.title}
+          aria-label={o.title}
           onClick={() => onChange(o.id)}
         >
           {o.icon && <Icon name={o.icon} size={13} />}
@@ -876,7 +919,8 @@ export function Segmented<T extends string>({
   onChange,
 }: {
   value: T;
-  options: { id: T; label: string; count?: number }[];
+  /// `title` is the word of an option drawn as an icon alone.
+  options: { id: T; label: string; count?: number; icon?: string; title?: string }[];
   onChange: (id: T) => void;
 }) {
   const onKeyDown = useRoving(value, options, onChange);
@@ -894,13 +938,56 @@ export function Segmented<T extends string>({
           aria-selected={o.id === value}
           tabIndex={o.id === value ? 0 : -1}
           className={o.id === value ? "on" : ""}
+          title={o.title}
+          aria-label={o.title}
           onClick={() => onChange(o.id)}
         >
+          {o.icon && <Icon name={o.icon} size={13} />}
           {o.label}
           {o.count !== undefined && <span className="tally">{o.count}</span>}
         </button>
       ))}
     </div>
+  );
+}
+
+/// A screen's head — one for every screen, drawer and dialogue of the app,
+/// the core's and the plugins' alike: the title (or what stands for it, such
+/// as a switcher) and the actions on one line at the controls' height, the
+/// subtitle under it.
+export function ScreenHead({
+  icon,
+  title,
+  count,
+  lead,
+  subtitle,
+  children,
+}: {
+  icon?: string;
+  title?: ReactNode;
+  count?: number;
+  /// In place of the title: a switcher, a back button before it.
+  lead?: ReactNode;
+  subtitle?: ReactNode;
+  /// The actions, at the right.
+  children?: ReactNode;
+}) {
+  return (
+    <header className="screen-head">
+      <div className="screen-head-row">
+        {lead}
+        {title !== undefined && (
+          <h3 className="screen-head-title">
+            {icon && <Icon name={icon} size={16} />}
+            <span className="screen-head-text">{title}</span>
+            {count !== undefined && <Count n={count} className="screen-head-count" />}
+          </h3>
+        )}
+        <span className="grow" />
+        {children}
+      </div>
+      {subtitle && <p className="screen-head-sub">{subtitle}</p>}
+    </header>
   );
 }
 
@@ -1058,10 +1145,11 @@ export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) =
 /// brightness.
 export function inkOn(hex: string): string {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
-  if (!m) return "#fff";
+  if (!m) return "var(--on-accent)";
   const [r, g, b] = [m[1], m[2], m[3]].map((x) => parseInt(x, 16) / 255);
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return lum > 0.55 ? "#111419" : "#ffffff";
+  // The theme's own inks, not colours of our own.
+  return lum > 0.55 ? "var(--on-bright)" : "var(--on-accent)";
 }
 
 /* ── The bricks of the settings page ────────────────────────────────────
@@ -1106,4 +1194,115 @@ export function Field({ label, value, mono = true }: { label: string; value: str
       <span className={`v ${mono ? "mono" : ""}`}>{value}</span>
     </div>
   );
+}
+
+/// Whether the person asked the system for less motion.
+export function lessMotion(): boolean {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+}
+
+/// A change of what is on screen, drawn as a movement rather than a jump:
+/// a row that leaves folds away and the rest slide into its place. The
+/// browser's view transitions do the work where there are any; elsewhere, and
+/// for a person who asked for less motion, the change is simply made.
+export function withTransition(change: () => void): void {
+  const start = (document as Document & { startViewTransition?: (cb: () => void) => unknown }).startViewTransition;
+  if (!start || lessMotion()) {
+    change();
+    return;
+  }
+  start.call(document, () => flushSync(change));
+}
+
+/// A thin running bar under the top band while something is under way that
+/// the person is waiting on: a write the server has not confirmed, a sync.
+export function ActivityBar({ on }: { on: boolean }) {
+  return <div className={`activity ${on ? "on" : ""}`} role="progressbar" aria-hidden={!on} aria-busy={on} />;
+}
+
+/// A number that hops when it changes — never on its first showing, or every
+/// count would hop at once when the window opens.
+export function Count({ n, className = "count" }: { n: number; className?: string }) {
+  const first = useRef(n);
+  const [hop, setHop] = useState(0);
+  useEffect(() => {
+    if (n !== first.current) setHop((h) => h + 1);
+    first.current = n;
+  }, [n]);
+  return (
+    <span className={`${className} ${hop ? "hop" : ""}`} key={hop}>
+      {n}
+    </span>
+  );
+}
+
+/// A colour token of the theme as it is now. A token that is not there is a
+/// mistake in the theme, said loudly, never papered over with a colour of
+/// our own.
+export function themeToken(name: string): string {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!v) console.error(`keyward: the theme has no ${name}`);
+  return v;
+}
+
+/// The same colour, partly see-through: `#rrggbb` + an alpha byte; anything
+/// else as it is.
+function seeThrough(color: string, alpha: string): string {
+  return /^#[0-9a-f]{6}$/i.test(color) ? `${color}${alpha}` : color;
+}
+
+/// A terminal's colours, every one of them the theme's: the ground, the words,
+/// the cursor in the accent, the sixteen colours of the shell from the
+/// theme's own reds, greens and blues — in the light theme and the dark one.
+export function terminalTheme() {
+  const ground = themeToken("--block");
+  const text = themeToken("--text");
+  const dim = themeToken("--dim");
+  const faint = themeToken("--faint");
+  const raise = themeToken("--raise");
+  const accent = themeToken("--sky");
+  const isLight = window.matchMedia?.("(prefers-color-scheme: light)").matches ?? false;
+  const red = themeToken("--rose");
+  const green = themeToken("--mint");
+  const yellow = themeToken("--amber");
+  const blue = themeToken("--blue-hi");
+  const orange = themeToken("--orange");
+  const cyan = themeToken("--cyan");
+  return {
+    background: ground,
+    foreground: text,
+    cursor: accent,
+    cursorAccent: ground,
+    selectionBackground: seeThrough(accent, "55"),
+    black: isLight ? text : raise,
+    red,
+    green,
+    yellow,
+    blue,
+    magenta: accent,
+    cyan,
+    white: isLight ? faint : dim,
+    brightBlack: faint,
+    brightRed: red,
+    brightGreen: green,
+    brightYellow: orange,
+    brightBlue: blue,
+    brightMagenta: accent,
+    brightCyan: cyan,
+    brightWhite: isLight ? dim : text,
+  };
+}
+
+/// Calls `change` whenever the theme changes under a running screen: the
+/// system's light or dark, a palette or accent picked in the settings.
+/// Returns the unsubscribe.
+export function onThemeChange(change: () => void): () => void {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", change);
+  const watcher = new MutationObserver(change);
+  watcher.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", "data-theme"] });
+  return () => {
+    media.removeEventListener("change", change);
+    watcher.disconnect();
+  };
 }

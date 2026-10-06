@@ -70,5 +70,33 @@
   },
   "noKeyward": {
     "message": "keyward did not answer: check that the app is running"
+  },
+  "unpairedTitle": {
+    "message": "Pair this browser with keyward"
+  },
+  "unpairedText": {
+    "message": "Open keyward: it shows the same words. Compare them and pair, then press Try again."
+  },
+  "pairLeft": {
+    "message": "The words count for $1 more",
+    "placeholders": {
+      "left": {
+        "content": "$1"
+      }
+    }
+  },
+  "pairExpired": {
+    "message": "These words have expired: press Try again for new ones"
+  },
+  "noneTitle": {
+    "message": "No passkey for $1 in keyward",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "noneText": {
+    "message": "Sign in another way — the browser offers your other passkeys, a phone or a security key."
   }
 }

@@ -342,6 +342,21 @@ function Members({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<OrgRole | null>(grantable[0] ?? null);
   const [killing, setKilling] = useState<OrgMember | null>(null);
+  // The member being confirmed and their fingerprint words, once fetched:
+  // the words go back with the confirm, and the daemon seals only to a key
+  // that still makes them.
+  const [confirming, setConfirming] = useState<{ member: OrgMember; words: string[] | null } | null>(null);
+
+  const askConfirm = (m: OrgMember) => {
+    setError(null);
+    setConfirming({ member: m, words: null });
+    invoke<string[]>("member_fingerprint", { orgId, memberId: m.id, userId: m.user_id ?? "" })
+      .then((words) => setConfirming((c) => (c && c.member.id === m.id ? { member: m, words } : c)))
+      .catch((e) => {
+        setConfirming(null);
+        setError(String(e));
+      });
+  };
 
   const load = useCallback(() => {
     setMembers(null);
@@ -359,6 +374,7 @@ function Members({
       await fn();
       setInviting(false);
       setKilling(null);
+      setConfirming(null);
       setEmail("");
       onChanged();
       load();
@@ -415,11 +431,7 @@ function Members({
                     className="btn"
                     disabled={busy}
                     title={t("member.confirmHint")}
-                    onClick={() =>
-                      void run(() =>
-                        invoke("confirm_member", { orgId, memberId: m.id, userId: m.user_id ?? "" }),
-                      )
-                    }
+                    onClick={() => askConfirm(m)}
                   >
                     {t("member.confirm")}
                   </button>
@@ -488,6 +500,33 @@ function Members({
             </div>
           </div>
           <span className="hint">{t("member.inviteHint")}</span>
+          {error && <Alert message={error} />}
+        </Modal>
+      )}
+
+      {confirming && (
+        <Modal
+          title={t("member.confirm")}
+          onClose={() => setConfirming(null)}
+          footer={
+            <button type="button"
+              className="btn primary"
+              disabled={busy || !confirming.words}
+              onClick={() => {
+                const { member, words } = confirming;
+                if (!words) return;
+                void run(() => invoke("confirm_member", { orgId, memberId: member.id, userId: member.user_id ?? "", fingerprint: words }));
+              }}
+            >
+              {busy ? t("action.saving") : t("member.confirm")}
+            </button>
+          }
+        >
+          <div className="field">
+            <label>{t("member.fingerprint")}</label>
+            {confirming.words ? <b className="mono">{confirming.words.join("-")}</b> : <Skeleton rows={1} />}
+          </div>
+          <span className="hint">{t("member.fingerprintCompare", { name: confirming.member.name ?? confirming.member.email })}</span>
           {error && <Alert message={error} />}
         </Modal>
       )}

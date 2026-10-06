@@ -1,0 +1,124 @@
+/* The window: the strip with its one line, the menus under it, the stage of
+   sheets, the account menu. Tokens only. */
+.kw-window { display: flex; flex-direction: column; height: 100%; background: var(--tier-lo); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans); color: var(--text); }
+/* one caption style: group captions, table heads, menu heads, lane heads */
+.kw-grp, .kw-lgrp, .kw-mt-h, .kw-pop h6, .kw-menu .kw-mh, .kw-lane-h { font: var(--w-name) var(--fs-s)/var(--lh-s) var(--sans); color: var(--faint); }
+
+/* ---------- the strip: the traffic lights' blank, then one line ---------- */
+.kw-strip {
+  height: var(--strip-h); flex: none; display: flex; align-items: center; gap: var(--u);
+  padding: 0 var(--gutter) 0 var(--traffic); background: var(--tier-lo); position: relative; z-index: 15;
+}
+.kw-nav { display: flex; gap: var(--half); flex: none; }
+.kw-sync { color: var(--dim); }
+/* while a sync runs its glyph turns, in the glyph's own box */
+.kw-sync.kw-syncing { color: var(--sky); }
+.kw-sync.kw-syncing svg { animation: kw-turn var(--dur-loop) linear infinite; }
+
+/* ---------- the activity bar: under the strip, while a call is in flight ----------
+   It comes up only for a wait the eye would notice (after --dur-fast) and
+   sweeps until the last call ends. */
+.kw-activity { position: absolute; top: 0; left: 0; right: 0; height: var(--bar-w); z-index: 12; overflow: hidden; pointer-events: none;
+  opacity: 0; transition: opacity var(--dur) var(--ease-out); }
+.kw-activity.kw-on { opacity: 1; transition-delay: var(--dur-fast); }
+.kw-activity.kw-on::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, var(--bar-c), transparent); animation: kw-sweep var(--dur-loop) var(--ease-in-out) infinite; }
+@keyframes kw-sweep { from { translate: -100% 0; } to { translate: 250% 0; } }
+.kw-qbox { flex: 1; min-width: 0; position: relative; }
+.kw-qline {
+  height: var(--ctl); display: flex; align-items: center; gap: var(--half); padding: 0 var(--half); border-radius: var(--r-ctl);
+  background: var(--line-bg); box-shadow: inset 0 0 0 1px var(--line-edge); cursor: text; min-width: 0;
+  transition: box-shadow var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
+}
+.kw-qline:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
+/* the path: one kind of crumb — an icon and a human name — whatever the step is */
+.kw-crumbs { display: flex; align-items: center; gap: 0; min-width: 0; flex: 0 1 auto; overflow: hidden; }
+.kw-crumb {
+  height: var(--chip); max-width: calc(var(--u) * 28); display: inline-flex; align-items: center; gap: var(--u); padding: 0 var(--u);
+  border: 0; border-radius: var(--r-in); background: transparent; color: var(--dim); white-space: nowrap; flex: none;
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans); cursor: default; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.kw-crumb > span { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.kw-crumb .kw-icon, .kw-crumb .kw-g { color: var(--faint); }
+.kw-crumb:hover, .kw-crumb.kw-open { background: var(--hover); color: var(--text); }
+.kw-crumb.kw-last { color: var(--text); font-weight: var(--w-name); }
+.kw-crumb.kw-last .kw-icon { color: var(--dim); }
+.kw-crumb.kw-more { width: var(--chip); padding: 0; justify-content: center; }
+.kw-crumb.kw-enter { animation: kw-crumb-in var(--dur) var(--ease-out); }
+@keyframes kw-crumb-in { from { opacity: 0; transform: translateX(calc(var(--travel) / -2)); } }
+.kw-sep { color: var(--faint); flex: none; opacity: 0.8; }
+.kw-qline input {
+  flex: 1 1 var(--chip); min-width: var(--chip); height: var(--chip); border: 0; background: transparent; color: var(--text);
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); outline: none; padding: 0 var(--u);
+}
+.kw-qline.kw-typing input { min-width: calc(var(--u) * 20); }
+.kw-qline input:focus-visible { box-shadow: none; }
+.kw-qline input::placeholder { color: var(--faint); font-family: var(--sans); }
+.kw-qmeta { color: var(--faint); white-space: nowrap; padding: 0 var(--u); flex: none; font-variant-numeric: tabular-nums; }
+.kw-qline .kw-btn.kw-ico { width: var(--chip); height: var(--chip); min-width: var(--chip); border-radius: var(--r-in); }
+.kw-qline .kw-btn.kw-ico.kw-on { color: var(--sky); }
+.kw-qline > .kw-kbd { margin: 0 var(--half); }
+
+/* ---------- suggestions, places and the hidden steps: menus under the line ---------- */
+.kw-pop {
+  position: absolute; top: calc(var(--ctl) + var(--u)); left: 0; width: min(calc(var(--u) * 98), 100%); padding: var(--u);
+  background: var(--surface); border-radius: var(--r-panel); z-index: 30;
+  box-shadow: var(--sh-pop), inset 0 0 0 1px var(--edge); max-height: calc(var(--u) * 60); overflow: auto;
+  display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--u) * 34); gap: var(--u); animation: kw-pop-in var(--dur) var(--ease-out);
+}
+.kw-pop.kw-one { grid-template-columns: minmax(0, 1fr); width: calc(var(--u) * 40); right: 0; left: auto; }
+.kw-pop.kw-one.kw-at-left { right: auto; }
+@keyframes kw-pop-in { from { opacity: 0; transform: translateY(calc(var(--travel) / -4)); } }
+.kw-pop h6 { margin: 0; height: var(--ctl); display: flex; align-items: flex-end; padding: 0 var(--u) var(--u); }
+.kw-pop h6:first-child { height: var(--chip); }
+.kw-opt { height: var(--ctl); display: flex; align-items: center; gap: var(--u); padding: 0 var(--u); width: 100%;
+  border-radius: var(--r-ctl); color: var(--text); border: 0; background: none; text-align: left; cursor: default; }
+.kw-opt > .kw-icon, .kw-opt > .kw-g { flex: none; }
+.kw-opt .kw-icon { color: var(--faint); }
+.kw-opt .kw-lb { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.kw-opt .kw-syn { flex: 1 1 0; text-align: right; font-family: var(--mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; padding-left: var(--u2); }
+.kw-opt .kw-d { width: var(--u5); flex: none; display: flex; justify-content: flex-end; }
+.kw-opt .kw-blank { width: var(--ic); height: var(--ic); flex: none; }
+.kw-opt.kw-on { background: var(--hover); }
+.kw-opt.kw-na { color: var(--faint); }
+.kw-opt:disabled { color: var(--faint); opacity: 1; }
+.kw-crib { box-shadow: inset 1px 0 0 var(--edge-soft); padding: 0 var(--u) var(--u) var(--u2); color: var(--dim); }
+.kw-crib h6 { padding-left: 0; }
+.kw-gram { display: grid; grid-template-columns: calc(var(--u) * 15) minmax(0, 1fr); gap: var(--half) var(--u); }
+.kw-gram code { font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); color: var(--sky); white-space: nowrap; }
+.kw-crib p { margin-top: var(--u2); color: var(--faint); }
+
+/* ---------- the account menu ---------- */
+.kw-veil { position: fixed; inset: 0; z-index: 20; }
+.kw-menu { position: absolute; right: var(--gutter); top: var(--strip-h); width: calc(var(--u) * 34); border-radius: var(--r-panel); padding: var(--u);
+  background: var(--surface); box-shadow: var(--sh-pop), inset 0 0 0 1px var(--edge); animation: kw-pop-in var(--dur) var(--ease-out); }
+.kw-menu .kw-me { padding: var(--u); display: flex; gap: var(--u); align-items: center; }
+.kw-menu .kw-me b { display: block; font-weight: var(--w-head); }
+.kw-menu .kw-me span { color: var(--faint); }
+.kw-mrow { height: var(--ctl); display: flex; align-items: center; gap: var(--u); padding: 0 var(--u); border-radius: var(--r-ctl); color: var(--text); cursor: default; }
+.kw-mrow:hover { background: var(--hover); }
+.kw-mrow .kw-ic { color: var(--dim); }
+.kw-mrow .kw-lb { flex: 1; min-width: 0; }
+.kw-mrow .kw-ck { color: var(--sky); }
+.kw-menu .kw-mh { height: var(--ctl); display: flex; align-items: flex-end; padding: 0 var(--u) var(--u); }
+
+/* ---------- toasts: done, refused, copied — up from the bottom, gone by themselves ---------- */
+.kw-toasts { position: fixed; left: 50%; bottom: var(--u3); transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column;
+  align-items: center; gap: var(--u); pointer-events: none; }
+.kw-toast { pointer-events: auto; display: flex; align-items: center; gap: var(--u); min-height: var(--ctl); max-width: calc(var(--u) * 70);
+  padding: var(--u) var(--u2); border-radius: var(--r-ctl); background: var(--surface); color: var(--text); cursor: default;
+  box-shadow: var(--sh-pop), inset 0 0 0 1px var(--edge); animation: kw-toast-in var(--dur) var(--ease-out) both; }
+.kw-toast .kw-icon { color: var(--tone); }
+.kw-toast.kw-t-ok { --tone: var(--m-ok); }
+.kw-toast.kw-t-copy { --tone: var(--sky); }
+.kw-toast.kw-t-info { --tone: var(--dim); }
+.kw-toast.kw-t-error { --tone: var(--m-crit); box-shadow: var(--sh-pop), inset 0 0 0 1px color-mix(in srgb, var(--rose) 50%, var(--edge)); }
+.kw-toast.kw-leave { animation: kw-toast-out var(--dur) var(--ease-out) both; pointer-events: none; }
+@keyframes kw-toast-in { from { opacity: 0; translate: 0 var(--travel); } }
+@keyframes kw-toast-out { to { opacity: 0; translate: 0 calc(var(--travel) / 2); } }
+
+/* A place the window could not draw, or a session that would not load: the
+   document's gutters and type, one way back. */
+.kw-failed { display: flex; flex-direction: column; align-items: flex-start; gap: var(--head-gap); padding: calc(var(--strip-h) + var(--first-line)) var(--insp-gutter); color: var(--text); }
+.kw-failed h1 { margin: 0; font: var(--w-head) var(--fs-l)/var(--lh-l) var(--sans); }
+.kw-failed p { margin: 0; max-width: var(--insp-max); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans); color: var(--dim); }

@@ -15,6 +15,11 @@ path = "src/bin/ssh.rs"
 keyward-core.workspace = true
 keyward-plugin.workspace = true
 keyward-plugin-stdio.workspace = true
+# The routes, the host key check, the login signed by the core and the sealed
+# link: shared with every plugin that goes to a server over ssh.
+keyward-ssh-client.workspace = true
+# The plugin's places on the window's path, and the sealed road they travel.
+keyward-ui.workspace = true
 # Reading a pasted key for the editor, with the same rules the vault saves by.
 keyward-sshkey.workspace = true
 anyhow.workspace = true
@@ -33,20 +38,15 @@ ssh-encoding = { version = "0.2", features = ["alloc"] }
 # and Windows, with no system ssh and no local pty. `ring` rather than the
 # default aws-lc-rs: it builds everywhere without cmake or nasm.
 russh = { version = "0.63", default-features = false, features = ["ring", "rsa", "flate2"] }
-# The terminal's page talks to the plugin sealed end to end, the same exchange
-# the browser bridge uses: ECDH P-256, HKDF-SHA256, AES-256-GCM.
-p256 = { version = "0.13", features = ["ecdh"] }
-aes-gcm = "0.10"
-hkdf = "0.12"
-sha2 = "0.10"
 rand_core = { version = "0.6", features = ["getrandom"] }
 base64 = "0.22"
 zeroize = { version = "1.9.0", features = ["serde"] }
-# Hashed host names in the plugin's own known_hosts, in OpenSSH's format.
-hmac = "0.12"
-sha1 = "0.10"
 
 [dev-dependencies]
+# The page's side of the sealed link, for the terminal's end-to-end test.
+keyward-ssh-client = { workspace = true, features = ["testing"] }
 keyward-plugin = { workspace = true, features = ["testing"] }
 # The terminal's end-to-end test signs as the core would.
 signature = "2"
+# The setup timeout is tested on a paused clock rather than by waiting.
+tokio = { workspace = true, features = ["test-util"] }

@@ -4,12 +4,16 @@
   "description": "The workspace: the window and the plugins' screens. A plugin's dependencies are declared with the plugin.",
   "workspaces": [
     "gui",
+    "ui/core",
+    "ui/stand",
+    "web",
     "crates/plugins/*/ui"
   ],
   "scripts": {
     "dev": "npm -w keyward-gui run dev",
     "build": "npm -w keyward-gui run build",
-    "tauri": "npm -w keyward-gui run tauri"
+    "tauri": "npm -w keyward-gui run tauri",
+    "ui:check": "node scripts/ui-check.mjs"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

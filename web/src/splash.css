@@ -1,0 +1,3 @@
+/* The splash before the script: the core's, linked from index.html (see
+   ui/core/src/ui/splash.css). */
+@import "../../ui/core/src/ui/splash.css";

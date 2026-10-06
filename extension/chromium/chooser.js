@@ -88,12 +88,49 @@ async function finish(result) {
   window.close();
 }
 
+// How long the pairing's words still count, the same count keyward's window
+// shows. Once it runs out the words mean nothing: try again for new ones.
+let ticking = null;
+function countdown() {
+  const el = $("notice-timer");
+  const until = flow.unpaired?.expires || 0;
+  if (ticking) clearInterval(ticking);
+  ticking = null;
+  el.hidden = !until;
+  if (!until) return;
+  const tick = () => {
+    const left = Math.max(0, Math.round(until - Date.now() / 1000));
+    el.textContent = left > 0 ? t("pairLeft", [`${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`]) : t("pairExpired");
+    el.classList.toggle("expired", left === 0);
+    if (left === 0 && ticking) {
+      clearInterval(ticking);
+      ticking = null;
+    }
+  };
+  tick();
+  ticking = setInterval(tick, 1000);
+}
+
 function render() {
   const site = host();
   $("site").textContent = site;
-  $("notice").hidden = !flow.locked;
-  $("notice-title").textContent = t("lockedTitle");
-  $("notice-text").textContent = t("lockedText");
+  // Nothing of keyward's fits this sign-in.
+  const none = flow.kind === "get" && !flow.locked && flow.offers.length === 0;
+  $("notice").hidden = !flow.locked && !none;
+  $("notice-title").textContent = flow.unpaired ? t("unpairedTitle") : none ? t("noneTitle", [site]) : t("lockedTitle");
+  $("notice-text").textContent = flow.unpaired ? t("unpairedText") : none ? t("noneText") : t("lockedText");
+  // The key's five words, big and apart: what the person compares with
+  // keyward's window.
+  const words = $("notice-words");
+  words.replaceChildren(
+    ...(flow.unpaired?.words ?? []).map((w) => {
+      const el = document.createElement("code");
+      el.textContent = w;
+      return el;
+    }),
+  );
+  words.hidden = !flow.unpaired?.words?.length;
+  countdown();
   $("other").textContent = t("otherWay");
   showError("");
   const list = $("choices");
@@ -124,9 +161,12 @@ function render() {
       ? (flow.homes.find((h) => !h.has_passkey && h.user_name && h.user_name === flow.request.user_name)?.entry_id ?? "new")
       : list.firstElementChild?.dataset.key;
   if (first) pick(first);
-  list.hidden = flow.locked;
+  list.hidden = flow.locked || none;
   setBusy(false);
   $("go").textContent = flow.locked ? t("tryAgain") : flow.kind === "get" ? t("signIn") : t("save");
+  // One main action: with nothing to offer, it is the browser's own way.
+  $("go").hidden = none;
+  $("other").classList.toggle("primary", none);
 }
 
 async function retry() {
@@ -139,8 +179,8 @@ async function retry() {
     showError(lookup.error);
     return;
   }
-  if (flow.kind === "get" && lookup.offers.length === 0) return finish({ fallback: true });
   flow.locked = false;
+  flow.unpaired = null;
   flow.offers = lookup.offers || [];
   flow.homes = lookup.homes || [];
   await chrome.storage.session.set({ [FLOW + flow.id]: flow });

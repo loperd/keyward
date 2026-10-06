@@ -35,8 +35,14 @@ zeroize = "1.9.0"
 rand = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots"] }
 base64 = "0.22"
+# Browser extensions sign their passkey requests: ECDSA P-256, as WebCrypto has it.
+p256 = { version = "0.13", features = ["ecdsa"] }
+# A pairing's words are drawn with a fresh salt.
+rand_core = { version = "0.6", features = ["getrandom"] }
 # Checking the signatures of plugin packages. The same crate ssh-key already
 # pulls in.
 ed25519-dalek = "2"
 objc2-app-kit = { version = "0.3.2", features = ["NSPasteboard"] }
 objc2-foundation = "0.3.2"
+
+[dev-dependencies]

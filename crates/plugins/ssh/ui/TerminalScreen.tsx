@@ -16,7 +16,7 @@ import type { TermSession } from "./types";
 /// bound. The shells follow, one tab each; every terminal stays mounted while
 /// another is shown, so switching keeps its screen, and leaving the section
 /// keeps the shell itself: the plugin holds it, and the tab re-attaches.
-export function TerminalScreen(_: PluginScreenProps) {
+export function TerminalScreen({ catalog, onChanged }: PluginScreenProps) {
   const tabs = useTabs();
   const active = useActive();
   const connect = useConnect();
@@ -41,7 +41,7 @@ export function TerminalScreen(_: PluginScreenProps) {
     <div className="term-screen">
       <div className="term-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={active === OVERVIEW} className={`term-tab ${active === OVERVIEW ? "on" : ""}`} onClick={() => setActive(OVERVIEW)}>
-          <Icon name="shield" size={14} />
+          <Icon name="ssh_key" size={14} />
           <span className="term-tab-label">{t("term.overview")}</span>
         </button>
         {tabs.map((tab) => {
@@ -61,7 +61,7 @@ export function TerminalScreen(_: PluginScreenProps) {
       </div>
 
       <div className="term-body">
-        {active === OVERVIEW && <HealthOverview report={report} />}
+        {active === OVERVIEW && <HealthOverview report={report} revision={catalog?.items.length ?? 0} onChanged={onChanged} />}
         {tabs.map((tab) => (
           <TerminalPane key={tab.key} tab={tab} visible={active === tab.key} />
         ))}

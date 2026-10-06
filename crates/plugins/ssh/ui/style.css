@@ -229,11 +229,11 @@ button.term-tab > .term-tab-label { font-family: var(--sans); font-weight: 500; 
 
 /* The overview: whether each key still gets in. */
 .term-overview {
-  width: min(100%, 980px);
+  width: min(100%, 900px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   overflow-y: auto;
   min-height: 0;
   /* Keep the last route clear of the floating "new terminal" action. */
@@ -243,41 +243,82 @@ button.term-tab > .term-tab-label { font-family: var(--sans); font-weight: 500; 
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
   flex-wrap: wrap;
-  padding: 6px 0 14px;
+  padding: 4px 0 12px;
   border-bottom: 1px solid var(--edge-soft);
 }
-.term-summary { display: flex; flex-direction: column; gap: 9px; }
-.term-summary h3 { margin: 0; letter-spacing: -0.025em; font-size: 22px; font-weight: 550; }
+.term-summary { display: flex; flex-direction: column; gap: 7px; }
+.term-summary h3 { margin: 0; letter-spacing: -0.02em; font-size: 20px; font-weight: 550; }
 .term-health-metrics { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .term-health-metrics .hint { margin-left: 4px; }
-.term-overview > .hint { margin: -3px 0 2px; max-width: 68ch; line-height: 1.5; }
-.term-keys { display: flex; flex-direction: column; gap: 10px; }
+.term-overview > .hint { margin: -2px 0 4px; max-width: 64ch; line-height: 1.45; }
+.term-keys { display: flex; flex-direction: column; gap: 8px; }
 .term-health-run { width: 36px; height: 36px; flex: none; }
 
 .block.term-key {
   position: relative;
-  overflow: hidden;
-  border-left: 3px solid var(--edge);
+  overflow: visible;
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-left: 2px solid var(--edge);
+  border-radius: var(--r-panel);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: linear-gradient(115deg, color-mix(in srgb, var(--surface) 96%, var(--blue)), var(--surface));
-  box-shadow: 0 1px 0 color-mix(in srgb, #fff 8%, transparent), 0 14px 28px -28px #000;
+  gap: 6px;
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
 }
 .block.term-key.health-ok { border-left-color: var(--mint); }
 .block.term-key.health-warn { border-left-color: var(--amber); }
 .block.term-key.health-bad { border-left-color: var(--rose); }
-.term-key-head { display: flex; align-items: center; gap: 9px; min-height: 34px; flex-wrap: wrap; }
-.term-key-head > .icon { color: var(--tone-1); }
-.term-key-head > b { white-space: nowrap; letter-spacing: -0.01em; }
+.term-key-head { display: flex; align-items: center; gap: 4px; min-height: 30px; }
+.term-key-summary {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.term-key-summary > .icon:first-child { color: var(--tone-1); }
+.term-key-summary > b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: -0.01em; }
+.term-key-summary > .chip { flex: none; }
+.term-key-summary > .icon:last-child { flex: none; color: var(--faint); transition: transform 140ms var(--ease-out); }
+.term-key-summary[aria-expanded="true"] > .icon:last-child { transform: rotate(90deg); }
 .term-key-head .grow { flex: 1; }
-.term-key-check, .term-connect-action { width: 30px; height: 30px; flex: none; }
+.term-key-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--raise) 58%, transparent);
+}
+.term-key-actions .btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--r-in);
+  background: transparent;
+  color: var(--dim);
+  box-shadow: none;
+}
+.term-key-actions .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); }
+.term-key-actions .term-key-connect { color: var(--sky); }
+.term-key-actions .term-key-connect:hover:not(:disabled) { background: color-mix(in srgb, var(--sky) 14%, transparent); color: var(--sky); }
+.term-key-edit, .term-key-check, .term-connect-action { width: 30px; height: 30px; flex: none; }
 .term-key > .hint { margin: 0; }
+.term-key-detail { display: flex; flex-direction: column; gap: 6px; padding-top: 7px; border-top: 1px solid var(--edge-soft); }
 
 .term-checks { display: flex; flex-direction: column; }
-.term-check { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--edge-soft); }
+.term-check { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-top: 1px solid var(--edge-soft); }
 .term-check:first-child { border-top: none; }
 .term-check .health-dot { margin: 0 4px; }
 .term-check-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -332,3 +373,27 @@ button.term-tab > .term-tab-label { font-family: var(--sans); font-weight: 500; 
 
 /* A key's health beside its name in the routes. */
 .row .text b.ssh-key-name { display: flex; align-items: center; gap: 8px; }
+
+/* A key's own routes, as written, under its name. */
+.term-key-routes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.term-key-routes code { font-family: var(--mono); font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+
+/* A shell that never opened: no terminal, no card — why, and what to do. */
+.term-pane.failed { background: none; border-color: transparent; }
+.term-pane.failed .term-host { display: none; }
+.term-failed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+.term-failed > .icon { color: var(--rose); }
+.term-failed h3 { margin: 0; font-size: 16px; font-weight: 500; }
+.term-failed p { margin: 0; max-width: 56ch; color: var(--dim); overflow-wrap: anywhere; }
+.term-failed .term-actions { margin-top: 16px; justify-content: center; }
+.term-failed .term-forgot { color: var(--text); }

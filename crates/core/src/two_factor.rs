@@ -15,9 +15,17 @@ pub enum TwoFactorKind {
     EmailCode,
     /// A physical key: plug it in and press.
     HardwareKey,
+    /// Not a second factor: Bitwarden's check of a device it has not seen,
+    /// a code it mails on its own when the password is right.
+    NewDevice,
     /// A known provider that keyward cannot do.
     Unsupported,
 }
+
+/// The id the device check goes by among the second factors. Not one of
+/// Bitwarden's: theirs stop at 7, and the check travels the same road — a
+/// code, a step, the password kept in the daemon meanwhile.
+pub const NEW_DEVICE: u8 = 100;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TwoFactorProvider {
@@ -55,6 +63,7 @@ impl TwoFactorProvider {
             5 => ("Remembered device", "", TwoFactorKind::Unsupported),
             6 => ("Organisation Duo", "Duo is not supported", TwoFactorKind::Unsupported),
             7 => ("WebAuthn", "WebAuthn is not supported", TwoFactorKind::Unsupported),
+            NEW_DEVICE => ("New device", "The code from the letter about a new device", TwoFactorKind::NewDevice),
             _ => ("Unknown method", "keyward cannot do this method", TwoFactorKind::Unsupported),
         };
         Self { id, name: name.to_string(), prompt: prompt.to_string(), kind }

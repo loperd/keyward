@@ -1,11 +1,12 @@
 {
   "id": "ssh",
   "title": "SSH",
-  "icon": "route",
+  "icon": "terminal",
   "description": "plugin.ssh.description",
   "section": true,
   "needs_unlocked": true,
   "permissions": ["entries", "items_write", "notices", "ssh_sign", "network"],
   "protocol": 2,
-  "exec": "keyward-plugin-ssh"
+  "exec": "keyward-plugin-ssh",
+  "places": true
 }

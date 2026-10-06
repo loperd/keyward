@@ -1,0 +1,67 @@
+/* The stage: the stack of sheets — list columns, their spines, then the top
+   sheet. Tokens only; a column's tier colour is a mix of two tokens set on it. */
+.kw-stage { flex: 1; min-height: 0; display: flex; position: relative; }
+.kw-cols { display: flex; flex: none; height: 100%; }
+.kw-col {
+  flex: none; height: 100%; position: relative; overflow: hidden; background: var(--bg);
+  box-shadow: inset 1px 0 0 var(--sheet-lit), inset -1px 0 0 var(--sheet-edge), inset calc(var(--u4) * -1) 0 var(--u4) calc(var(--u4) * -1) var(--sheet-shadow);
+  transition: width var(--dur-slow) var(--ease-out), background-color var(--dur-slow) var(--ease-out);
+}
+/* a new sheet slides in from the right; a sheet folds into its spine and unfolds by its width */
+.kw-col.kw-enter { animation: kw-sheet-in var(--dur) var(--ease-out); }
+@keyframes kw-sheet-in { from { opacity: 0; transform: translateX(var(--travel)); } }
+.kw-list { width: var(--col-w); height: 100%; overflow-y: auto; overflow-x: hidden; padding: var(--u2) 0 var(--u3); scrollbar-width: none;
+  position: relative; transition: opacity var(--dur) var(--ease-out); }
+.kw-list::-webkit-scrollbar { display: none; }
+.kw-col.kw-spined .kw-list { opacity: 0; pointer-events: none; }
+
+/* a group caption: the gutter's left edge, the count on the marks' right edge */
+.kw-grp { height: var(--ctl); display: flex; align-items: flex-end; justify-content: space-between; gap: var(--u); padding: 0 var(--gutter) var(--u); }
+/* the first line of a list: a two-line row's tile, a one-line row's tile and a caption's text all start on --first-line */
+.kw-list > .kw-row:first-child:not(.kw-two) { margin-top: calc((var(--row-2) - var(--row-1)) / 2); }
+.kw-grp .kw-n { font-weight: var(--w-text); font-variant-numeric: tabular-nums; }
+.kw-gap { height: var(--u2); }
+.kw-row {
+  margin: 0 calc(var(--gutter) - var(--pad)); height: var(--row-1); padding: 0 var(--pad); border-radius: var(--r-ctl); display: flex; align-items: center;
+  gap: var(--lead-gap); color: var(--text); cursor: default; position: relative; z-index: 1; transition: background-color var(--dur-fast) var(--ease-out);
+}
+.kw-row.kw-two { height: var(--row-2); }
+.kw-row:hover, .kw-row.kw-lit { background: var(--hover); }
+.kw-row .kw-lead { flex: none; color: var(--dim); display: grid; place-items: center; width: var(--tile); height: var(--tile); }
+.kw-row .kw-lbl { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kw-row .kw-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: var(--w-name); }
+.kw-row .kw-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--faint); }
+.kw-row .kw-side { flex: none; display: flex; align-items: center; gap: var(--u); }
+.kw-row .kw-n { color: var(--faint); font-variant-numeric: tabular-nums; min-width: var(--mark); text-align: right; }
+.kw-row.kw-off .kw-t, .kw-row.kw-off .kw-lead { color: var(--faint); }
+.kw-row.kw-cont .kw-side .kw-g { background: transparent; }
+.kw-row.kw-empty { color: var(--faint); padding-left: var(--pad); }
+/* the folder tab: the selection runs into the next sheet, its mark keeps the
+   same right edge. The tab is one surface under the rows (.kw-tabsel), so it
+   glides from row to row; the selected row itself is see-through. */
+.kw-row.kw-sel, .kw-row.kw-sel:hover { background: transparent; margin-right: 0; padding-right: var(--gutter); border-radius: var(--r-ctl) 0 0 var(--r-ctl); }
+.kw-row.kw-sel .kw-lead { color: var(--text); }
+.kw-tabsel { position: absolute; top: 0; left: calc(var(--gutter) - var(--pad)); right: 0; height: var(--row-1); z-index: 0; pointer-events: none;
+  background: var(--tab); border-radius: var(--r-ctl) 0 0 var(--r-ctl); opacity: 0;
+  transition: transform var(--dur) var(--ease-out), height var(--dur) var(--ease-out), opacity var(--dur-fast) var(--ease-out), background-color var(--dur-slow) var(--ease-out); }
+.kw-tabsel::before, .kw-lrow.kw-on::before { content: ""; position: absolute; left: 0; top: calc(50% - var(--ic-h) / 2); height: var(--ic-h); width: var(--bar-w); border-radius: var(--bar-w);
+  background: var(--bar-c); }
+.kw-tabsel::before { opacity: 0; transform: scaleY(0.4); transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out); }
+.kw-col.kw-focus .kw-tabsel::before { opacity: 1; transform: none; }
+
+/* a row that came or changed lights up for a moment; a row that went folds away */
+.kw-row.kw-arrive { animation: kw-row-lit calc(var(--dur-slow) * 3) var(--ease-out); }
+@keyframes kw-row-lit { from { background-color: color-mix(in srgb, var(--bar-c) 24%, transparent); } }
+.kw-row.kw-leave { animation: kw-row-out var(--dur) var(--ease-out) forwards; pointer-events: none; overflow: hidden; }
+@keyframes kw-row-out { to { opacity: 0; height: 0; } }
+
+/* a spine: icon, name and mark on the sheet's centre line */
+.kw-spine { position: absolute; inset: 0; width: var(--spine); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; row-gap: var(--u);
+  padding: var(--u2) 0; opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--ease-out); cursor: default; }
+.kw-col.kw-spined .kw-spine { opacity: 1; pointer-events: auto; transition-delay: var(--dur-fast); }
+.kw-spine:hover { background: var(--hover); }
+.kw-spine .kw-sp-ic { width: var(--tile); height: var(--tile); display: grid; place-items: center; }
+.kw-spine .kw-sp-t { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: var(--w-name); color: var(--dim); max-height: 100%; align-self: start; }
+.kw-spine:hover .kw-sp-t { color: var(--text); }
+.kw-spine .kw-sp-g { width: var(--tile); height: var(--tile); display: grid; place-items: center; }

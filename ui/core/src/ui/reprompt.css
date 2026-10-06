@@ -1,0 +1,12 @@
+/* the re-prompt: a small sheet over the window asking for the master password once more */
+.kw-reprompt-veil { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: color-mix(in srgb, var(--shade) 35%, transparent); }
+.kw-reprompt { width: min(360px, calc(100vw - 2 * var(--u2))); display: grid; gap: var(--u); padding: var(--u2); border-radius: var(--r-win);
+  background: var(--surface); color: var(--text); box-shadow: var(--sh-win), inset 0 0 0 1px var(--edge); animation: kw-pop-in var(--dur) var(--ease-out); }
+.kw-reprompt-h { display: flex; align-items: center; gap: var(--u); font-weight: var(--w-head); font-size: var(--fs-m); line-height: var(--lh-m); }
+.kw-reprompt p { margin: 0; color: var(--dim); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans); }
+.kw-reprompt-in { height: var(--ctl); display: flex; align-items: center; border-radius: var(--r-ctl); background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--edge); }
+.kw-reprompt-in:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
+.kw-reprompt-in input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text); outline: none;
+  padding: 0 var(--u); font-family: var(--mono); letter-spacing: 0.12em; }
+.kw-reprompt-go { display: flex; justify-content: flex-end; gap: var(--u); }

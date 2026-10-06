@@ -42,7 +42,8 @@ export function TwoFactorForm({
   const usable = providers.filter((p) => p.kind !== "unsupported");
   const [chosen, setChosen] = useState<TwoFactorProvider | null>(usable[0] ?? null);
   const [token, setToken] = useState("");
-  const [sent, setSent] = useState(false);
+  // The device check's letter went out with the refusal itself.
+  const [sent, setSent] = useState(usable[0]?.kind === "new_device");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [asked, setAsked] = useState(false);
@@ -127,7 +128,7 @@ export function TwoFactorForm({
           spellCheck={false}
         />
       </div>
-      {chosen?.kind === "email_code" && (
+      {(chosen?.kind === "email_code" || chosen?.kind === "new_device") && (
         <button type="button" className="link" disabled={busy} onClick={() => void sendEmail()}>
           {sent ? t("twofactor.resendEmail") : t("twofactor.sendEmail")}
         </button>

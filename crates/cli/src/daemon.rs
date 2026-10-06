@@ -95,14 +95,30 @@ pub struct State {
     cache: Cache,
 }
 
+/// What is kept between requests, each piece under the account it is of.
+/// The catalogue was kept bare: after a switch of accounts the window got the
+/// one it switched away from, and opening any of its items said "not found"
+/// in the account now active. A piece of another account is never served.
 #[derive(Default)]
 struct Cache {
-    pub catalog: Option<Catalog>,
+    catalog: Option<(Option<String>, Catalog)>,
 }
 
 impl Cache {
     fn clear(&mut self) {
         *self = Self::default();
+    }
+
+    /// The catalogue of `account`, built once and kept for it alone.
+    fn catalog(&mut self, account: Option<String>, build: impl FnOnce() -> Catalog) -> Catalog {
+        match &self.catalog {
+            Some((of, catalog)) if *of == account => catalog.clone(),
+            _ => {
+                let catalog = build();
+                self.catalog = Some((account, catalog.clone()));
+                catalog
+            }
+        }
     }
 }
 
@@ -189,10 +205,9 @@ impl State {
 
     /// The catalogue of the active account's items.
     fn catalog(&mut self) -> Catalog {
-        if self.cache.catalog.is_none() {
-            self.cache.catalog = Some(self.active().map(Vault::catalog).unwrap_or_default());
-        }
-        self.cache.catalog.clone().unwrap_or_default()
+        let account = self.active_id();
+        let vault = account.as_ref().and_then(|id| self.vaults.get(id));
+        self.cache.catalog(account.clone(), || vault.map(Vault::catalog).unwrap_or_default())
     }
 
     /// Rebuilds the table of routes. In vault mode it takes keys from **every**
@@ -439,6 +454,25 @@ where
     }
 }
 
+/// The same for an operation that makes something: the answer names it,
+/// once the routes are rebuilt.
+async fn created_op<F, Fut>(shared: &Shared, work: F) -> Response
+where
+    F: FnOnce(Vault) -> Fut,
+    Fut: std::future::Future<Output = anyhow::Result<String>>,
+{
+    let Some(vault) = shared.lock().await.active().cloned() else {
+        return Response::error(keyward_core::fault!("err.noAccount"));
+    };
+    match work(vault).await {
+        Ok(id) => match refreshed(&mut *shared.lock().await).await {
+            Response::Vault { .. } => Response::Created { id },
+            other => other,
+        },
+        Err(e) => Response::error(e),
+    }
+}
+
 /// An operation on an account whose answer is no more than "done": a copy of
 /// the vault, the network without the lock, `Done`.
 async fn account_op<F, Fut>(shared: &Shared, work: F) -> Response
@@ -520,6 +554,8 @@ where
 pub(crate) const REFUSED_ALIEN: &str = "err.peerNotKeyward";
 /// The passkey bridge asked for something other than passkeys.
 pub(crate) const REFUSED_BRIDGE: &str = "err.peerBridgePasskeysOnly";
+/// The CLI asked for what only the window may.
+pub(crate) const REFUSED_CLI: &str = "err.peerCliNotAllowed";
 
 /// A refusal to an external plugin that reached for a secret of its own
 /// accord. Its own `kw-` fields are all it is allowed.
@@ -619,7 +655,9 @@ pub(crate) fn decide(
         // switched off along with the whole protection. The sensor is required
         // where the person decided so: the "ask for the password again" mark on
         // an item, a private ssh key, and the "always ask" setting.
-        Peer::Socket { trust: Trust::Ours, .. } => {
+        // The CLI never gets a value: whatever the person runs can run it.
+        Peer::Socket { trust: Trust::Cli, .. } => Step::Deny(REFUSED_CLI),
+        Peer::Socket { trust: Trust::App, .. } => {
             if strict || (always_ask && !fresh) {
                 Step::Ask
             } else {
@@ -644,15 +682,114 @@ pub(crate) fn decide(
 /// Everything not here stays open to any process of the same user: `keyward
 /// resolve` is called by ssh on every connection, and a lock on that path would
 /// mean the sensor on every `git push`.
+/// Whether a peer may send a request at all, before anything else is looked
+/// at. Every list here is closed: a request added later is refused to each of
+/// them until somebody decides otherwise, rather than let through by default.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Admit {
+    Yes,
+    /// Allowed once the person confirms at the sensor; the key is the
+    /// prompt's text.
+    Confirm(&'static str),
+    No(&'static str),
+}
+
+pub(crate) fn admit(peer: &crate::peer::Peer, req: &Request) -> Admit {
+    use crate::peer::{Peer, Trust};
+    match peer {
+        // The window a person works in; the secrets themselves are still
+        // guarded request by request (`guard_secret`).
+        Peer::Socket { trust: Trust::App, .. } => Admit::Yes,
+        // An unsigned build has nothing to check with: the sensor decides at
+        // every secret, as before.
+        Peer::Socket { trust: Trust::Unknown, .. } => Admit::Yes,
+        Peer::Socket { trust: Trust::Bridge, .. } => {
+            if bridge_may(req) {
+                Admit::Yes
+            } else {
+                Admit::No(REFUSED_BRIDGE)
+            }
+        }
+        Peer::Socket { trust: Trust::Cli, .. } => cli_may(req),
+        // An outsider may learn that a daemon is there, and nothing else: not
+        // the vault's state, not a setting, not an item's note.
+        Peer::Socket { trust: Trust::Alien, .. } => {
+            if matches!(req, Request::Ping) {
+                Admit::Yes
+            } else {
+                Admit::No(REFUSED_ALIEN)
+            }
+        }
+        // Not over the socket at all.
+        Peer::Builtin | Peer::External => Admit::Yes,
+    }
+}
+
+/// What the CLI may ask for.
+///
+/// The CLI is ours, but whatever a person runs can run it — a script, a
+/// package's install hook. So it gets what the install and ssh need and no
+/// value out of the vault; and what would hand the vault to somebody else —
+/// a plugin switched on is consent to its permissions, Touch ID's key is the
+/// way in without the password — waits for the person's finger.
+fn cli_may(req: &Request) -> Admit {
+    match req {
+        Request::Ping
+        | Request::Status
+        | Request::Vault
+        | Request::Reload
+        | Request::Lock
+        | Request::Sync
+        | Request::Unlock { .. }
+        | Request::Login { .. }
+        | Request::LoginTwoFactor { .. }
+        | Request::SendTwoFactorEmail { .. }
+        | Request::BiometricUnlock { .. }
+        | Request::Setup { .. }
+        | Request::Plugins
+        | Request::PushNotice { .. }
+        | Request::Extensions
+        | Request::ExtensionUnpair { .. } => Admit::Yes,
+        // The finger is asked by the pairing itself, with the key's words in
+        // the prompt.
+        Request::ExtensionPair { .. } => Admit::Yes,
+        // ssh's `Match exec` and `keyward status`/`hosts`: routes, never a
+        // key.
+        Request::Plugin { plugin, action, .. } if plugin == "ssh" && matches!(action.as_str(), "resolve" | "status" | "hosts") => Admit::Yes,
+        Request::PluginInstall { .. } | Request::PluginEnable { .. } | Request::PluginRemove { .. } => Admit::Confirm("touch.cliPlugins"),
+        Request::BiometricRemember { .. } | Request::BiometricForget { .. } => Admit::Confirm("touch.cliTouchId"),
+        // Writing an item: a script could overwrite what a person relies on,
+        // so the finger; reading one back stays the window's.
+        Request::CreateItem { .. } => Admit::Confirm("touch.cliWriteItem"),
+        _ => Admit::No(REFUSED_CLI),
+    }
+}
+
+/// How long one finger covers the CLI's changes: an install removes, installs
+/// and switches on every plugin, and a dozen prompts in a row is how a person
+/// learns to touch without reading.
+const CLI_CONFIRM_HOLDS: std::time::Duration = std::time::Duration::from_secs(60);
+
+static CLI_CONFIRMED: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+
+fn cli_confirmed_lately() -> bool {
+    CLI_CONFIRMED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .is_some_and(|t| t.elapsed() < CLI_CONFIRM_HOLDS)
+}
+
+fn remember_cli_confirmed() {
+    *CLI_CONFIRMED.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(std::time::Instant::now());
+}
+
 /// What the passkey bridge may ask for.
 pub(crate) fn bridge_may(req: &Request) -> bool {
     matches!(
         req,
-        Request::Ping
-            | Request::PasskeyOffers { .. }
-            | Request::PasskeyHomes { .. }
-            | Request::PasskeySignIn { .. }
-            | Request::PasskeyRegister { .. }
+        // Only what the extension signed: the bridge passes it on and has no
+        // voice of its own.
+        Request::Ping | Request::PasskeyBridge { .. }
     )
 }
 
@@ -667,6 +804,7 @@ pub(crate) fn wants_secret(req: &Request) -> bool {
             | Request::PasskeyHomes { .. }
             | Request::PasskeySignIn { .. }
             | Request::PasskeyRegister { .. }
+            | Request::PasskeyBridge { .. }
     )
 }
 
@@ -945,6 +1083,8 @@ fn plugin_event(req: &Request) -> Option<HostEvent> {
         Request::Sync
         | Request::Reload
         | Request::CreateItem { .. }
+        | Request::NewItem { .. }
+        | Request::SetItemCollections { .. }
         | Request::UpdateItem { .. }
         | Request::TrashItem { .. }
         | Request::RestoreItem { .. }
@@ -999,14 +1139,26 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
     // otherwise, from the single text "add an account first", another process
     // learns more about the vault's state than it should, and the refusal
     // itself sounds different on different days.
-    // The passkey bridge gets passkeys and a ping, and not one request more:
-    // the list is closed, so a request added later is refused to it by
-    // default rather than let through by default.
-    if matches!(peer, crate::peer::Peer::Socket { trust: crate::peer::Trust::Bridge, .. })
-        && !bridge_may(&req)
-    {
-        tracing::warn!(pid = peer.pid(), request = ?req, "the passkey bridge asked for something else and was refused");
-        return Response::error(REFUSED_BRIDGE);
+    // Who may ask for what, before anything else: the lists are closed, so a
+    // request added later is refused by default rather than let through.
+    match admit(peer, &req) {
+        Admit::Yes => {}
+        Admit::No(text) => {
+            tracing::warn!(pid = peer.pid(), binary = peer.path(), verdict = peer.verdict(), request = ?req, "a request was refused to this peer");
+            return Response::error(text);
+        }
+        Admit::Confirm(why) if cli_confirmed_lately() => {
+            tracing::debug!(why, "the CLI's confirmation still holds");
+        }
+        Admit::Confirm(why) => {
+            let prompt = keyward_core::text::t(why, &[]);
+            let answer = tokio::task::spawn_blocking(move || keyward_vault::biometric::confirm(&prompt)).await;
+            match answer {
+                Ok(Ok(())) => remember_cli_confirmed(),
+                Ok(Err(e)) => return Response::error(anyhow::anyhow!("{}", keyward_core::text::t("err.notConfirmed", &[("reason", &e.to_string())]))),
+                Err(e) => return Response::error(anyhow::anyhow!("the sensor's prompt fell over: {e}")),
+            }
+        }
     }
 
     if wants_secret(&req) {
@@ -1108,6 +1260,7 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
             if let Err(e) = st.registry.save() {
                 return Response::error(e);
             }
+            st.cache.clear();
             // The sockets are left alone: the keys of other unlocked accounts
             // go on working, and switching is about the window, not about
             // ssh.
@@ -1138,15 +1291,26 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
             }
         }
 
-        Request::LoginTwoFactor { provider, token } => {
+        Request::LoginTwoFactor { provider, token, remember } => {
             let mut st = shared.lock().await;
             let Some(vault) = st.active_mut() else {
                 return Response::error(keyward_core::fault!("err.noAccount"));
             };
-            match vault.login_two_factor(provider, &token).await {
+            match vault.login_two_factor(provider, &token, remember).await {
                 Ok(()) => refreshed(&mut st).await,
                 Err(e) => Response::error(e),
             }
+        }
+
+        Request::ResetSession => {
+            let mut st = shared.lock().await;
+            let Some(vault) = st.active_mut() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            if let Err(e) = vault.forget_damaged_session() {
+                return Response::error(e);
+            }
+            refreshed(&mut st).await
         }
 
         Request::SendTwoFactorEmail => {
@@ -1211,7 +1375,7 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
         }
 
         Request::CreateFolder { name } => {
-            org_op(shared, |v| async move { v.create_folder(&name).await }).await
+            org_op(shared, |v| async move { v.create_folder(&name).await.map(drop) }).await
         }
 
         Request::RenameFolder { folder_id, name } => {
@@ -1223,7 +1387,67 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
         }
 
         Request::CreateCollection { org_id, name } => {
-            org_op(shared, |v| async move { v.create_collection(&org_id, &name).await }).await
+            org_op(shared, |v| async move { v.create_collection(&org_id, &name).await.map(drop) }).await
+        }
+
+        Request::NewFolder { name } => {
+            created_op(shared, |v| async move { v.create_folder(&name).await }).await
+        }
+
+        Request::NewCollection { org_id, name } => {
+            created_op(shared, |v| async move { v.create_collection(&org_id, &name).await }).await
+        }
+
+        Request::NewItem { kind, folder_id, org_id, collection_ids, edit } => {
+            created_op(shared, |v| async move { v.create_item(kind, folder_id, org_id, collection_ids, edit).await })
+                .await
+        }
+
+        Request::SetItemCollections { entry_id, collection_ids } => {
+            org_op(shared, |v| async move { v.set_item_collections(&entry_id, collection_ids).await }).await
+        }
+
+        Request::InviteMembers { org_id, emails, role, access_all, access } => {
+            org_op(shared, |v| async move { v.invite_members(&org_id, &emails, role, access_all, &access).await })
+                .await
+        }
+
+        Request::SetMember { org_id, member_id, role, access_all, access } => {
+            org_op(shared, |v| async move { v.set_member(&org_id, &member_id, role, access_all, &access).await })
+                .await
+        }
+
+        Request::VerifyPassword { password } => {
+            let Some(vault) = shared.lock().await.active().cloned() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            // The key derivation takes its second off the runtime and without
+            // the daemon's lock: nothing else waits on a re-prompt.
+            match tokio::task::spawn_blocking(move || vault.verify_password(&password)).await {
+                Ok(Ok(ok)) => Response::PasswordChecked { ok },
+                Ok(Err(e)) => Response::error(e),
+                Err(e) => Response::error(anyhow::anyhow!("the password check fell over: {e}")),
+            }
+        }
+
+        Request::GeneratePassphrase { spec } => {
+            let list = match keyward_vault::fingerprint::wordlist() {
+                Ok(list) => list,
+                Err(e) => return Response::error(e),
+            };
+            match keyward_core::generator::passphrase(&spec, list) {
+                Ok(value) => {
+                    // Into the history, as a generated password goes: the
+                    // window does not send it back to be remembered.
+                    if let Some(vault) = shared.lock().await.active().cloned() {
+                        if let Err(e) = vault.remember_generated(false, &value) {
+                            tracing::warn!(error = %e, "the passphrase did not go into the history");
+                        }
+                    }
+                    Response::Secret { value }
+                }
+                Err(e) => Response::error(e),
+            }
         }
 
         Request::RenameCollection { org_id, collection_id, name } => {
@@ -1251,11 +1475,22 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
             org_op(shared, |v| async move { v.remove_member(&org_id, &member_id).await }).await
         }
 
-        Request::ConfirmMember { org_id, member_id, user_id } => {
+        Request::ConfirmMember { org_id, member_id, user_id, fingerprint } => {
             org_op(shared, |v| async move {
-                v.confirm_member(&org_id, &member_id, &user_id).await
+                v.confirm_member(&org_id, &member_id, &user_id, &fingerprint).await
             })
             .await
+        }
+
+        Request::MemberFingerprint { org_id, member_id, user_id } => {
+            let Some(vault) = shared.lock().await.active().cloned() else {
+                return Response::error(keyward_core::fault!("err.noActiveAccount"));
+            };
+            tracing::debug!(%org_id, %member_id, "a member's fingerprint");
+            match vault.member_fingerprint(&user_id).await {
+                Ok(words) => Response::MemberFingerprint { words },
+                Err(e) => Response::error(e),
+            }
         }
 
         Request::CreateOrg { name, billing_email } => {
@@ -1384,8 +1619,8 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
             let Some(vault) = shared.lock().await.active().cloned() else {
                 return Response::error(keyward_core::fault!("err.noAccount"));
             };
-            match vault.create_item(kind, folder_id, edit).await {
-                Ok(()) => refreshed(&mut *shared.lock().await).await,
+            match vault.create_item(kind, folder_id, None, Vec::new(), edit).await {
+                Ok(_id) => refreshed(&mut *shared.lock().await).await,
                 Err(e) => Response::error(e),
             }
         }
@@ -1747,10 +1982,67 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
         Request::PluginEnable { id, on } => crate::plugins::enable(shared, &id, on).await,
 
         // ── Passkeys ────────────────────────────────────────────────────
-        Request::PasskeyOffers { sign_in } => crate::passkeys::offers(shared, sign_in).await,
-        Request::PasskeyHomes { sign_in } => crate::passkeys::homes(shared, sign_in).await,
+        Request::PasskeyOffers { sign_in } => crate::passkeys::offers(shared, peer, sign_in).await,
+        Request::PasskeyHomes { sign_in } => crate::passkeys::homes(shared, peer, sign_in).await,
         Request::PasskeySignIn { request } => crate::passkeys::sign_in(shared, peer, request).await,
         Request::PasskeyRegister { request } => crate::passkeys::register(shared, peer, request).await,
+        Request::PasskeyBridge { key, signed, sig } => crate::passkeys::bridge(shared, peer, &key, &signed, &sig).await,
+
+        Request::Extensions => {
+            let Some(vault) = shared.lock().await.active().cloned() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            match crate::extensions::paired(&vault) {
+                Ok(paired) => Response::Extensions { paired, pending: crate::extensions::pending() },
+                Err(e) => Response::error(e),
+            }
+        }
+        Request::ExtensionPair { key } => {
+            let Some(vault) = shared.lock().await.active().cloned() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            // The words are in the prompt itself: the person compares them
+            // with the extension's screen where they confirm.
+            let Some(words) = crate::extensions::pairing_words(&key).map(|w| w.join(" ")) else {
+                return Response::error(keyward_core::fault!("err.extensionNotAsking"));
+            };
+            let prompt = keyward_core::text::t("touch.pairExtension", &[("words", &words)]);
+            match tokio::task::spawn_blocking(move || keyward_vault::biometric::confirm(&prompt)).await {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => return Response::error(anyhow::anyhow!("{}", keyward_core::text::t("err.notConfirmed", &[("reason", &e.to_string())]))),
+                Err(e) => return Response::error(anyhow::anyhow!("the sensor's prompt fell over: {e}")),
+            }
+            if let Err(e) = crate::extensions::pair(&vault, &key).await {
+                return Response::error(e);
+            }
+            tracing::info!(words, "a browser extension was paired");
+            let mut st = shared.lock().await;
+            if let Err(e) = st.reload() {
+                tracing::error!(error = %e, "the items were not re-read after a pairing changed");
+            }
+            match st.active().map(crate::extensions::paired) {
+                Some(Ok(paired)) => Response::Extensions { paired, pending: crate::extensions::pending() },
+                Some(Err(e)) => Response::error(e),
+                None => Response::error(keyward_core::fault!("err.noAccount")),
+            }
+        }
+        Request::ExtensionUnpair { key } => {
+            let Some(vault) = shared.lock().await.active().cloned() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            if let Err(e) = crate::extensions::unpair(&vault, &key).await {
+                return Response::error(e);
+            }
+            let mut st = shared.lock().await;
+            if let Err(e) = st.reload() {
+                tracing::error!(error = %e, "the items were not re-read after a pairing changed");
+            }
+            match st.active().map(crate::extensions::paired) {
+                Some(Ok(paired)) => Response::Extensions { paired, pending: crate::extensions::pending() },
+                Some(Err(e)) => Response::error(e),
+                None => Response::error(keyward_core::fault!("err.noAccount")),
+            }
+        }
 
         Request::NoteFields { entry_id } => {
             let st = shared.lock().await;
@@ -2080,7 +2372,24 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
 
 
 #[cfg(test)]
+mod cache_tests {
+    /// After a switch of accounts the window got the catalogue of the one it
+    /// left, and every item it opened was "not found" in the one now active.
+    #[test]
+    fn a_catalogue_is_served_only_to_its_own_account() {
+        let mut cache = super::Cache::default();
+        let a = || keyward_core::items::Catalog { trash: 1, ..Default::default() };
+        let b = || keyward_core::items::Catalog { trash: 2, ..Default::default() };
+        assert_eq!(cache.catalog(Some("a".into()), a).trash, 1);
+        assert_eq!(cache.catalog(Some("a".into()), b).trash, 1, "kept for its own account");
+        assert_eq!(cache.catalog(Some("b".into()), b).trash, 2, "another account's is never served");
+        assert_eq!(cache.catalog(None, a).trash, 1, "nor a catalogue to no account at all");
+    }
+}
+
+#[cfg(test)]
 mod tests {
+
     //! The lock's table of decisions. The sensor is replaced with a function
     //! pointer: the test has to run in CI, where there is no finger.
 
@@ -2114,7 +2423,7 @@ mod tests {
     }
 
     fn ours() -> Peer {
-        Peer::Socket { pid: 42, path: Some("/Applications/keyward.app".into()), trust: Trust::Ours }
+        Peer::Socket { pid: 42, path: Some("/Applications/keyward.app".into()), trust: Trust::App }
     }
 
     fn alien() -> Peer {
@@ -2123,6 +2432,65 @@ mod tests {
 
     fn unsigned_daemon() -> Peer {
         Peer::Socket { pid: 44, path: None, trust: Trust::Unknown }
+    }
+
+    fn cli() -> Peer {
+        Peer::Socket { pid: 45, path: Some("/Users/u/.local/bin/keyward".into()), trust: Trust::Cli }
+    }
+
+    fn bridge() -> Peer {
+        Peer::Socket { pid: 46, path: None, trust: Trust::Bridge }
+    }
+
+    #[test]
+    fn an_outsider_may_ping_and_nothing_else() {
+        assert_eq!(admit(&alien(), &Request::Ping), Admit::Yes);
+        for req in [
+            Request::Status,
+            Request::Vault,
+            Request::Items,
+            Request::ItemDetail { entry_id: "x".into() },
+            Request::GetSettings,
+            Request::BiometricUnlock,
+            Request::Lock,
+        ] {
+            assert_eq!(admit(&alien(), &req), Admit::No(REFUSED_ALIEN), "{req:?}");
+        }
+    }
+
+    #[test]
+    fn the_cli_gets_what_the_install_and_ssh_need_and_no_value() {
+        for req in [
+            Request::Status,
+            Request::Lock,
+            Request::Plugins,
+            Request::Plugin { plugin: "ssh".into(), action: "resolve".into(), payload: serde_json::Value::Null },
+        ] {
+            assert_eq!(admit(&cli(), &req), Admit::Yes, "{req:?}");
+        }
+        for req in [
+            Request::Items,
+            Request::ItemDetail { entry_id: "x".into() },
+            Request::GetSettings,
+            Request::Shutdown,
+            Request::Plugin { plugin: "hashicorp".into(), action: "status".into(), payload: serde_json::Value::Null },
+            Request::Plugin { plugin: "ssh".into(), action: "keys".into(), payload: serde_json::Value::Null },
+        ] {
+            assert_eq!(admit(&cli(), &req), Admit::No(REFUSED_CLI), "{req:?}");
+        }
+        // Switching a plugin on is consent to its permissions: the finger.
+        assert_eq!(admit(&cli(), &Request::PluginEnable { id: "kube".into(), on: true }), Admit::Confirm("touch.cliPlugins"));
+        assert_eq!(
+            admit(&cli(), &Request::CreateItem { kind: 1, folder_id: None, edit: Default::default() }),
+            Admit::Confirm("touch.cliWriteItem")
+        );
+    }
+
+    #[test]
+    fn the_window_is_admitted_and_the_bridge_keeps_to_passkeys() {
+        assert_eq!(admit(&ours(), &Request::Items), Admit::Yes);
+        assert_eq!(admit(&bridge(), &Request::Ping), Admit::Yes);
+        assert_eq!(admit(&bridge(), &Request::Items), Admit::No(REFUSED_BRIDGE));
     }
 
     /// A field of somebody else's: a password, a login, a private key, or a

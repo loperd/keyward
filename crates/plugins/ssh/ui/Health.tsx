@@ -1,7 +1,10 @@
+import { useCallback, useEffect, useState } from "react";
 import { Empty, Icon, Skeleton } from "@keyward/ui";
 import { locale, t, tError, type Key } from "@keyward/i18n";
+import { call } from "@keyward/plugins/call";
+import { HostModal } from "./HostModal";
 import { openTab, runHealth, setConnect } from "./terminalState";
-import type { HealthCheck, HealthReport, HealthStatus, KeyHealth } from "./types";
+import type { HealthCheck, HealthReport, HealthStatus, KeyHealth, SshKeyEntry } from "./types";
 
 /// A status's tone: the dot's and the chip's colour.
 export function healthTone(status: HealthStatus): "ok" | "warn" | "bad" | "" {
@@ -68,7 +71,19 @@ function checkNote(c: HealthCheck): string {
 }
 
 /// The keys' health: the section's overview when no shell is on view.
-export function HealthOverview({ report }: { report: HealthReport | null }) {
+/// The keys: where each goes, as whom, and whether it still gets in there.
+/// Binding a key to its hosts lives here too — it is the same subject.
+export function HealthOverview({ report, revision, onChanged }: { report: HealthReport | null; revision: number; onChanged: () => void }) {
+  const [entries, setEntries] = useState<SshKeyEntry[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
+  const reload = useCallback(() => {
+    void call<SshKeyEntry[]>("ssh", "keys")
+      .then(setEntries)
+      .catch(() => setEntries([]));
+  }, []);
+  useEffect(reload, [reload, revision]);
+  const editingEntry = entries.find((e) => e.id === editing) ?? null;
+
   if (!report) {
     return (
       <div className="term-overview">
@@ -112,67 +127,129 @@ export function HealthOverview({ report }: { report: HealthReport | null }) {
       <p className="hint">{t("term.health.explain")}</p>
       <div className="term-keys">
         {keys.map((k) => (
-          <KeyCard key={k.entry_id} k={k} running={report.running} />
+          <KeyCard key={k.entry_id} k={k} entry={entries.find((e) => e.id === k.entry_id)} running={report.running} onEdit={() => setEditing(k.entry_id)} />
         ))}
       </div>
+      {editingEntry && (
+        <HostModal
+          entry={editingEntry}
+          onDone={() => setEditing(null)}
+          onChanged={(next) => {
+            setEntries(next);
+            onChanged();
+            // Where a key goes changed: check it there.
+            void runHealth(editingEntry.id);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function KeyCard({ k, running }: { k: KeyHealth; running: boolean }) {
+function KeyCard({ k, entry, running, onEdit }: { k: KeyHealth; entry?: SshKeyEntry; running: boolean; onEdit: () => void }) {
   const tone = healthTone(k.status);
+  const bound = Boolean(entry?.hosts.trim());
+  // Attention-worthy access problems stay in view; healthy keys do not turn
+  // the overview into a wall of route diagnostics.
+  const [expanded, setExpanded] = useState(tone === "bad");
   return (
     <section className={`block term-key ${tone ? `health-${tone}` : ""}`}>
       <header className="term-key-head">
-        <Icon name="ssh_key" />
-        <b>{k.entry_name}</b>
-        <HealthChip status={k.status} />
+        <button
+          type="button"
+          className="term-key-summary"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <Icon name="ssh_key" />
+          <b>{k.entry_name}</b>
+          <HealthChip status={k.status} />
+          <Icon name="chevron" size={13} />
+        </button>
         <span className="grow" />
-        {k.checks.length > 0 && (
+        <div className="term-key-actions">
           <button
             type="button"
-            className="btn icon-only term-key-check"
-            disabled={running}
-            title={t("term.health.check")}
-            aria-label={t("term.health.check")}
-            onClick={() => void runHealth(k.entry_id)}
+            className="btn icon-only term-key-connect"
+            title={t("term.connect")}
+            aria-label={t("term.connect")}
+            onClick={() =>
+              setConnect({
+                entry_id: k.entry_id,
+                host: "",
+                user: entry?.user || undefined,
+                port: Number(entry?.port) || undefined,
+              })
+            }
           >
-            <Icon name="sync" size={14} />
+            <Icon name="terminal" size={14} />
           </button>
-        )}
+          <button
+            type="button"
+            className="btn icon-only term-key-edit"
+            title={bound ? t("term.editHosts") : t("routes.bind")}
+            aria-label={bound ? t("term.editHosts") : t("routes.bind")}
+            onClick={onEdit}
+          >
+            <Icon name={bound ? "edit" : "plus"} size={13} />
+          </button>
+          {k.checks.length > 0 && (
+            <button
+              type="button"
+              className="btn icon-only term-key-check"
+              disabled={running}
+              title={t("term.health.check")}
+              aria-label={t("term.health.check")}
+              onClick={() => void runHealth(k.entry_id)}
+            >
+              <Icon name="sync" size={14} />
+            </button>
+          )}
+        </div>
       </header>
-      {k.checks.length === 0 ? (
-        <p className="hint">{k.status === "unbound" ? t("term.health.unboundHint") : t("term.health.wildcardHint")}</p>
-      ) : (
-        <div className="term-checks">
-          {k.checks.map((c) => (
-            <div className="term-check" key={`${c.user ?? ""}@${c.host}:${c.port}`}>
-              <HealthDot status={c.status} checking={c.checking} />
-              <span className="term-check-text">
-                <code>{hostLabel(c)}</code>
-                {c.aliases.length > 0 && <span className="hint term-aliases">{t("term.aliases", { names: c.aliases.join(", ") })}</span>}
-                <span className="hint">
-                  {c.checking ? t("term.health.checking") : healthWord(c.status)}
-                  {!c.checking && checkNote(c) ? ` · ${checkNote(c)}` : ""}
-                </span>
-                {c.status === "host_changed" && c.fingerprint && <code className="term-fp bad-text">{c.fingerprint}</code>}
-              </span>
-              <button
-                type="button"
-                className="btn icon-only term-connect-action"
-                disabled={c.status === "host_changed"}
-                title={c.status === "host_changed" ? t("term.health.changedHint") : t("term.connect")}
-                aria-label={c.status === "host_changed" ? t("term.health.changedHint") : t("term.connect")}
-                onClick={() =>
-                  c.user
-                    ? openTab({ entry_id: k.entry_id, host: c.host, port: c.port, user: c.user })
-                    : setConnect({ entry_id: k.entry_id, host: c.host, port: c.port })
-                }
-              >
-                <Icon name="terminal" size={14} />
-              </button>
+      {expanded && (
+        <div className="term-key-detail">
+          {entry && bound && (
+            <p className="term-key-routes">
+              <code>{entry.hosts}</code>
+              {entry.user && <span className="chip">{t("routes.login")}: {entry.user}</span>}
+              {entry.port && <span className="chip">{t("routes.port")}: {entry.port}</span>}
+            </p>
+          )}
+          {k.checks.length === 0 ? (
+            <p className="hint">{k.status === "unbound" ? t("term.health.unboundHint") : t("term.health.wildcardHint")}</p>
+          ) : (
+            <div className="term-checks">
+              {k.checks.map((c) => (
+                <div className="term-check" key={`${c.user ?? ""}@${c.host}:${c.port}`}>
+                  <HealthDot status={c.status} checking={c.checking} />
+                  <span className="term-check-text">
+                    <code>{hostLabel(c)}</code>
+                    {c.aliases.length > 0 && <span className="hint term-aliases">{t("term.aliases", { names: c.aliases.join(", ") })}</span>}
+                    <span className="hint">
+                      {c.checking ? t("term.health.checking") : healthWord(c.status)}
+                      {!c.checking && checkNote(c) ? ` · ${checkNote(c)}` : ""}
+                    </span>
+                    {c.status === "host_changed" && c.fingerprint && <code className="term-fp bad-text">{c.fingerprint}</code>}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn icon-only term-connect-action"
+                    disabled={c.status === "host_changed"}
+                    title={c.status === "host_changed" ? t("term.health.changedHint") : t("term.connect")}
+                    aria-label={c.status === "host_changed" ? t("term.health.changedHint") : t("term.connect")}
+                    onClick={() =>
+                      c.user
+                        ? openTab({ entry_id: k.entry_id, host: c.host, port: c.port, user: c.user })
+                        : setConnect({ entry_id: k.entry_id, host: c.host, port: c.port })
+                    }
+                  >
+                    <Icon name="terminal" size={14} />
+                  </button>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
     </section>

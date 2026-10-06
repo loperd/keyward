@@ -55,6 +55,15 @@ pub enum Language {
     En,
 }
 
+/// Which page the desktop window opens: the old window (`index.html`) or the
+/// new one on the shared core (`app.html`), while both live side by side.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Interface {
+    Old,
+    New,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -105,6 +114,10 @@ pub struct Settings {
     #[serde(default)]
     pub accent_color: Option<String>,
     pub language: Language,
+    /// The desktop window's page; `KEYWARD_UI=new|old` overrides it at launch.
+    /// The column window is the approved design and the default; the old one
+    /// stays reachable until the new one has everything it had.
+    pub interface: Interface,
 }
 
 impl Default for Settings {
@@ -130,6 +143,8 @@ impl Default for Settings {
             theme: Theme::System,
             accent_color: None,
             language: Language::Auto,
+            // The new window is a beta: it is opened by choice, not by default.
+            interface: Interface::New,
         }
     }
 }

@@ -177,6 +177,25 @@ pub fn snapshot_file(account_id: &str) -> PathBuf {
     account_file("snapshot", account_id)
 }
 
+/// An account's session: the tokens, the KDF, the protected keys and the
+/// entries rbw decrypts. It lay in rbw's cache as plain JSON, world-readable;
+/// it lies here, 0600, written whole or not at all.
+pub fn session_file(account_id: &str) -> PathBuf {
+    account_file("session", account_id)
+}
+
+/// The token an account's server handed out when it remembered this device
+/// for the second factor, sealed with the session's key.
+pub fn two_factor_remember_file(account_id: &str) -> PathBuf {
+    account_file("remember", account_id)
+}
+
+/// The identifier this computer goes by on the servers: one for all
+/// accounts, as rbw had it.
+pub fn device_id_file() -> PathBuf {
+    base_dir().join("device-id")
+}
+
 /// The application's settings.
 pub fn settings_file() -> PathBuf {
     base_dir().join("settings.json")

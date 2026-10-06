@@ -1,0 +1,195 @@
+/* The top sheet: a document, a calm list, a preview or a map; and the quick
+   look over it. Tokens only. */
+.kw-insp { flex: 1 1 auto; min-width: 0; height: 100%; overflow-y: auto; background: var(--tier-hi); position: relative;
+  box-shadow: inset 1px 0 0 var(--sheet-lit); container-type: inline-size; scrollbar-width: thin; }
+.kw-insp.kw-mapmode { overflow: hidden; }
+.kw-doc { max-width: calc(var(--insp-max) + var(--insp-gutter) * 2); padding: var(--first-line) var(--insp-gutter) calc(var(--u) * 8); }
+.kw-doc.kw-wide { max-width: calc(var(--insp-wide) + var(--insp-gutter) * 2); }
+.kw-doc.kw-flat { max-width: calc(var(--insp-flat) + var(--insp-gutter) * 2); }
+.kw-insp.kw-mapmode .kw-doc { max-width: none; padding: 0; height: 100%; }
+/* a new answer cross-fades with the old: the new sheet fades in and rises a
+   little, the old one (.kw-ghost, its own markup emptied of values) fades out
+   where it stood; the map fades in and grows to its size */
+.kw-doc.kw-enter { animation: kw-doc-in var(--dur) var(--ease-out); }
+@keyframes kw-doc-in { from { opacity: 0; transform: translateY(calc(var(--travel) / 4)); } }
+.kw-insp.kw-mapmode .kw-doc.kw-enter { animation: kw-map-in var(--dur-slow) var(--ease-out); }
+@keyframes kw-map-in { from { opacity: 0; transform: scale(0.98); } }
+.kw-doc.kw-ghost { position: absolute; left: 0; right: 0; pointer-events: none; animation: kw-ghost-out var(--dur) var(--ease-out) forwards; }
+@keyframes kw-ghost-out { to { opacity: 0; } }
+
+/* the hero: tile, then one text column — title, place, state, actions */
+.kw-hero { display: flex; gap: var(--u3); align-items: flex-start; }
+.kw-hero-t { flex: 1; min-width: 0; }
+.kw-h1 { margin: 0; font-size: var(--fs-l); line-height: var(--lh-l); font-weight: var(--w-head); letter-spacing: -0.01em; }
+.kw-h1.kw-mono { font-weight: var(--w-text); letter-spacing: 0; }
+.kw-place { display: flex; flex-wrap: wrap; align-items: center; gap: var(--half); color: var(--dim); }
+.kw-place a { color: var(--dim); text-decoration: none; border-radius: var(--r-in); padding: 0 var(--half); margin: 0 calc(var(--half) * -1); cursor: default; }
+.kw-place a:hover { color: var(--text); background: var(--hover); }
+.kw-sl { color: var(--faint); flex: none; }
+.kw-state { margin-top: var(--u); display: flex; align-items: center; gap: var(--u2); flex-wrap: wrap; }
+.kw-acts { display: flex; gap: var(--half); margin-top: var(--u2); align-items: center; flex-wrap: nowrap; }
+.kw-acts .kw-btn.kw-solid { margin-right: var(--half); }
+
+.kw-sec { margin-top: var(--sec-gap); }
+.kw-sec-h { display: flex; align-items: center; gap: var(--u); height: var(--ctl); margin-bottom: calc(var(--head-gap) - (var(--ctl) - var(--lh-s)) / 2); }
+.kw-h2 { margin: 0; font-size: var(--fs-s); line-height: var(--lh-s); font-weight: var(--w-head); color: var(--text); }
+.kw-sec-h .kw-n { color: var(--faint); font-variant-numeric: tabular-nums; }
+.kw-sec-h .kw-aside { flex: 1; min-width: 0; justify-content: flex-end; color: var(--faint); display: flex; align-items: center; gap: var(--half); }
+.kw-sec-h .kw-aside > .kw-btn { margin-right: calc(var(--pad) * -1); }
+.kw-sec-h .kw-aside > a { color: var(--dim); cursor: default; }
+
+/* a field: label column, value column, actions on the content's right edge */
+.kw-f { display: grid; grid-template-columns: var(--label-w) minmax(0, 1fr) auto; align-items: center; min-height: var(--row-1);
+  padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1); border-radius: var(--r-ctl); column-gap: var(--u2); transition: background-color var(--dur-fast) var(--ease-out); }
+.kw-f:hover { background: var(--hover); }
+.kw-f .kw-k { color: var(--dim); }
+.kw-f .kw-v { min-width: 0; display: flex; align-items: center; gap: var(--u); flex-wrap: wrap; }
+.kw-f .kw-fa { display: flex; gap: 0; opacity: 0; margin-right: calc(var(--pad) * -1); transition: opacity var(--dur-fast) var(--ease-out); }
+/* a button still at work or just done keeps its row's actions in sight */
+.kw-f .kw-fa:has([aria-busy="true"], .kw-done) { opacity: 1; }
+/* a value revealed fades in over its dots */
+.kw-f .kw-shown { animation: kw-value-in var(--dur) var(--ease-out); }
+@keyframes kw-value-in { from { opacity: 0; } }
+.kw-f .kw-fa:empty { margin: 0; }
+.kw-f:hover .kw-fa, .kw-f:focus-within .kw-fa, .kw-f .kw-fa.kw-held { opacity: 1; }
+.kw-dots { letter-spacing: 2px; font-family: var(--mono); color: var(--dim); }
+.kw-shown { font-family: var(--mono); color: var(--text); -webkit-user-select: text; user-select: text; word-break: break-all; }
+
+.kw-totp { display: inline-flex; align-items: center; gap: var(--u); }
+.kw-totp .kw-code { font: var(--w-text) var(--fs-l)/var(--lh-l) var(--mono); letter-spacing: 0.06em; color: var(--text); }
+.kw-ring { width: var(--ic); height: var(--ic); transform: rotate(-90deg); }
+.kw-ring circle { fill: none; stroke-width: 2; }
+.kw-ring .kw-bg { stroke: var(--edge); }
+/* the ring moves once a second: its step is the clock's, not a motion token */
+.kw-ring .kw-fg { stroke: var(--sky); transition: stroke-dashoffset 900ms linear; }
+.kw-ring.kw-low .kw-fg { stroke: var(--amber); }
+.kw-secs { color: var(--faint); font-variant-numeric: tabular-nums; min-width: var(--u3); }
+.kw-marks { display: flex; flex-wrap: wrap; gap: var(--u) var(--u3); }
+
+/* a relation: lead slot, name, context, its mark on the right edge — like a row in a column */
+.kw-ref { display: flex; align-items: center; gap: var(--lead-gap); min-height: var(--row-1); padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1);
+  border-radius: var(--r-ctl); cursor: default; transition: background-color var(--dur-fast) var(--ease-out); }
+.kw-ref:hover { background: var(--hover); }
+.kw-ref .kw-rt { font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 50%; }
+.kw-ref .kw-rc { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.kw-ref .kw-rs { flex: none; display: flex; align-items: center; gap: var(--u); }
+.kw-ref.kw-nest { padding-left: calc(var(--pad) + var(--tile) + var(--lead-gap)); }
+.kw-ref.kw-off .kw-rt, .kw-ref.kw-off .kw-tile { color: var(--faint); }
+.kw-perm { color: var(--dim); white-space: nowrap; }
+
+/* signal lines: the mark in the lead slot, the words, a faint reason — a list, not prose */
+.kw-sig { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) auto; column-gap: var(--lead-gap); align-items: center; min-height: var(--row-2);
+  padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1); border-radius: var(--r-ctl); transition: background-color var(--dur-fast) var(--ease-out); cursor: default; }
+.kw-sig > .kw-g { justify-self: center; }
+.kw-sig:hover { background: var(--hover); }
+.kw-sig .kw-tx { display: flex; flex-direction: column; min-width: 0; }
+.kw-sig .kw-tx b { font-weight: var(--w-name); }
+.kw-sig .kw-tx span { color: var(--faint); }
+.kw-sig .kw-btn { opacity: 0; }
+.kw-sig:hover .kw-btn, .kw-sig .kw-btn:focus-visible { opacity: 1; }
+.kw-note { color: var(--dim); margin-top: var(--sec-gap); max-width: calc(var(--u) * 70); display: flex; gap: var(--u); }
+.kw-note .kw-icon { color: var(--faint); }
+.kw-hist { margin-top: var(--sec-gap); color: var(--faint); display: flex; align-items: center; gap: var(--u); }
+.kw-para { color: var(--dim); }
+
+/* members as an aligned table: no cells, no hairlines, the pointer brings the row */
+.kw-mt-h, .kw-mt-r { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) calc(var(--u) * 14) calc(var(--u) * 22) calc(var(--u) * 14) calc(var(--u) * 14);
+  column-gap: var(--lead-gap); align-items: center; padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1); }
+.kw-mt-h { height: var(--ctl); align-items: end; padding-bottom: var(--u); }
+.kw-mt-r { min-height: var(--row-2); border-radius: var(--r-ctl); transition: background-color var(--dur-fast) var(--ease-out); cursor: default; }
+.kw-mt-r.kw-arrive { animation: kw-row-lit calc(var(--dur-slow) * 3) var(--ease-out); }
+.kw-mt-r.kw-leave { animation: kw-row-out var(--dur) var(--ease-out) forwards; pointer-events: none; overflow: hidden; }
+.kw-mt-r:hover { background: var(--hover); }
+.kw-mt-r .kw-who { display: flex; flex-direction: column; min-width: 0; }
+.kw-mt-r .kw-who b { font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-mt-r .kw-who span { color: var(--faint); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-mt-r .kw-role { color: var(--dim); }
+.kw-mt-r .kw-all { color: var(--dim); }
+.kw-mt-r .kw-all.kw-no { color: var(--faint); }
+.kw-me-tag { color: var(--sky); font-weight: var(--w-text); margin-left: var(--u); }
+
+/* the door to a map from an object's sheet */
+.kw-mapdoor { display: flex; align-items: center; gap: var(--lead-gap); min-height: calc(var(--row-2) + var(--u2)); padding: var(--u) var(--pad); margin: 0 calc(var(--pad) * -1);
+  border-radius: var(--r-ctl); box-shadow: inset 0 0 0 1px var(--edge-soft); cursor: default;
+  background-image: radial-gradient(circle, var(--dot) 0.8px, transparent 1.2px); background-size: var(--u2) var(--u2);
+  transition: box-shadow var(--dur) var(--ease-out); }
+.kw-mapdoor:hover { box-shadow: inset 0 0 0 1px var(--edge); }
+.kw-mapdoor .kw-ic { width: var(--tile); height: var(--tile); display: grid; place-items: center; color: var(--dim); flex: none; }
+.kw-mapdoor .kw-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kw-mapdoor .kw-tx b { font-weight: var(--w-name); }
+.kw-mapdoor .kw-tx span { color: var(--dim); }
+.kw-mapdoor .kw-tx b, .kw-mapdoor .kw-tx span { text-shadow: 0 0 var(--half) var(--tier-hi), 0 0 var(--u) var(--tier-hi); }
+.kw-mapdoor .kw-btn.kw-quiet { background: var(--tier-hi); }
+
+/* ---------- the calm list: the answer to a flat question ---------- */
+.kw-lhead { display: flex; align-items: center; gap: var(--u2); min-height: var(--lh-l); margin-bottom: var(--u2); }
+.kw-lhead > .kw-btn, .kw-lhead > .kw-saved { margin-block: calc((var(--lh-l) - var(--ctl)) / 2); }
+.kw-lhead .kw-lt { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--u); }
+.kw-lhead .kw-lt > .kw-icon, .kw-lhead .kw-lt > .kw-g { width: var(--ic-h); height: var(--ic-h); }
+.kw-lhead .kw-lt .kw-n { color: var(--faint); font-variant-numeric: tabular-nums; }
+.kw-lhead .kw-saved { display: inline-flex; align-items: center; gap: var(--u); color: var(--dim); height: var(--ctl); }
+.kw-lhead .kw-saved .kw-icon { color: var(--sky); }
+.kw-lgrp { height: var(--ctl); display: flex; align-items: flex-end; justify-content: space-between; gap: var(--u); padding: 0 0 var(--u); }
+.kw-lrow + .kw-lgrp { margin-top: var(--u2); }
+.kw-lgrp span { font-weight: var(--w-text); font-variant-numeric: tabular-nums; }
+.kw-lrow { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) minmax(0, 1fr) var(--mark); column-gap: var(--u2);
+  align-items: center; height: var(--row-2); padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1); border-radius: var(--r-ctl); cursor: default; position: relative;
+  transition: background-color var(--dur-fast) var(--ease-out); }
+.kw-lrow:hover, .kw-lrow.kw-on { background: var(--hover); }
+/* the calm list's first rows come in one after another, the rest with the eighth */
+.kw-lrows.kw-stagger > .kw-lrow { animation: kw-lrow-in var(--dur) var(--ease-out) both; animation-delay: calc(var(--i, 8) * var(--stagger)); }
+@keyframes kw-lrow-in { from { opacity: 0; transform: translateY(calc(var(--travel) / 4)); } }
+.kw-lrow .kw-who { display: flex; align-items: center; gap: var(--lead-gap); min-width: 0; }
+.kw-lrow .kw-lbl { display: flex; flex-direction: column; min-width: 0; }
+.kw-lrow .kw-t { font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-lrow .kw-s, .kw-lrow .kw-why, .kw-lrow .kw-pl { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-lrow .kw-why { color: var(--dim); }
+.kw-empty { padding: var(--u2) 0; color: var(--dim); display: flex; flex-direction: column; gap: var(--u); }
+
+/* ---------- the preview of a verb: steps, before → after, ↵ or Esc ---------- */
+.kw-vlead { display: flex; align-items: center; gap: var(--u); color: var(--sky); height: var(--lh-l); margin-bottom: var(--u2); }
+.kw-target { display: flex; align-items: center; gap: var(--lead-gap); color: var(--dim); }
+.kw-target b { color: var(--text); font-weight: var(--w-name); }
+.kw-act .kw-h1 { margin-top: var(--u2); }
+.kw-lede { color: var(--dim); margin-top: var(--u); max-width: calc(var(--u) * 70); }
+.kw-steps { list-style: none; margin: var(--u3) 0 0; padding: 0; counter-reset: kw-s; }
+.kw-steps li { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr); column-gap: var(--lead-gap); min-height: var(--row-2); counter-increment: kw-s; align-items: center; }
+.kw-steps li::before { content: counter(kw-s); width: var(--chip); height: var(--chip); justify-self: center; border-radius: 50%; display: grid; place-items: center;
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); color: var(--dim); box-shadow: inset 0 0 0 1px var(--edge); }
+.kw-steps li b { display: block; font-weight: var(--w-name); }
+.kw-steps li span { display: block; color: var(--faint); }
+.kw-delta { display: grid; grid-template-columns: minmax(calc(var(--u) * 20), 1fr) minmax(0, calc(var(--u) * 20)) var(--ic) minmax(0, calc(var(--u) * 20)); align-items: center; column-gap: var(--u2); min-height: var(--row-1); }
+.kw-delta .kw-nm { display: flex; align-items: center; gap: var(--lead-gap); min-width: 0; font-weight: var(--w-name); }
+.kw-delta .kw-nm span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-delta .kw-arrow { color: var(--faint); text-align: center; }
+.kw-vbar { display: flex; gap: var(--u); margin-top: var(--sec-gap); align-items: center; flex-wrap: wrap; }
+/* A member's fingerprint phrase: the words to read out, large and plain. */
+.kw-fprint { display: flex; flex-direction: column; gap: var(--u); }
+.kw-fprint-words { font: var(--w-name) var(--fs-l)/var(--lh-l) var(--mono); color: var(--sky); overflow-wrap: anywhere; }
+.kw-fprint-how { color: var(--dim); max-width: calc(var(--u) * 70); }
+.kw-vbar .kw-why { color: var(--faint); padding-left: var(--u); display: inline-flex; gap: var(--u); align-items: center; }
+/* the effect done: the bar resolves into its mark, which grows in */
+.kw-vbar.kw-resolved { animation: kw-doc-in var(--dur) var(--ease-out); }
+.kw-vbar.kw-resolved .kw-mk i { animation: kw-morph var(--dur-slow) var(--ease-out) both; }
+/* refused: the reason comes in beside the button that was nudged */
+.kw-vbar .kw-why.kw-refused { animation: kw-value-in var(--dur) var(--ease-out); }
+
+/* ---------- quick look ---------- */
+.kw-lens-veil { position: absolute; top: 0; bottom: 0; right: 0; z-index: 10; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--shade) 16%, transparent); animation: kw-veil var(--dur) var(--ease-out); }
+@keyframes kw-veil { from { opacity: 0; } }
+.kw-lens { width: calc(var(--u) * 52); border-radius: var(--r-win); padding: var(--u3);
+  background: color-mix(in srgb, var(--raise) 82%, transparent);
+  -webkit-backdrop-filter: blur(var(--u3)) saturate(1.4); backdrop-filter: blur(var(--u3)) saturate(1.4);
+  box-shadow: var(--sh-win), inset 0 0 0 1px color-mix(in srgb, var(--hi) 10%, transparent); animation: kw-lens-in var(--dur-slow) var(--ease-out); }
+@keyframes kw-lens-in { from { opacity: 0; transform: scale(0.96) translateY(var(--u)); } }
+.kw-lens-top { display: flex; align-items: center; gap: var(--u); color: var(--faint); margin-bottom: var(--u2); }
+.kw-lens-top span { flex: 1; }
+.kw-lens .kw-hero { margin-bottom: var(--u2); }
+.kw-lsrow { height: var(--row-2); display: flex; align-items: center; gap: var(--u2); padding: 0 var(--u2); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.kw-lsrow + .kw-lsrow { margin-top: var(--u); }
+.kw-lsrow .kw-k { width: calc(var(--u) * 8); color: var(--dim); flex: none; }
+.kw-lsrow .kw-v { flex: 1; min-width: 0; font-size: var(--fs-m); line-height: var(--lh-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-lsrow .kw-v.kw-code { font: var(--w-text) var(--fs-l)/var(--lh-l) var(--mono); letter-spacing: 0.08em; }
+.kw-lens-foot { display: flex; gap: var(--u); margin-top: var(--u2); justify-content: space-between; align-items: center; }

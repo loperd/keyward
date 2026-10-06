@@ -3,11 +3,11 @@ import { Totp } from "../Totp";
 import { invoke } from "@tauri-apps/api/core";
 import { usePlugins } from "../plugins/call";
 import { pluginEntry } from "../plugins";
-import { Alert, CopyButton, DangerZone, Empty, Icon, Modal, Monogram } from "../ui";
+import { Alert, CopyButton, DangerZone, Empty, Icon, Modal, Monogram, type ToastKind } from "../ui";
 import { EditItem } from "./EditItem";
 import { RegenerateModal } from "./RegenerateModal";
 import { useEphemeral } from "../ephemeral";
-import { t } from "../i18n";
+import { t, tError } from "../i18n";
 import type { ItemDetail, ItemKind, SecretField } from "../types";
 import { useImageHue, useSiteIcon } from "../icons";
 import { CardBrandMark, detectCardBrand } from "../CardBrand";
@@ -31,7 +31,7 @@ import { invokeSecret } from "../seal";
   "Login" next to "Addresses". A custom field has nothing to translate — a person
   made its name up.
 */
-function fieldLabel(key: string | null, label: string): string {
+export function fieldLabel(key: string | null, label: string): string {
   if (!key) return label;
   if (key.startsWith("link:") || key === "checkbox") return label;
   return t(`field.${key}` as Key);
@@ -39,7 +39,7 @@ function fieldLabel(key: string | null, label: string): string {
 
 /// The value of a field whose meaning is not in its text: a checkbox and a
 /// linked field.
-function fieldValue(key: string | null, value: string | null): string | null {
+export function fieldValue(key: string | null, value: string | null): string | null {
   if (key === "checkbox") return value === "true" ? t("value.yes") : t("value.no");
   if (key?.startsWith("link:")) return `→ ${linkLabel(Number(key.slice(5)))}`;
   return value;
@@ -77,18 +77,28 @@ function PaymentCard({ detail, brand }: { detail: ItemDetail; brand: NonNullable
   );
 }
 
+/// A change the list shows before the server has confirmed it.
+export type LocalChange = { kind: "trashed" | "restored" | "purged"; id: string };
+
 export function DetailPane({
   entryId,
   serverUrl = "",
   onCopied,
   onClose,
   onChanged,
+  onLocal,
+  onNotice,
 }: {
   entryId: string;
   serverUrl?: string;
   onCopied: (text: string) => void;
   onClose: () => void;
   onChanged: () => void;
+  /// The list changed here and now, before the server has answered; `undo`
+  /// puts it back when the server refuses.
+  onLocal: (change: LocalChange) => { undo: () => void; settle: () => void };
+  /// A word in a toast.
+  onNotice: (text: string, kind?: ToastKind) => void;
 }) {
   // `?edit=1` opens the edit form at once, which the harness needs in order to
   // capture it.
@@ -177,18 +187,25 @@ export function DetailPane({
     }
   };
 
-  const act = async (cmd: string) => {
-    setBusy(true);
-    setError(null);
+  // The server takes seconds (a write is followed by a sync), and a card that
+  // sat still that long got pressed again — once it came back as a trashed
+  // item whose "delete for good" stood where "delete" had been. So the list
+  // changes at once and the card closes; the server's answer confirms it, or
+  // puts it back with the reason.
+  const act = async (cmd: "trash_item" | "restore_item" | "purge_items") => {
+    const change: LocalChange = cmd === "trash_item" ? { kind: "trashed", id: entryId } : cmd === "restore_item" ? { kind: "restored", id: entryId } : { kind: "purged", id: entryId };
+    const local = onLocal(change);
+    setConfirm(null);
+    onClose();
+    onNotice(t(cmd === "trash_item" ? "item.trashed" : cmd === "restore_item" ? "item.restored" : "item.purged"), cmd === "restore_item" ? "restore" : "trash");
     try {
       await invoke(cmd, cmd === "purge_items" ? { entryIds: [entryId] } : { entryId });
-      setConfirm(null);
-      onChanged();
-      onClose();
     } catch (e) {
-      setError(String(e));
+      local.undo();
+      onNotice(tError(String(e)), "error");
     } finally {
-      setBusy(false);
+      local.settle();
+      onChanged();
     }
   };
 
@@ -248,14 +265,10 @@ export function DetailPane({
                 <Icon name="undo" size={14} />
               </button>
               <span className="acts-sep" />
-              <button type="button"
-                className="btn icon-only danger"
-                disabled={busy}
-                onClick={() => setConfirm("purge")}
-                title={t("item.purge")}
-                aria-label={t("item.purge")}
-              >
-                <Icon name="trash" size={14} />
+              {/* Not the trash icon where "delete" used to stand: what cannot be
+                  undone says so in words. */}
+              <button type="button" className="btn danger" disabled={busy} onClick={() => setConfirm("purge")}>
+                {t("item.purge")}
               </button>
             </>
           ) : (
@@ -323,7 +336,7 @@ export function DetailPane({
           about an ssh route or a vault connection: it gives the plugins the
           item and lets each draw its own block. */}
       {plugins.map((m) => {
-        const Card = pluginEntry(m.id).ItemCard;
+        const Card = pluginEntry(m).ItemCard;
         return Card ? <Card key={m.id} detail={detail} entryId={entryId} onChanged={onChanged} /> : null;
       })}
 

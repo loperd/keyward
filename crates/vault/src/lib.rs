@@ -11,6 +11,7 @@
 //! lives in `rbw-keyward` and not in somebody else's `rbw`.
 
 mod account;
+mod session;
 pub mod sshdraft;
 pub mod biometric;
 pub mod bwapi;
@@ -27,7 +28,7 @@ use keyward_core::accounts::Account;
 use keyward_core::detail::{card_expiry, ItemDetail, SecretField};
 use keyward_core::edits::{edit_id, EditState, ItemEdit, PendingEdit};
 use keyward_core::generator::History;
-use keyward_core::items::{Catalog, MemberStatus, OrgMember, OrgRights, OrgRole};
+use keyward_core::items::{Catalog, CollectionAccess, CollectionPermission, MemberStatus, OrgMember, OrgRights, OrgRole};
 use keyward_core::source::VaultEntry;
 use keyward_core::two_factor::TwoFactorProvider;
 use keyward_core::vault_state::VaultState;
@@ -87,6 +88,9 @@ pub fn init_profile() {
 #[derive(zeroize::ZeroizeOnDrop)]
 struct PendingLogin {
     password: String,
+    /// What the server took the password as: an email code is asked for with
+    /// it.
+    password_hash: String,
     sso_email_2fa_session_token: Option<String>,
     #[zeroize(skip)]
     providers: Vec<TwoFactorProvider>,
@@ -191,16 +195,31 @@ impl Vault {
         (self.account.base_url.clone(), self.account.email.clone())
     }
 
-    fn db(&self) -> anyhow::Result<rbw::db::Db> {
-        self.activate()?;
-        let (server, email) = self.identity();
-        rbw::db::Db::load(&server, &email).map_err(|e| keyward_core::fault!("err.rbwDbNotRead", "reason" => e))
+    /// The account's session. None at all is "not logged in"; one that does
+    /// not read is its own error.
+    fn db(&self) -> anyhow::Result<session::Session> {
+        session::load(&self.account)?.ok_or_else(|| keyward_core::fault!("err.noTokens"))
+    }
+
+    fn save_db(&self, db: &session::Session) -> anyhow::Result<()> {
+        session::save(&self.account, db)
     }
 
     pub fn state(&self) -> VaultState {
         let (server, email) = self.identity();
-        let Ok(db) = self.db() else {
-            return VaultState::LoggedOut { email, server };
+        let db = match self.db() {
+            Ok(db) => db,
+            Err(e) => {
+                // Not logged in is a state; a session that does not read is
+                // damage, said as such — the window shows it with its way
+                // out rather than a login that would refuse.
+                let reason = e.to_string();
+                if reason == "err.noTokens" {
+                    return VaultState::LoggedOut { email, server };
+                }
+                tracing::error!(error = %e, "the session does not read");
+                return VaultState::Damaged { email, server, reason };
+            }
         };
         if db.needs_login() {
             return VaultState::LoggedOut { email, server };
@@ -216,16 +235,17 @@ impl Vault {
     /// asks for one, the list of methods comes back and the password stays with
     /// the daemon until the second step.
     pub async fn login(&mut self, password: &str) -> anyhow::Result<LoginOutcome> {
-        match self.try_login(password, None, None).await {
+        match self.try_login(password, None, None, false).await {
             Ok(()) => {
                 self.pending = None;
                 Ok(LoginOutcome::Done)
             }
-            Err(LoginError::TwoFactor { providers, sso_email_2fa_session_token }) => {
+            Err(LoginError::TwoFactor { providers, sso_email_2fa_session_token, password_hash }) => {
                 let providers: Vec<TwoFactorProvider> =
                     providers.into_iter().map(TwoFactorProvider::from_id).collect();
                 self.pending = Some(PendingLogin {
                     password: password.to_string(),
+                    password_hash: password_hash.to_string(),
                     sso_email_2fa_session_token,
                     providers: providers.clone(),
                 });
@@ -235,15 +255,31 @@ impl Vault {
         }
     }
 
-    /// The second step: the code from the chosen method.
-    pub async fn login_two_factor(&mut self, provider: u8, token: &str) -> anyhow::Result<()> {
+    /// The session does not read (`VaultState::Damaged`) and the person
+    /// chose to sign in again: the damaged session and the remembered device
+    /// go, the account stays. Refused for a session that reads — this is no
+    /// sign-out by the back door.
+    pub fn forget_damaged_session(&mut self) -> anyhow::Result<()> {
+        if !matches!(self.state(), VaultState::Damaged { .. }) {
+            anyhow::bail!(keyward_core::fault!("err.sessionNotDamaged"));
+        }
+        self.lock();
+        session::remove(&self.account);
+        tracing::warn!(email = %self.account.email, "the damaged session was removed at the person's word");
+        Ok(())
+    }
+
+    /// The second step: the code from the chosen method. `remember` asks the
+    /// server to remember this device, so the next login skips the second
+    /// factor.
+    pub async fn login_two_factor(&mut self, provider: u8, token: &str, remember: bool) -> anyhow::Result<()> {
         let password = self
             .pending
             .as_ref()
             .map(|p| p.password.clone())
             .ok_or_else(|| keyward_core::fault!("err.noPendingLogin"))?;
 
-        match self.try_login(&password, Some(token), Some(provider)).await {
+        match self.try_login(&password, Some(token), Some(provider), remember).await {
             Ok(()) => {
                 self.pending = None;
                 Ok(())
@@ -258,16 +294,17 @@ impl Vault {
     /// Asks the server to send a code by email. Only the `Email` provider
     /// needs it.
     pub async fn send_two_factor_email(&self) -> anyhow::Result<()> {
-        self.activate()?;
-        let (_, email) = self.identity();
-        let token = self
-            .pending
-            .as_ref()
-            .and_then(|p| p.sso_email_2fa_session_token.clone())
-            .unwrap_or_default();
-        rbw::actions::send_two_factor_email(&email, &token)
-            .await
-            .map_err(|e| keyward_core::fault!("err.codeNotSent", "reason" => e))
+        let (server, email) = self.identity();
+        let pending = self.pending.as_ref().ok_or_else(|| keyward_core::fault!("err.noPendingLogin"))?;
+        let device = device_id()?;
+        let sent = if pending.providers.iter().any(|p| p.kind == keyward_core::two_factor::TwoFactorKind::NewDevice) {
+            // The device check's letter, asked again.
+            keyward_bw::login::resend_new_device_code(&server, &email, &pending.password_hash).await
+        } else {
+            keyward_bw::login::send_two_factor_email(&server, &email, &pending.password_hash, &device).await
+        };
+        sent
+            .map_err(|e| if e.to_string().starts_with("err.") { e } else { keyward_core::fault!("err.codeNotSent", "reason" => e) })
     }
 
     /// The second-factor methods for a login in progress.
@@ -280,37 +317,72 @@ impl Vault {
         password: &str,
         two_factor_token: Option<&str>,
         two_factor_provider: Option<u8>,
+        remember: bool,
     ) -> Result<(), LoginError> {
-        self.activate().map_err(LoginError::Other)?;
         let (server, email) = self.identity();
-        let pw = locked_password(password);
-        let provider = two_factor_provider.and_then(provider_from_id);
+        let identity = keyward_bw::identity::url(&server, self.account.identity_url.as_deref());
+        // Our words for the server's: a refusal already says what it is.
+        let ours = |e: anyhow::Error| if e.to_string().starts_with("err.") { e } else { keyward_core::fault!("err.loginFailed", "reason" => e) };
 
-        let (access_token, refresh_token, kdf, iterations, memory, parallelism, protected_key) =
-            match rbw::actions::login(&email, pw, two_factor_token, provider).await {
-                Ok(v) => v,
-                Err(rbw::error::Error::TwoFactorRequired {
-                    providers,
-                    sso_email_2fa_session_token,
-                }) => {
-                    return Err(LoginError::TwoFactor {
-                        providers: providers.into_iter().map(provider_to_id).collect(),
-                        sso_email_2fa_session_token,
-                    })
+        let kdf = keyward_bw::login::prelogin(&identity, &email).await.map_err(|e| LoginError::Other(ours(e)))?;
+        let master = keyward_bw::crypto::MasterKey::derive(password, &email, kdf).map_err(|e| LoginError::Other(ours(e)))?;
+        let password_hash = zeroize::Zeroizing::new(master.password_hash(password));
+        let device_id = device_id().map_err(LoginError::Other)?;
+        let device = keyward_bw::login::Device { id: &device_id, name: keyward_bw::login::DEVICE_NAME, kind: keyward_bw::login::DEVICE_KIND };
+        // The device check's code is not a second factor's: it goes as
+        // `newDeviceOtp`, the rest as `twoFactorToken`.
+        let new_device = two_factor_provider == Some(keyward_core::two_factor::NEW_DEVICE);
+        let code = if new_device { None } else { two_factor_provider.zip(two_factor_token) };
+        let device_code = if new_device { two_factor_token } else { None };
+        // The first try of a login goes with the remembered device's token,
+        // where there is one: the second factor is then not asked.
+        let remembered = if code.is_none() && device_code.is_none() { session::load_remember(&self.account).map_err(LoginError::Other)? } else { None };
+        let second = match (code, remembered.as_deref()) {
+            (Some((provider, token)), _) => Some(keyward_bw::login::SecondFactor::Code { provider, token, remember }),
+            (None, Some(token)) => Some(keyward_bw::login::SecondFactor::Remembered(token)),
+            (None, None) => None,
+        };
+
+        let answer = keyward_bw::login::login(&identity, &email, &password_hash, &device, second, device_code).await.map_err(|e| LoginError::Other(ours(e)))?;
+        let (access_token, refresh_token, protected_key, private_key, remember_token) = match answer {
+            keyward_bw::login::Answer::Done { access_token, refresh_token, key, private_key, remember_token } => {
+                (access_token, refresh_token, key, private_key, remember_token)
+            }
+            keyward_bw::login::Answer::TwoFactor { providers, session_token } => {
+                if remembered.is_some() {
+                    // The server no longer remembers this device (it was
+                    // forgotten there, or the token ran out): it goes here too.
+                    tracing::info!(email = %email, "the server no longer takes the remembered device");
+                    session::forget_remember(&self.account);
                 }
-                Err(e) => return Err(LoginError::Other(keyward_core::fault!("err.loginFailed", "reason" => e))),
-            };
+                return Err(LoginError::TwoFactor { providers, sso_email_2fa_session_token: session_token, password_hash });
+            }
+            // The server mailed a code for this device: the step that asks
+            // for it is the second factor's, with one method.
+            keyward_bw::login::Answer::NewDevice => {
+                return Err(LoginError::TwoFactor { providers: vec![keyward_core::two_factor::NEW_DEVICE], sso_email_2fa_session_token: None, password_hash });
+            }
+        };
 
-        let mut db = rbw::db::Db::load(&server, &email).unwrap_or_default();
-        db.access_token = Some(access_token);
-        db.refresh_token = Some(refresh_token);
-        db.kdf = Some(kdf);
-        db.iterations = Some(iterations);
-        db.memory = memory;
-        db.parallelism = parallelism;
+        // A session that is there and does not read stops the login: writing
+        // over it would hide what broke it.
+        let mut db = session::load(&self.account).map_err(LoginError::Other)?.unwrap_or_default();
+        db.access_token = Some(access_token.to_string());
+        db.refresh_token = Some(refresh_token.to_string());
+        set_kdf(&mut db, kdf);
         db.protected_key = Some(protected_key);
-        db.save(&server, &email)
-            .map_err(|e| LoginError::Other(keyward_core::fault!("err.rbwDbNotSaved", "reason" => e)))?;
+        if private_key.is_some() {
+            db.protected_private_key = private_key;
+        }
+        self.save_db(&db).map_err(LoginError::Other)?;
+        if remember {
+            match remember_token {
+                Some(token) => session::save_remember(&self.account, &token).map_err(LoginError::Other)?,
+                // A server may decline to remember (Bitwarden's policy can
+                // turn it off): the login stands, the next one asks again.
+                None => tracing::warn!(email = %email, "the server did not remember this device"),
+            }
+        }
 
         tracing::info!(email = %email, "logged in");
         self.sync().await.map_err(LoginError::Other)?;
@@ -321,7 +393,6 @@ impl Vault {
     /// Unlocking: the keys are derived from the master password and the
     /// protected key is decrypted. The password is not kept afterwards.
     pub fn unlock(&mut self, password: &str) -> anyhow::Result<()> {
-        self.activate()?;
         let (_, email) = self.identity();
         let db = self.db()?;
 
@@ -333,6 +404,11 @@ impl Vault {
         ) else {
             return Err(keyward_core::fault!("err.nothingToUnlock"));
         };
+
+        // rbw derives the key itself from the stored parameters: they go
+        // through the same bounds as a prelogin answer first, so a session
+        // file tampered with on disk can neither weaken nor hang the KDF.
+        crate::account::kdf_of(&db)?;
 
         let pw = locked_password(password);
         let (keys, org_keys) = rbw::actions::unlock(
@@ -372,8 +448,9 @@ impl Vault {
     }
 
     pub async fn sync(&self) -> anyhow::Result<usize> {
+        // rbw's sync takes the server from its own config.
         self.activate()?;
-        let (server, email) = self.identity();
+        let (server, _) = self.identity();
         let mut db = self.db()?;
         let (Some(access_token), Some(refresh_token)) =
             (db.access_token.clone(), db.refresh_token.clone())
@@ -381,10 +458,41 @@ impl Vault {
             return Err(keyward_core::fault!("err.noTokens"));
         };
 
+        // The refresh is ours, not rbw's: rbw drops the refresh token the
+        // server rotates in, and the session ended on the login's thirtieth
+        // day. A spent access token is traded here, and the new refresh token
+        // is on disk before anything else is asked.
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+        let (access_token, refresh_token) = if keyward_bw::identity::spent(&access_token, now, 60) {
+            let identity = keyward_bw::identity::url(&server, self.account.identity_url.as_deref());
+            match keyward_bw::identity::refresh(&identity, &refresh_token).await {
+                Ok(tokens) => {
+                    rotate(&mut db, tokens);
+                    self.save_db(&db)?;
+                    (db.access_token.clone().unwrap_or_default(), db.refresh_token.clone().unwrap_or_default())
+                }
+                Err(e) if e.to_string() == "err.sessionEnded" => {
+                    // The server has ended the session: its tokens are of no
+                    // use, and keeping them only says "failed" on every sync.
+                    // Without them the vault reads as signed out, and the
+                    // window asks for the master password; the entries on
+                    // disk stay.
+                    db.access_token = None;
+                    db.refresh_token = None;
+                    self.save_db(&db)?;
+                    tracing::warn!("the server ended the session; a new login is needed");
+                    return Err(keyward_core::fault!("err.sessionEnded"));
+                }
+                Err(e) => return Err(keyward_core::fault!("err.syncFailed", "reason" => e)),
+            }
+        } else {
+            (access_token, refresh_token)
+        };
+
         let (new_access_token, (protected_key, protected_private_key, protected_org_keys, entries)) =
             rbw::actions::sync(&access_token, &refresh_token)
                 .await
-                .map_err(|e| keyward_core::fault!("err.syncFailed", "reason" => e))?;
+                .map_err(|e| keyward_core::fault!("err.syncFailed", "reason" => rbw_reason(&e)))?;
 
         if let Some(t) = new_access_token {
             db.access_token = Some(t);
@@ -394,7 +502,7 @@ impl Vault {
         db.protected_org_keys = protected_org_keys;
         let count = entries.len();
         db.entries = entries;
-        db.save(&server, &email).map_err(|e| keyward_core::fault!("err.rbwDbNotSaved", "reason" => e))?;
+        self.save_db(&db)?;
 
         // Our own snapshot: it has the trash, favourites, organisation names
         // and collections — everything rbw's model loses.
@@ -706,23 +814,40 @@ impl Vault {
         self.snapshot().ciphers.iter().filter(|c| c.in_trash()).map(|c| c.id.clone()).collect()
     }
 
-    /// Creates an item of the chosen kind.
+    /// Creates an item of the chosen kind and returns its identifier: in
+    /// one's own vault, or in an organisation's collections — then every
+    /// value is sealed with the organisation's key, and the collections must
+    /// be ones one may write to.
     pub async fn create_item(
         &self,
         kind: u8,
         folder_id: Option<String>,
+        org_id: Option<String>,
+        collection_ids: Vec<String>,
         edit: ItemEdit,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<String> {
         self.activate()?;
         let name = edit.name.clone().unwrap_or_default();
         if name.trim().is_empty() {
             return Err(keyward_core::fault!("err.itemNeedsName"));
+        }
+        if let Some(org) = org_id.as_deref() {
+            self.may_write_into(org, &collection_ids)?;
+        } else if !collection_ids.is_empty() {
+            return Err(keyward_core::fault!("err.collectionsNeedOrg"));
         }
 
         let mut cipher = keyward_bw::model::Cipher {
             id: String::new(),
             kind,
             folder_id,
+            organization_id: org_id,
+            ..Default::default()
+        };
+        // What the closures below seal with: the item's own organisation,
+        // without borrowing the item they fill in.
+        let keyed = keyward_bw::model::Cipher {
+            organization_id: cipher.organization_id.clone(),
             ..Default::default()
         };
         match kind {
@@ -748,7 +873,7 @@ impl Vault {
         }
         if let Some(login) = cipher.login.as_mut() {
             let ring = self.ring().ok_or_else(|| keyward_core::fault!("err.vaultLocked"))?;
-            let enc = |v: &str| crate::read::encrypt_for(&ring, &keyward_bw::model::Cipher::default(), v);
+            let enc = |v: &str| crate::read::encrypt_for(&ring, &keyed, v);
             if let Some(v) = edit.username.as_deref().filter(|v| !v.is_empty()) {
                 login.username = Some(enc(v)?);
             }
@@ -777,9 +902,7 @@ impl Vault {
 
         {
             let ring = self.ring().ok_or_else(|| keyward_core::fault!("err.vaultLocked"))?;
-            let seal = |v: &str| {
-                crate::read::encrypt_for(&ring, &keyward_bw::model::Cipher::default(), v)
-            };
+            let seal = |v: &str| crate::read::encrypt_for(&ring, &keyed, v);
             if let (Some(card), Some(edit)) = (cipher.card.as_mut(), edit.card.as_ref()) {
                 if let Some(v) = edit.cardholder_name.as_deref().filter(|v| !v.trim().is_empty()) {
                     card.cardholder_name = Some(seal(v)?);
@@ -869,34 +992,88 @@ impl Vault {
             });
         }
 
-        self.post_new_cipher(&cipher).await?;
-        tracing::info!(%name, "the item was created");
+        let id = self.post_new_cipher(&cipher, &collection_ids).await?;
+        tracing::info!(%name, %id, "the item was created");
+        Ok(id)
+    }
+
+    /// Refuses unless every collection is the organisation's, one may write
+    /// to it, and there is at least one: the server keeps no organisation's
+    /// item outside a collection.
+    fn may_write_into(&self, org_id: &str, collection_ids: &[String]) -> anyhow::Result<()> {
+        if self.org_rights(org_id).is_none() {
+            return Err(keyward_core::fault!("err.orgNotFound"));
+        }
+        if collection_ids.is_empty() {
+            return Err(keyward_core::fault!("err.collectionRequired"));
+        }
+        let snapshot = self.snapshot();
+        for id in collection_ids {
+            let c = snapshot
+                .collections
+                .iter()
+                .find(|c| &c.id == id)
+                .ok_or_else(|| keyward_core::fault!("err.collectionNotFound"))?;
+            if c.organization_id.as_deref() != Some(org_id) {
+                return Err(keyward_core::fault!("err.collectionNotInOrg"));
+            }
+            if c.read_only {
+                return Err(keyward_core::fault!("err.collectionReadOnly"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Puts an organisation's item into exactly these collections.
+    pub async fn set_item_collections(&self, entry_id: &str, collection_ids: Vec<String>) -> anyhow::Result<()> {
+        let org = self
+            .snapshot()
+            .ciphers
+            .iter()
+            .find(|c| c.id == entry_id)
+            .ok_or_else(|| keyward_core::fault!("err.itemNotFoundSync"))?
+            .organization_id
+            .clone()
+            .ok_or_else(|| keyward_core::fault!("err.collectionsNeedOrg"))?;
+        self.may_write_into(&org, &collection_ids)?;
+        let ids = &collection_ids;
+        self.retry_write(|server, token| async move {
+            crate::bwapi::put_collections(&server, &token, entry_id, ids).await
+        })
+        .await?;
+        tracing::info!(%entry_id, count = collection_ids.len(), "the item's collections were set");
+        self.sync().await?;
         Ok(())
     }
 
     /// Sends a new item to the server and syncs, so that it is in the
-    /// snapshot by the time the caller looks.
-    pub(crate) async fn post_new_cipher(&self, cipher: &keyward_bw::model::Cipher) -> anyhow::Result<()> {
-        self.retry_write(|server, token| async move {
-            crate::bwapi::post_cipher(&server, &token, cipher).await
-        })
-        .await?;
+    /// snapshot by the time the caller looks. The answer is its identifier.
+    pub(crate) async fn post_new_cipher(
+        &self,
+        cipher: &keyward_bw::model::Cipher,
+        collection_ids: &[String],
+    ) -> anyhow::Result<String> {
+        let id = self
+            .retry_write(|server, token| async move {
+                crate::bwapi::post_cipher(&server, &token, cipher, collection_ids).await
+            })
+            .await?;
         self.sync().await?;
-        Ok(())
+        Ok(id)
     }
 
     /// The shared wrapper around writing to the server: a 401 means "the
     /// token has expired" and is cured by a sync, not by repeating the same
     /// request.
-    async fn retry_write<F, Fut>(&self, call: F) -> anyhow::Result<()>
+    async fn retry_write<T, F, Fut>(&self, call: F) -> anyhow::Result<T>
     where
         F: Fn(String, String) -> Fut,
-        Fut: std::future::Future<Output = Result<(), crate::bwapi::WriteError>>,
+        Fut: std::future::Future<Output = Result<T, crate::bwapi::WriteError>>,
     {
         let (server, _) = self.identity();
         let token = self.db()?.access_token.ok_or_else(|| keyward_core::fault!("err.noTokens"))?;
         match call(server.clone(), token).await {
-            Ok(()) => Ok(()),
+            Ok(v) => Ok(v),
             Err(crate::bwapi::WriteError::Unauthorized) => {
                 self.sync().await?;
                 let token =
@@ -1529,13 +1706,13 @@ impl Vault {
 
         let (server, _) = self.identity();
         let token = self.db()?.access_token.ok_or_else(|| keyward_core::fault!("err.noTokens"))?;
-        match crate::bwapi::post_cipher(&server, &token, &cipher).await {
-            Ok(()) => {}
+        match crate::bwapi::post_cipher(&server, &token, &cipher, &[]).await {
+            Ok(_id) => {}
             Err(crate::bwapi::WriteError::Unauthorized) => {
                 self.sync().await?;
                 let token =
                     self.db()?.access_token.ok_or_else(|| keyward_core::fault!("err.noTokens"))?;
-                crate::bwapi::post_cipher(&server, &token, &cipher)
+                crate::bwapi::post_cipher(&server, &token, &cipher, &[])
                     .await
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
@@ -1647,13 +1824,13 @@ impl Vault {
     }
 
     /// Creates a folder of one's own.
-    pub async fn create_folder(&self, name: &str) -> anyhow::Result<()> {
+    pub async fn create_folder(&self, name: &str) -> anyhow::Result<String> {
         let sealed = self.user_text(name)?;
         let (server, token) = self.server_and_token()?;
-        keyward_bw::folders::create(&server, &token, &sealed).await?;
-        tracing::info!("the folder was created");
+        let id = keyward_bw::folders::create(&server, &token, &sealed).await?;
+        tracing::info!(%id, "the folder was created");
         self.sync().await?;
-        Ok(())
+        Ok(id)
     }
 
     pub async fn rename_folder(&self, folder_id: &str, name: &str) -> anyhow::Result<()> {
@@ -1674,13 +1851,13 @@ impl Vault {
     }
 
     /// Creates a collection in an organisation.
-    pub async fn create_collection(&self, org_id: &str, name: &str) -> anyhow::Result<()> {
+    pub async fn create_collection(&self, org_id: &str, name: &str) -> anyhow::Result<String> {
         let sealed = self.org_text(org_id, name)?;
         let (server, token) = self.server_and_token()?;
-        keyward_bw::orgs::create_collection(&server, &token, org_id, &sealed).await?;
-        tracing::info!(%org_id, %name, "the collection was created");
+        let id = keyward_bw::orgs::create_collection(&server, &token, org_id, &sealed).await?;
+        tracing::info!(%org_id, %name, %id, "the collection was created");
         self.sync().await?;
-        Ok(())
+        Ok(id)
     }
 
     pub async fn rename_collection(
@@ -1718,6 +1895,47 @@ impl Vault {
         Ok(())
     }
 
+    /// Invites people with one role and the same access.
+    pub async fn invite_members(
+        &self,
+        org_id: &str,
+        emails: &[String],
+        role: OrgRole,
+        access_all: bool,
+        access: &[CollectionAccess],
+    ) -> anyhow::Result<()> {
+        let role = self.may_grant(org_id, role)?;
+        let emails: Vec<String> = emails.iter().map(|e| e.trim().to_string()).collect();
+        if emails.is_empty() || emails.iter().any(|e| !e.contains('@')) {
+            return Err(keyward_core::fault!("err.memberEmailRequired"));
+        }
+        let grants = grants(access_all, access)?;
+        let (server, token) = self.server_and_token()?;
+        keyward_bw::orgs::invite_with_access(&server, &token, org_id, &emails, role, access_all, &grants).await?;
+        tracing::info!(%org_id, count = emails.len(), role, access_all, collections = grants.len(), "members were invited");
+        self.sync().await?;
+        Ok(())
+    }
+
+    /// Changes a member's role and access in one step.
+    pub async fn set_member(
+        &self,
+        org_id: &str,
+        member_id: &str,
+        role: OrgRole,
+        access_all: bool,
+        access: &[CollectionAccess],
+    ) -> anyhow::Result<()> {
+        self.may_edit_member(org_id, member_id).await?;
+        let code = self.may_grant(org_id, role)?;
+        let grants = grants(access_all, access)?;
+        let (server, token) = self.server_and_token()?;
+        keyward_bw::orgs::set_member(&server, &token, org_id, member_id, code, access_all, &grants).await?;
+        tracing::info!(%org_id, %member_id, code, access_all, collections = grants.len(), "the member was changed");
+        self.sync().await?;
+        Ok(())
+    }
+
     pub async fn set_member_role(
         &self,
         org_id: &str,
@@ -1741,33 +1959,43 @@ impl Vault {
         Ok(())
     }
 
+    /// The member's fingerprint: five words from the public key the server
+    /// gives for them now, salted with their user id. The owner compares them
+    /// with the member out of band before confirming; the very same words come
+    /// back with the confirm.
+    pub async fn member_fingerprint(&self, user_id: &str) -> anyhow::Result<Vec<String>> {
+        let (server, token) = self.server_and_token()?;
+        let public_b64 = keyward_bw::orgs::user_public_key(&server, &token, user_id).await?;
+        let (_, words) = crate::fingerprint::member_key(user_id, &public_b64)?;
+        Ok(words)
+    }
+
     /// Confirms a member by handing them the organisation key.
     ///
     /// The key is encrypted with the **member's public key**, which we take
     /// from the server. Only they will be able to decrypt it — the server still
     /// knows neither the organisation key nor what lies in the organisation.
+    /// `fingerprint` is the words the person was shown and compared: the key
+    /// fetched now must make the same ones, or nothing is sealed — a key the
+    /// server swapped in between is refused.
     pub async fn confirm_member(
         &self,
         org_id: &str,
         member_id: &str,
         user_id: &str,
+        fingerprint: &[String],
     ) -> anyhow::Result<()> {
-        use base64::Engine as _;
-
         let ring = self.ring().ok_or_else(|| keyward_core::fault!("err.vaultLocked"))?;
         let org_key = crate::read::org_key_bytes(&ring, org_id)
             .ok_or_else(|| keyward_core::fault!("err.noOrgKeySync"))?;
 
         let (server, token) = self.server_and_token()?;
         let public_b64 = keyward_bw::orgs::user_public_key(&server, &token, user_id).await?;
-        let der = base64::engine::general_purpose::STANDARD
-            .decode(public_b64.trim())
-            .map_err(|e| keyward_core::fault!("err.memberKeyNotBase64", "reason" => e))?;
-        let public = {
-            use rsa::pkcs8::DecodePublicKey as _;
-            rsa::RsaPublicKey::from_public_key_der(&der)
-                .map_err(|e| keyward_core::fault!("err.memberKeyUnparsable", "reason" => e))?
-        };
+        let (public, words) = crate::fingerprint::member_key(user_id, &public_b64)?;
+        if let Err(e) = crate::fingerprint::ensure_shown(fingerprint, &words) {
+            tracing::warn!(%org_id, %member_id, "the member's key is not the one whose fingerprint was shown");
+            return Err(e);
+        }
         let sealed = keyward_bw::crypto::encrypt_rsa(&public, &org_key)?;
 
         keyward_bw::orgs::confirm_member(&server, &token, org_id, member_id, &sealed).await?;
@@ -1867,7 +2095,7 @@ impl Vault {
     fn password_hash(&self, password: &str) -> anyhow::Result<String> {
         let db = self.db()?;
         let (_, email) = self.identity();
-        let key = keyward_bw::crypto::MasterKey::derive(password, &email, crate::account::kdf_of(&db))?;
+        let key = keyward_bw::crypto::MasterKey::derive(password, &email, crate::account::kdf_of(&db)?)?;
         Ok(key.password_hash(password))
     }
 
@@ -1917,11 +2145,42 @@ impl Vault {
                     two_factor: u.two_factor_enabled,
                     access_all: u.access_all,
                     collections: u.collections.len(),
+                    access: member_access(&u.collections),
                 }
             })
             .collect())
     }
 
+}
+
+/// A member's collections as levels.
+fn member_access(collections: &[keyward_bw::orgs::OrgUserCollection]) -> Vec<CollectionAccess> {
+    collections
+        .iter()
+        .map(|c| CollectionAccess {
+            id: c.id.clone(),
+            permission: CollectionPermission::from_flags(c.read_only, c.hide_passwords, c.manage),
+        })
+        .collect()
+}
+
+/// Levels as the server's flags. Access to everything with a list beside it
+/// says two things at once and is refused, as is a collection named twice.
+fn grants(access_all: bool, access: &[CollectionAccess]) -> anyhow::Result<Vec<keyward_bw::orgs::CollectionGrant>> {
+    if access_all && !access.is_empty() {
+        return Err(keyward_core::fault!("err.memberAccessAllWithCollections"));
+    }
+    let mut seen = std::collections::HashSet::new();
+    access
+        .iter()
+        .map(|a| {
+            if !seen.insert(a.id.as_str()) {
+                return Err(keyward_core::fault!("err.memberCollectionTwice"));
+            }
+            let (read_only, hide_passwords, manage) = a.permission.flags();
+            Ok(keyward_bw::orgs::CollectionGrant { id: a.id.clone(), read_only, hide_passwords, manage })
+        })
+        .collect()
 }
 
 /// How many passwords are kept in each list. Twenty is enough to find "that
@@ -1950,6 +2209,7 @@ enum LoginError {
     TwoFactor {
         providers: Vec<u8>,
         sso_email_2fa_session_token: Option<String>,
+        password_hash: zeroize::Zeroizing<String>,
     },
     Other(anyhow::Error),
 }
@@ -1992,33 +2252,75 @@ fn only_trashed(
     Ok(out)
 }
 
-fn provider_to_id(p: rbw::api::TwoFactorProviderType) -> u8 {
-    use rbw::api::TwoFactorProviderType as T;
-    match p {
-        T::Authenticator => 0,
-        T::Email => 1,
-        T::Duo => 2,
-        T::Yubikey => 3,
-        T::U2f => 4,
-        T::Remember => 5,
-        T::OrganizationDuo => 6,
-        T::WebAuthn => 7,
+/// Puts a refresh's tokens in the session: the new access token, and the new
+/// refresh token when the server rotated one in — the old one runs out on its
+/// own date.
+fn rotate(db: &mut rbw::db::Db, tokens: keyward_bw::identity::Tokens) {
+    db.access_token = Some(tokens.access_token.to_string());
+    if let Some(r) = tokens.refresh_token {
+        db.refresh_token = Some(r.to_string());
     }
 }
 
-fn provider_from_id(id: u8) -> Option<rbw::api::TwoFactorProviderType> {
-    use rbw::api::TwoFactorProviderType as T;
-    Some(match id {
-        0 => T::Authenticator,
-        1 => T::Email,
-        2 => T::Duo,
-        3 => T::Yubikey,
-        4 => T::U2f,
-        5 => T::Remember,
-        6 => T::OrganizationDuo,
-        7 => T::WebAuthn,
-        _ => return None,
-    })
+/// An rbw error in words that say where it went wrong. A JSON one says which
+/// field of the server's answer did not read and what kind of fault it was —
+/// not the value: the answer is the vault, and its words stay out of errors
+/// and logs.
+fn rbw_reason(e: &rbw::error::Error) -> String {
+    match e {
+        rbw::error::Error::Json { source } => {
+            let inner = source.inner();
+            format!("{e} at {} ({:?}, line {} column {})", source.path(), inner.classify(), inner.line(), inner.column())
+        }
+        other => other.to_string(),
+    }
+}
+
+/// The account's KDF in the session's terms.
+fn set_kdf(db: &mut session::Session, kdf: keyward_bw::crypto::Kdf) {
+    use keyward_bw::crypto::Kdf;
+    match kdf {
+        Kdf::Pbkdf2 { iterations } => {
+            db.kdf = Some(rbw::api::KdfType::Pbkdf2);
+            db.iterations = Some(iterations);
+            db.memory = None;
+            db.parallelism = None;
+        }
+        Kdf::Argon2id { iterations, memory_mib, parallelism } => {
+            db.kdf = Some(rbw::api::KdfType::Argon2id);
+            db.iterations = Some(iterations);
+            db.memory = Some(memory_mib);
+            db.parallelism = Some(parallelism);
+        }
+    }
+}
+
+/// This computer's identifier on the servers. The one rbw made is kept: a new
+/// one is a new device to the server, with an email about a login from it.
+fn device_id() -> anyhow::Result<String> {
+    let ours = keyward_core::paths::device_id_file();
+    let read = |p: &std::path::Path| std::fs::read_to_string(p).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    if let Some(id) = read(&ours) {
+        return Ok(id);
+    }
+    let id = match read(&rbw::dirs::device_id_file()) {
+        Some(id) => id,
+        None => {
+            use rand::RngCore as _;
+            let mut b = [0u8; 16];
+            rand::thread_rng().fill_bytes(&mut b);
+            // A version-4 UUID, as the servers expect one.
+            b[6] = (b[6] & 0x0f) | 0x40;
+            b[8] = (b[8] & 0x3f) | 0x80;
+            let h: String = b.iter().map(|x| format!("{x:02x}")).collect();
+            format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..32])
+        }
+    };
+    if let Some(dir) = ours.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| keyward_core::fault!("err.sessionNotSaved", "reason" => e))?;
+    }
+    keyward_core::paths::write_private(&ours, id.as_bytes()).map_err(|e| keyward_core::fault!("err.sessionNotSaved", "reason" => e))?;
+    Ok(id)
 }
 
 fn attempts_of(state: &EditState) -> u32 {
@@ -2176,6 +2478,60 @@ fn locked_password(password: &str) -> rbw::locked::Password {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_members_collections_from_the_server_become_levels() {
+        let raw = r#"{"data":[{"id":"m","collections":[
+            {"id":"a","readOnly":false,"hidePasswords":false,"manage":true},
+            {"id":"b","readOnly":false,"hidePasswords":false,"manage":false},
+            {"id":"c","readOnly":false,"hidePasswords":true,"manage":false},
+            {"id":"d","readOnly":true,"hidePasswords":false,"manage":false},
+            {"id":"e","readOnly":true,"hidePasswords":true,"manage":false}
+        ]}]}"#;
+        #[derive(serde::Deserialize)]
+        struct Envelope {
+            data: Vec<keyward_bw::orgs::OrgUser>,
+        }
+        let users: Envelope = serde_json::from_str(raw).expect("parses");
+        let access = member_access(&users.data[0].collections);
+        use CollectionPermission as P;
+        let levels: Vec<(&str, P)> = access.iter().map(|a| (a.id.as_str(), a.permission)).collect();
+        assert_eq!(
+            levels,
+            [("a", P::Manage), ("b", P::Edit), ("c", P::EditHidden), ("d", P::Read), ("e", P::ReadHidden)]
+        );
+    }
+
+    #[test]
+    fn levels_go_back_to_the_server_as_its_flags_and_contradictions_are_refused() {
+        use CollectionPermission as P;
+        let access = |id: &str, permission| CollectionAccess { id: id.into(), permission };
+        let sent = grants(false, &[access("a", P::Manage), access("b", P::ReadHidden), access("c", P::Edit)]).expect("builds");
+        let flags: Vec<(bool, bool, bool)> = sent.iter().map(|g| (g.read_only, g.hide_passwords, g.manage)).collect();
+        assert_eq!(flags, [(false, false, true), (true, true, false), (false, false, false)]);
+        assert!(grants(true, &[]).expect("builds").is_empty());
+        assert!(grants(true, &[access("a", P::Read)]).is_err(), "everything and a list at once");
+        assert!(grants(false, &[access("a", P::Read), access("a", P::Edit)]).is_err(), "one collection twice");
+    }
+
+    fn tokens(access: &str, refresh: Option<&str>) -> keyward_bw::identity::Tokens {
+        keyward_bw::identity::Tokens { access_token: zeroize::Zeroizing::new(access.into()), refresh_token: refresh.map(|r| zeroize::Zeroizing::new(r.into())) }
+    }
+
+    /// The thirtieth-day sign-out: the refresh token the server rotates in
+    /// must replace the one the login gave, or the session ends on that one's
+    /// date.
+    #[test]
+    fn a_rotated_refresh_token_replaces_the_old_one() {
+        let mut db = rbw::db::Db::new();
+        db.access_token = Some("a1".into());
+        db.refresh_token = Some("r1".into());
+        rotate(&mut db, tokens("a2", Some("r2")));
+        assert_eq!((db.access_token.as_deref(), db.refresh_token.as_deref()), (Some("a2"), Some("r2")));
+        // A server that does not rotate leaves the refresh token as it was.
+        rotate(&mut db, tokens("a3", None));
+        assert_eq!((db.access_token.as_deref(), db.refresh_token.as_deref()), (Some("a3"), Some("r2")));
+    }
 
     fn snapshot(raw: &str) -> keyward_bw::Sync {
         serde_json::from_str(raw).expect("the snapshot parses")

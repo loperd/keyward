@@ -299,9 +299,7 @@ pub async fn generate_root(
         let orphan = Client::new(&addr, namespace.as_deref())?.with_token(&token);
         return match orphan.revoke_self().await {
             Ok(()) => Err(e.context("err.rootNotSavedSoRevoked")),
-            Err(second) => Err(anyhow::anyhow!(
-                "err.rootStranded"
-            )),
+            Err(second) => Err(second.context("err.rootStranded")),
         };
     }
     tracing::info!("the root token was obtained and saved into a hidden item");

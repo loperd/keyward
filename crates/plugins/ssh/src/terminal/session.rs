@@ -321,21 +321,49 @@ async fn drive(
         asker.set(State::Verify { prompt });
         rx
     });
-    let (guard, seen) = Guard::new(&info.address, info.port, pin, store, Some(ask));
-    let (mut handle, _) = connect::handshake(&info.address, info.port, connect::REACH, guard, &seen).await.map_err(|(e, _)| e)?;
+    // Setting the session up has a limit of its own; the time the person is
+    // asked — about the host key, for a finger — does not count against it.
+    let clock = connect::Clock::default();
+    let step = Arc::new(std::sync::atomic::AtomicU8::new(0));
+    let setup = {
+        let clock = clock.clone();
+        let step = Arc::clone(&step);
+        let info = info.clone();
+        let shared = Arc::clone(&shared);
+        async move {
+            use std::sync::atomic::Ordering;
+            let store = store.for_item(&info.entry_id, Arc::clone(&core));
+            let (guard, seen) = Guard::timed(&info.address, info.port, pin, store, Some(ask), clock.clone());
+            let (mut handle, _) = connect::handshake(&info.address, info.port, connect::REACH, guard, &seen).await.map_err(|(e, _)| e)?;
 
-    shared.set(State::Authenticating);
-    let mut signer = CoreSigner { core, entry_id: info.entry_id.clone(), confirm };
-    if !connect::login(&mut handle, &info.user, &key, &mut signer).await? {
-        anyhow::bail!(keyward_core::fault!("err.sshKeyRejected", "user" => info.user.as_str(), "host" => info.host.as_str(), "key" => info.entry_name.as_str()));
-    }
+            step.store(1, Ordering::Release);
+            shared.set(State::Authenticating);
+            let mut signer = CoreSigner { core, entry_id: info.entry_id.clone(), confirm, clock };
+            if !connect::login(&mut handle, &info.user, &key, &mut signer).await? {
+                anyhow::bail!(keyward_core::fault!("err.sshKeyRejected", "user" => info.user.as_str(), "host" => info.host.as_str(), "key" => info.entry_name.as_str()));
+            }
 
-    let channel = handle.channel_open_session().await.map_err(|e| connect::reach_error(&info.host, e))?;
-    channel
-        .request_pty(false, "xterm-256color", cols, rows, 0, 0, &[])
-        .await
-        .map_err(|e| connect::reach_error(&info.host, e))?;
-    channel.request_shell(false).await.map_err(|e| connect::reach_error(&info.host, e))?;
+            step.store(2, Ordering::Release);
+            let channel = handle.channel_open_session().await.map_err(|e| connect::reach_error(&info.host, e))?;
+            channel
+                .request_pty(false, "xterm-256color", cols, rows, 0, 0, &[])
+                .await
+                .map_err(|e| connect::reach_error(&info.host, e))?;
+            channel.request_shell(false).await.map_err(|e| connect::reach_error(&info.host, e))?;
+            anyhow::Ok((handle, channel))
+        }
+    };
+    let (handle, channel) = match clock.within(connect::SETUP, setup).await {
+        Some(done) => done?,
+        None => {
+            let key = match step.load(std::sync::atomic::Ordering::Acquire) {
+                0 => "err.sshTimedOutReach",
+                1 => "err.sshTimedOutLogin",
+                _ => "err.sshTimedOutShell",
+            };
+            anyhow::bail!(keyward_core::fault!(key, "host" => info.host.as_str(), "seconds" => connect::SETUP.as_secs()));
+        }
+    };
     shared.set(State::Open);
     on_open(&info);
 

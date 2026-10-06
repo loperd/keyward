@@ -178,6 +178,16 @@ pub struct Manifest {
     /// one, exists only on a Vaultwarden server with `/admin` switched on.
     #[serde(default)]
     pub probe: bool,
+    /// The section's screens are declared (`keyward-ui`): the window draws
+    /// them with its own kit, and the plugin ships no code of its own for
+    /// them.
+    #[serde(default)]
+    pub declared: bool,
+    /// The plugin adds places to the window's path (`keyward-ui`'s
+    /// `places`): its own steps under the root, with their levels, rows,
+    /// pages, verbs and map. Asked through the declared screens' sealed road.
+    #[serde(default)]
+    pub places: bool,
 }
 
 fn builtin() -> Origin {
@@ -446,5 +456,6 @@ mod tests {
         assert!(m.permissions.is_empty());
         assert_eq!(m.origin, Origin::Builtin);
         assert_eq!(m.version, "");
+        assert!(!m.declared && !m.places, "a manifest that says nothing declares nothing");
     }
 }

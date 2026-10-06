@@ -4,30 +4,11 @@
 // page cannot tell it from the plugin, which is the point: the screens are
 // photographed against the real protocol.
 
-const SALT = new TextEncoder().encode("keyward terminal v1");
+import { b64, standLink, unb64 } from "./standLink";
+
 const enc = new TextEncoder();
 
-function b64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
-
-function unb64(text: string): Uint8Array<ArrayBuffer> {
-  const bin = atob(text);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function nonce(counter: number): Uint8Array<ArrayBuffer> {
-  const n = new Uint8Array(12);
-  new DataView(n.buffer).setBigUint64(4, BigInt(counter));
-  return n;
-}
-
-type Lane = { open: CryptoKey; seal: CryptoKey; counter: number };
-type Link = { input: Lane; output: Lane; session?: string };
+type Link = { session?: string };
 
 type State =
   | { kind: "connecting" }
@@ -117,7 +98,6 @@ class Shell {
   }
 }
 
-const links = new Map<string, Link>();
 const shells = new Map<string, Shell>();
 /// Hosts the stand's "person" has already trusted.
 const trusted = new Set(["git.prod.demo.example", "api.prod.demo.example"]);
@@ -191,21 +171,13 @@ function report() {
   };
 }
 
-async function laneKeys(secret: ArrayBuffer, lane: string, page: Uint8Array, mine: Uint8Array): Promise<Lane> {
-  const derive = async (direction: string, usage: KeyUsage) => {
-    const label = enc.encode(`${direction} ${lane}`);
-    const info = new Uint8Array(label.length + page.length + mine.length);
-    info.set(label, 0);
-    info.set(page, label.length);
-    info.set(mine, label.length + page.length);
-    const ikm = await crypto.subtle.importKey("raw", secret, "HKDF", false, ["deriveKey"]);
-    return crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: SALT, info }, ikm, { name: "AES-GCM", length: 256 }, false, [usage]);
-  };
-  return { open: await derive("page to plugin", "decrypt"), seal: await derive("plugin to page", "encrypt"), counter: 0 };
-}
 
 function start(shell: Shell) {
   setTimeout(() => {
+    if (shell.info.host.startsWith("old")) {
+      shell.set({ kind: "closed", error: `err.sshHostKeyChanged {"host":"${shell.info.host}","port":22,"fingerprint":"SHA256:demoChangedKeyFingerprint0000000000000000000"}`, exit: null });
+      return;
+    }
     if (trusted.has(shell.info.host)) auth(shell);
     else
       shell.set({
@@ -297,39 +269,14 @@ async function read(link: Link, req: Record<string, unknown>): Promise<unknown> 
   return { data: b64(enc.encode(data)), cursor: shell.out.length, dropped: false, state: shell.state, version: shell.version };
 }
 
+const link = standLink<Link>("err.sshLinkGone", () => ({}), (l, lane, req) => (lane === "output" ? read(l, req) : input(l, req)));
+
 export const STAND_TERMINAL: Record<string, (p: Record<string, unknown>) => unknown> = {
-  term_link: async ({ public: pagePublic }) => {
-    const pair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
-    const mine = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
-    const page = unb64(String(pagePublic));
-    const theirs = await crypto.subtle.importKey("raw", page, { name: "ECDH", namedCurve: "P-256" }, false, []);
-    const secret = await crypto.subtle.deriveBits({ name: "ECDH", public: theirs }, pair.privateKey, 256);
-    ids += 1;
-    const id = `l${ids}`;
-    links.set(id, { input: await laneKeys(secret, "input", page, mine), output: await laneKeys(secret, "output", page, mine) });
-    return { link: id, public: b64(mine) };
-  },
-  term: async ({ link: id, lane: name, sealed }) => {
-    const link = links.get(String(id));
-    if (!link) throw 'err.sshLinkGone';
-    const lane = name === "output" ? link.output : link.input;
-    const aad = enc.encode(String(name));
-    const n = nonce(lane.counter);
-    let plain: Uint8Array;
-    try {
-      plain = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: n, additionalData: aad }, lane.open, unb64(String(sealed))));
-    } catch {
-      throw "err.channelFailed";
-    }
-    const req = JSON.parse(new TextDecoder().decode(plain)) as Record<string, unknown>;
-    const answer = name === "output" ? await read(link, req) : input(link, req);
-    const out = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: n, additionalData: aad }, lane.seal, enc.encode(JSON.stringify(answer ?? null))));
-    lane.counter += 1;
-    return { sealed: b64(out) };
-  },
+  term_link: link.link,
+  term: link.call,
   term_sessions: () => [...shells.values()].map((s) => ({ ...s.info, state: s.state })),
   term_targets: () => DEMO_TARGETS,
-  term_forget_host: () => 0,
+  term_forget_host: () => 1,
   term_config_hosts: () => [
     { alias: "prod", hostname: "203.0.113.10", user: "ubuntu", port: 2222, proxy_jump: null },
     { alias: "work", hostname: "198.51.100.7", user: "deploy", port: null, proxy_jump: null },

@@ -6,6 +6,7 @@ document.documentElement.classList.add("stend");
 /// such as design-compiler, which do not look into a Tauri window. It does not
 /// reach the build — it is a page of its own, `preview.html`.
 import { STAND_TERMINAL } from "./standTerminal";
+import { STAND_DECLARED_MANIFESTS, STAND_DECLARED_OPS } from "./standDeclared";
 import { StrictMode } from "react";
 import "./styles.css";
 import { createRoot } from "react-dom/client";
@@ -69,8 +70,8 @@ const PLUGINS: StendManifest[] = [
   },
   {
     id: "ssh",
-    title: "Routes",
-    icon: "route",
+    title: "SSH",
+    icon: "terminal",
     section: true,
     needs_unlocked: true,
     version: "0.1.0",
@@ -129,6 +130,7 @@ type StendEntry = {
   revoked?: boolean;
   reason?: string;
 };
+PLUGINS.push(...(STAND_DECLARED_MANIFESTS as unknown as StendManifest[]));
 
 const SOURCES = ["https://plugins.keyward.app/index.json"];
 
@@ -250,6 +252,7 @@ const CANNED: Record<string, unknown> = {
         org_name: null,
         collection_ids: [],
         reprompt: false,
+        revised: "2026-10-04T08:12:00Z", password_revised: "2026-03-02T10:00:00Z", reused: 1, reuse_group: 1,
       },
       {
         id: "i2",
@@ -268,6 +271,7 @@ const CANNED: Record<string, unknown> = {
         org_name: null,
         collection_ids: [],
         reprompt: true,
+        revised: "2026-09-28T14:00:00Z", password_revised: "2025-06-11T10:00:00Z",
       },
       {
         id: "i3",
@@ -304,6 +308,7 @@ const CANNED: Record<string, unknown> = {
         org_name: null,
         collection_ids: [],
         reprompt: false,
+        revised: "2026-10-03T19:40:00Z", password_revised: "2026-08-01T10:00:00Z", reused: 1, reuse_group: 1,
       },
       {
         id: "i5",
@@ -340,6 +345,7 @@ const CANNED: Record<string, unknown> = {
         org_name: null,
         collection_ids: [],
         reprompt: true,
+        revised: "2026-07-14T09:00:00Z", expires: "2026-12",
       },
       {
         id: "i7",
@@ -376,6 +382,7 @@ const CANNED: Record<string, unknown> = {
         org_name: "Acme",
         collection_ids: ["c1"],
         reprompt: false,
+        revised: "2026-09-30T11:00:00Z", password_revised: "2024-11-20T10:00:00Z",
       },
       {
         id: "i9",
@@ -431,6 +438,7 @@ const CANNED: Record<string, unknown> = {
         org_name: "Acme",
         collection_ids: ["c1"],
         reprompt: true,
+        revised: "2026-05-02T09:00:00Z", expires: "2030-06",
       },
       {
         id: "i12",
@@ -450,6 +458,7 @@ const CANNED: Record<string, unknown> = {
         org_name: "Acme",
         collection_ids: ["c1"],
         reprompt: true,
+        revised: "2026-02-10T09:00:00Z", expires: "2026-08",
       },
     ],
     folders: [{ id: "f1", name: "Work", count: 8 }, { id: "f2", name: "Personal", count: 4 }],
@@ -490,6 +499,7 @@ const CANNED: Record<string, unknown> = {
     start_on_login: true,
     theme: "system",
     language: "auto",
+    interface: "old",
   },
   apply_window_prefs: null,
   // The account: a profile with the five words of the fingerprint, the second
@@ -643,7 +653,28 @@ const SECRET_FIELDS: Record<string, string> = {
 };
 const UNLOCKED = (CANNED.daemon_status as { vault: unknown }).vault;
 const loginDone = () => ({ kind: "done", state: UNLOCKED });
+// The stand plays the trash as the daemon does: the write takes its seconds
+// (the daemon syncs after it), and only then does the list change.
+const standCatalog = () => CANNED.vault_items as { items: Array<{ id: string; deleted?: boolean }>; trash: number };
+const standWrite = (ms: number, fn: () => void) => new Promise((done) => setTimeout(() => { fn(); done(null); }, ms));
+
 const DYNAMIC: Record<string, (args: Record<string, unknown>) => unknown> = {
+  trash_item: (a) => standWrite(1500, () => {
+    const c = standCatalog();
+    const i = c.items.find((x) => x.id === a.entryId);
+    if (i && !i.deleted) { i.deleted = true; c.trash += 1; }
+  }),
+  restore_item: (a) => standWrite(1500, () => {
+    const c = standCatalog();
+    const i = c.items.find((x) => x.id === a.entryId);
+    if (i?.deleted) { i.deleted = false; c.trash -= 1; }
+  }),
+  purge_items: (a) => standWrite(1500, () => {
+    const c = standCatalog();
+    const ids = (a.entryIds as string[]).length ? (a.entryIds as string[]) : c.items.filter((x) => x.deleted).map((x) => x.id);
+    c.items = c.items.filter((x) => !ids.includes(x.id) || !x.deleted);
+    c.trash = c.items.filter((x) => x.deleted).length;
+  }),
   // The stand remembers the avatar's colour: the accent is painted from it,
   // and without that a change of accent could not be tried by pressing.
   account_set_avatar: (a) => {
@@ -1053,6 +1084,7 @@ const PLUGIN_OPS: Record<string, Record<string, (p: Record<string, unknown>) => 
     ...STAND_TERMINAL,
   },
 };
+Object.assign(PLUGIN_OPS, STAND_DECLARED_OPS);
 
 // `?locked=1` — the stand in its locked state, to look at the unlock screen;
 // `?pin=1` — with a PIN set, `?nobio=1` — without Touch ID.
@@ -1155,7 +1187,10 @@ async function standSeal(value: unknown): Promise<unknown> {
     // One envelope for every plugin: it is taken apart as the daemon takes it
     // apart.
     // `?down` — the daemon does not answer: the screen that says so.
-    if (cmd === "daemon_status" && new URLSearchParams(window.location.search).has("down")) throw "the daemon is not answering";
+    // `?starting` — it is coming up: the loader.
+    const q = new URLSearchParams(window.location.search);
+    if (cmd === "daemon_status" && (q.has("down") || q.has("starting"))) throw "the daemon is not answering";
+    if (cmd === "daemon_probe") return q.has("starting") ? { state: "starting" } : { state: "down", reason: 'err.daemonExits {"code":"1","log":"the keychain item could not be read"}' };
     if (cmd === "site_icon") return demoFavicon(String(args?.domain ?? ""));
     if (cmd === "item_detail") {
       const q = new URLSearchParams(window.location.search);

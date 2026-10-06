@@ -1,0 +1,59 @@
+[package]
+name = "keyward-plugin-kube"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# A plugin is both a library and a program. The showcase package builds the
+# program: the daemon talks to it in lines of JSON through the
+# `keyward-plugin-stdio` bridge.
+[[bin]]
+name = "keyward-plugin-kube"
+path = "src/bin/kube.rs"
+
+[dependencies]
+keyward-core.workspace = true
+keyward-plugin.workspace = true
+keyward-plugin-stdio.workspace = true
+# The way to a server with the vault's keys, shared with the ssh plugin as a
+# library: this plugin needs no other installed beside it.
+keyward-ssh-client.workspace = true
+keyward-ui.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+async-trait = "0.1"
+base64 = "0.22"
+zeroize = { version = "1.9.0", features = ["serde"] }
+# The cluster's API. rustls on ring, as russh: no aws-lc, no openssl, the same
+# build everywhere. The connection itself is ours — a channel of the ssh
+# session — so nothing here dials the cluster directly unless it is local.
+kube = { version = "4.2", default-features = false, features = ["client", "rustls-tls", "ring", "ws"] }
+# A pod's shell: the terminal size goes down a futures channel.
+futures = "0.3"
+rand_core = { version = "0.6", features = ["getrandom"] }
+k8s-openapi = { version = "0.28", features = ["earliest"] }
+russh = { version = "0.63", default-features = false, features = ["ring", "rsa", "flate2"] }
+hyper-util = { version = "0.1", features = ["tokio", "client-legacy", "http1"] }
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+secrecy = "0.10"
+# A manifest is shown as YAML, the way a person reads one.
+serde-saphyr = "0.0.29"
+# The restart mark, RFC 3339 as kubectl writes it.
+jiff = "0.2"
+
+[dev-dependencies]
+keyward-plugin = { workspace = true, features = ["testing"] }
+keyward-ssh-client = { workspace = true, features = ["testing"] }
+# The end-to-end look runs a real ssh server and signs as the core would.
+ssh-key = { version = "0.6", features = ["ed25519", "alloc", "std"] }
+ssh-encoding = { version = "0.2", features = ["alloc"] }
+signature = "2"
+# A cluster's API on loopback, with TLS the way a real one has it.
+rcgen = "0.14"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }

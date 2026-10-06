@@ -193,9 +193,3 @@ export function pluginTitle(manifest: Manifest): string {
 export function pluginSettingsTitle(manifest: Manifest): string {
   return tMaybe(`plugin.${manifest.id}.settings`, pluginTitle(manifest));
 }
-
-/// A further section's caption: `plugin.<id>.section.<section>`, and failing
-/// that the section's own name.
-export function pluginSectionTitle(manifest: Manifest, section: string): string {
-  return tMaybe(`plugin.${manifest.id}.section.${section}`, section);
-}

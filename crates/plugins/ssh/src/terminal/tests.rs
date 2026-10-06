@@ -13,7 +13,8 @@ use russh::server::{self, Auth, Msg, Session as ServerSession};
 use russh::{Channel, ChannelId};
 use serde_json::{json, Value};
 
-use super::link::tests::{Page, PageLane};
+use super::hostkeys;
+use super::link::testing::{Page, PageLane};
 use crate::SshPlugin;
 
 const USER_KEY: &str = include_str!("../../../../sshkey/tests/fixtures/ssh/ed25519");
@@ -95,7 +96,8 @@ async fn serve(allowed: russh::keys::PublicKey) -> u16 {
 // -- The core -------------------------------------------------------------------
 
 struct Core {
-    entries: Vec<VaultEntry>,
+    /// Changed by `set_fields`, as the vault would be.
+    entries: Mutex<Vec<VaultEntry>>,
     dir: PathBuf,
     signed: AtomicUsize,
     confirmed: Mutex<Vec<bool>>,
@@ -109,7 +111,7 @@ impl Host for Core {
         true
     }
     fn entries(&self) -> Vec<VaultEntry> {
-        self.entries.clone()
+        self.entries.lock().unwrap().clone()
     }
     async fn item_detail(&self, _: &str) -> Option<ItemDetail> {
         None
@@ -130,6 +132,12 @@ impl Host for Core {
         Ok(())
     }
     async fn set_fields(&self, entry_id: &str, fields: Vec<(String, String)>) -> keyward_plugin::Result<()> {
+        let mut entries = self.entries.lock().unwrap();
+        let entry = entries.iter_mut().find(|e| e.id == entry_id).expect("set_fields on an item that is not in the vault");
+        for (name, value) in &fields {
+            entry.set_field(name, value.clone());
+        }
+        drop(entries);
         self.written.lock().unwrap().push((entry_id.to_string(), fields));
         Ok(())
     }
@@ -193,7 +201,7 @@ async fn plugin_with_route(name: &str, route: &str, pin: Option<&str>) -> (SshPl
     }
     e.public_key = Some(user_public().to_openssh().unwrap());
     let core = Arc::new(Core {
-        entries: vec![e],
+        entries: Mutex::new(vec![e]),
         dir,
         signed: AtomicUsize::new(0),
         confirmed: Mutex::new(Vec::new()),
@@ -319,6 +327,14 @@ async fn a_shell_opens_trusts_the_host_once_and_signs_through_the_core() {
     let sessions = p.call(core.as_ref(), "term_sessions", Value::Null).await.unwrap();
     assert_eq!(sessions.as_array().unwrap().len(), 1);
 
+    // The confirmation lives in the item, where every plugin with the key
+    // finds it, and not in a file of this plugin's.
+    let known = core.entries()[0].field("kw-knownhosts").map(str::to_string);
+    let line = host_public().to_openssh().unwrap();
+    let without_comment = line.split_whitespace().take(2).collect::<Vec<_>>().join(" ");
+    assert_eq!(known, Some(format!("[127.0.0.1]:{port} {without_comment}")));
+    assert!(!core.dir.join("known_hosts").exists());
+
     // Now the host is trusted, the key checks healthy — and nothing more is
     // signed for it.
     let report = health(&p, &core).await;
@@ -369,6 +385,20 @@ async fn a_changed_host_key_is_refused_by_the_shell_and_by_the_check() {
     let end = t.until(&p, &core, |s, _| kind(s) == "closed").await;
     assert!(end["error"].as_str().unwrap().starts_with("err.sshHostKeyNotPinned"), "{end}");
     assert_eq!(core.signed.load(Ordering::SeqCst), 0, "nothing is signed for a host that is not the right one");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_host_trusted_before_items_kept_trust_moves_into_the_item_without_asking() {
+    let port = serve(user_public()).await;
+    let (p, core) = plugin("legacy", port, None).await;
+    // Confirmed by an older build: a hashed line in the plugin's own file.
+    hostkeys::Store::new(&core.dir).learn("127.0.0.1", port, &host_public()).await.unwrap();
+
+    let mut t = tab(&p, &core).await;
+    t.input(&p, &core, open_req(port)).await;
+    t.until(&p, &core, |s, seen| kind(s) == "open" && seen.contains("welcome")).await;
+    let known = core.entries()[0].field("kw-knownhosts").map(str::to_string).unwrap_or_default();
+    assert!(known.starts_with(&format!("[127.0.0.1]:{port} ssh-ed25519 ")), "copied into the item: {known:?}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -466,7 +496,7 @@ async fn a_stale_vault_is_set_right_by_ssh_config_once_the_server_agrees() {
     stale.set_field("kw-hostkey", &fingerprint(&host_public()));
     stale.public_key = Some(user_public().to_openssh().unwrap());
     let core = Arc::new(Core {
-        entries: vec![stale],
+        entries: Mutex::new(vec![stale]),
         dir: core.dir.clone(),
         signed: AtomicUsize::new(0),
         confirmed: Mutex::new(Vec::new()),

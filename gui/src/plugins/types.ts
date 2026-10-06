@@ -42,6 +42,12 @@ export type Manifest = {
   /// The section applies only where the plugin says so: it is asked
   /// `available`, and the section shows on a yes.
   probe?: boolean;
+  /// The screens are declared by the plugin and drawn by the window's own
+  /// kit; the plugin ships no code for them.
+  declared?: boolean;
+  /// The plugin adds places to the new window's path, asked on the same
+  /// sealed road as the declared screens.
+  places?: boolean;
   /// The package's version; for the built-in ones, the application's.
   version: string;
   /// One line about what it is for.
@@ -191,28 +197,12 @@ export type PluginItemEditor = {
   Component: ComponentType<PluginItemEditorProps>;
 };
 
-/// A further section of one plugin: an entry of its own in the rail, beside
-/// the plugin's main one. The terminal is the ssh plugin's second section —
-/// a plugin that does two things gets two doors rather than a door with tabs
-/// behind it.
-export type PluginSection = {
-  /// The section's name inside the plugin; the rail knows it as
-  /// `<plugin>/<id>`, and its caption is `plugin.<plugin>.section.<id>`.
-  id: string;
-  /// The name of an icon from the interface's set.
-  icon: string;
-  Screen: ComponentType<PluginScreenProps>;
-  Context?: ComponentType<PluginScreenProps>;
-  /// The screen fills the whole working area itself, with no padding and no
-  /// scroll of the shell's own: a terminal, say.
-  flush?: boolean;
-};
-
 export type PluginEntry = {
   /// The section's main column.
   Screen: ComponentType<PluginScreenProps>;
-  /// Further sections, each with an entry of its own in the rail.
-  sections?: PluginSection[];
+  /// The screen fills the whole working area itself, with no padding and no
+  /// scroll of the shell's own: a terminal, say.
+  flush?: boolean;
   /// The section's left column: not every one has it.
   Context?: ComponentType<PluginScreenProps>;
   /// A block in the settings. The heading comes from the plugin's caption.

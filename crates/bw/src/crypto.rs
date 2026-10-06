@@ -32,6 +32,75 @@ pub enum Kdf {
     Argon2id { iterations: u32, memory_mib: u32, parallelism: u32 },
 }
 
+/// The KDF parameters keyward derives a key with, wherever they come from: the
+/// server's prelogin answer, the session on disk, or a change the person asks
+/// for. A server (or whoever stands in for it) that answers with one PBKDF2
+/// iteration makes the password hash it then receives cheap to brute-force;
+/// one that answers with a terabyte of Argon2 memory hangs the daemon. Both
+/// are refused before the password is touched.
+///
+/// The upper bounds and PBKDF2's floor are Vaultwarden's. Argon2's floors are
+/// stricter than Vaultwarden's (1 iteration, 15 MiB): Bitwarden's own clients
+/// refuse below 2 iterations and 16 MiB, and so does keyward.
+pub const PBKDF2_ITERATIONS: std::ops::RangeInclusive<u32> = 100_000..=2_000_000;
+pub const ARGON2_ITERATIONS: std::ops::RangeInclusive<u32> = 2..=10;
+pub const ARGON2_MEMORY_MIB: std::ops::RangeInclusive<u32> = 16..=1024;
+pub const ARGON2_PARALLELISM: std::ops::RangeInclusive<u32> = 1..=16;
+
+/// The dictionary key a refused set of KDF parameters is reported with.
+pub const KDF_OUT_OF_RANGE: &str = "err.kdfOutOfRange";
+
+/// Which bound a set of KDF parameters breaks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KdfBound {
+    Pbkdf2Iterations,
+    Argon2Iterations,
+    Argon2Memory,
+    Argon2Parallelism,
+}
+
+/// KDF parameters outside [`PBKDF2_ITERATIONS`] and the Argon2 bounds.
+///
+/// Displayed as the bare dictionary key, so the daemon hands it to the window
+/// unchanged and the window writes the sentence; `bound` says which limit it
+/// was, for a caller that wants a more precise word.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KdfOutOfRange {
+    pub bound: KdfBound,
+}
+
+impl std::fmt::Display for KdfOutOfRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(KDF_OUT_OF_RANGE)
+    }
+}
+
+impl std::error::Error for KdfOutOfRange {}
+
+impl Kdf {
+    /// The parameters, if they are within keyward's bounds.
+    pub fn checked(self) -> Result<Self, KdfOutOfRange> {
+        let broken = match self {
+            Kdf::Pbkdf2 { iterations } => (!PBKDF2_ITERATIONS.contains(&iterations)).then_some(KdfBound::Pbkdf2Iterations),
+            Kdf::Argon2id { iterations, memory_mib, parallelism } => {
+                if !ARGON2_ITERATIONS.contains(&iterations) {
+                    Some(KdfBound::Argon2Iterations)
+                } else if !ARGON2_MEMORY_MIB.contains(&memory_mib) {
+                    Some(KdfBound::Argon2Memory)
+                } else if !ARGON2_PARALLELISM.contains(&parallelism) {
+                    Some(KdfBound::Argon2Parallelism)
+                } else {
+                    None
+                }
+            }
+        };
+        match broken {
+            Some(bound) => Err(KdfOutOfRange { bound }),
+            None => Ok(self),
+        }
+    }
+}
+
 /// A pair of keys: one encrypts, the other signs.
 ///
 /// Zeroed when dropped: a key left in freed memory is a key somebody will one
@@ -118,7 +187,7 @@ impl MasterKey {
 pub enum EncString {
     /// `2.iv|ct|mac`: AES-256-CBC with an HMAC-SHA256 mac.
     Symmetric { iv: Vec<u8>, ct: Vec<u8>, mac: Vec<u8> },
-    /// `4.ct` or `6.ct`: RSA-OAEP.
+    /// `3.ct` (RSA-OAEP with SHA-256) or `4.ct` (RSA-OAEP with SHA-1).
     Asymmetric { ct: Vec<u8>, sha256: bool },
 }
 
@@ -137,8 +206,18 @@ impl EncString {
                 };
                 Ok(Self::Symmetric { iv: decode(iv)?, ct: decode(ct)?, mac: decode(mac)? })
             }
+            // Bitwarden's numbering: 3 is Rsa2048_OaepSha256_B64, 4 is
+            // Rsa2048_OaepSha1_B64. Type 6 used to be read here as OAEP-SHA256,
+            // which it is not: it is the SHA-1 variant with a mac appended.
+            "3" => Ok(Self::Asymmetric { ct: decode(rest)?, sha256: true }),
             "4" => Ok(Self::Asymmetric { ct: decode(rest)?, sha256: false }),
-            "6" => Ok(Self::Asymmetric { ct: decode(rest)?, sha256: true }),
+            // 5 (Rsa2048_OaepSha256_HmacSha256_B64) and 6
+            // (Rsa2048_OaepSha1_HmacSha256_B64) are deprecated by Bitwarden and
+            // carry an HMAC under a key the recipient of an RSA ciphertext
+            // never has: the official clients drop the mac unchecked. Reading
+            // them would mean accepting a mac we cannot verify, so they are
+            // refused by name rather than half-supported.
+            "5" | "6" => anyhow::bail!("ciphertext type {ty} (RSA with an HMAC) is deprecated and not accepted: its mac cannot be verified"),
             other => anyhow::bail!("ciphertext type {other} is not supported"),
         }
     }
@@ -213,7 +292,7 @@ impl std::fmt::Display for EncString {
                 write!(f, "2.{}|{}|{}", B64.encode(iv), B64.encode(ct), B64.encode(mac))
             }
             Self::Asymmetric { ct, sha256 } => {
-                write!(f, "{}.{}", if *sha256 { 6 } else { 4 }, B64.encode(ct))
+                write!(f, "{}.{}", if *sha256 { 3 } else { 4 }, B64.encode(ct))
             }
         }
     }
@@ -293,6 +372,77 @@ mod tests {
     fn malformed_strings_are_rejected() {
         for bad in ["", "hello", "2.only-one-part", "9.abc"] {
             assert!(EncString::parse(bad).is_err(), "must be refused: {bad:?}");
+        }
+    }
+
+    #[test]
+    fn bitwarden_default_kdfs_are_accepted() {
+        let pbkdf2 = Kdf::Pbkdf2 { iterations: 600_000 };
+        assert_eq!(pbkdf2.checked(), Ok(pbkdf2));
+        let argon2 = Kdf::Argon2id { iterations: 3, memory_mib: 64, parallelism: 4 };
+        assert_eq!(argon2.checked(), Ok(argon2));
+        // The edges themselves are inside.
+        assert!(Kdf::Pbkdf2 { iterations: 100_000 }.checked().is_ok());
+        assert!(Kdf::Pbkdf2 { iterations: 2_000_000 }.checked().is_ok());
+        assert!(Kdf::Argon2id { iterations: 2, memory_mib: 16, parallelism: 1 }.checked().is_ok());
+        assert!(Kdf::Argon2id { iterations: 10, memory_mib: 1024, parallelism: 16 }.checked().is_ok());
+    }
+
+    #[test]
+    fn weak_and_huge_kdfs_are_refused() {
+        let bound = |kdf: Kdf| kdf.checked().unwrap_err().bound;
+        // A downgrade: a password hash a server could brute-force.
+        assert_eq!(bound(Kdf::Pbkdf2 { iterations: 1 }), KdfBound::Pbkdf2Iterations);
+        assert_eq!(bound(Kdf::Pbkdf2 { iterations: 99_999 }), KdfBound::Pbkdf2Iterations);
+        assert_eq!(bound(Kdf::Argon2id { iterations: 1, memory_mib: 64, parallelism: 4 }), KdfBound::Argon2Iterations);
+        assert_eq!(bound(Kdf::Argon2id { iterations: 3, memory_mib: 15, parallelism: 4 }), KdfBound::Argon2Memory);
+        assert_eq!(bound(Kdf::Argon2id { iterations: 3, memory_mib: 64, parallelism: 0 }), KdfBound::Argon2Parallelism);
+        // A denial of service: work or memory the daemon would hang on.
+        assert_eq!(bound(Kdf::Pbkdf2 { iterations: u32::MAX }), KdfBound::Pbkdf2Iterations);
+        assert_eq!(bound(Kdf::Argon2id { iterations: 11, memory_mib: 64, parallelism: 4 }), KdfBound::Argon2Iterations);
+        assert_eq!(bound(Kdf::Argon2id { iterations: 3, memory_mib: 1025, parallelism: 4 }), KdfBound::Argon2Memory);
+        assert_eq!(bound(Kdf::Argon2id { iterations: 3, memory_mib: 64, parallelism: 17 }), KdfBound::Argon2Parallelism);
+        // The window reads the key.
+        assert_eq!(Kdf::Pbkdf2 { iterations: 1 }.checked().unwrap_err().to_string(), KDF_OUT_OF_RANGE);
+    }
+
+    /// One key for the RSA tests: generating 2048 bits is slow in a debug build.
+    fn rsa_key() -> &'static rsa::RsaPrivateKey {
+        static KEY: std::sync::OnceLock<rsa::RsaPrivateKey> = std::sync::OnceLock::new();
+        KEY.get_or_init(|| rsa::RsaPrivateKey::new(&mut rand::rngs::OsRng, 2048).unwrap())
+    }
+
+    #[test]
+    fn type_4_is_oaep_sha1_and_reads_what_we_write() {
+        let private = rsa_key();
+        let sealed = encrypt_rsa(&rsa::RsaPublicKey::from(private), b"org key").unwrap();
+        let parsed = EncString::parse(&sealed).unwrap();
+        assert!(matches!(parsed, EncString::Asymmetric { sha256: false, .. }));
+        assert_eq!(parsed.decrypt_rsa(private).unwrap(), b"org key");
+        assert_eq!(parsed.to_string(), sealed);
+    }
+
+    #[test]
+    fn type_3_is_oaep_sha256() {
+        let private = rsa_key();
+        let ct = rsa::RsaPublicKey::from(private)
+            .encrypt(&mut rand::rngs::OsRng, rsa::Oaep::new::<Sha256>(), b"org key")
+            .unwrap();
+        let text = format!("3.{}", B64.encode(&ct));
+        let parsed = EncString::parse(&text).unwrap();
+        assert!(matches!(parsed, EncString::Asymmetric { sha256: true, .. }));
+        assert_eq!(parsed.decrypt_rsa(private).unwrap(), b"org key");
+        // It is written back as 3, not as the 6 it used to be mislabelled as.
+        assert_eq!(parsed.to_string(), text);
+    }
+
+    #[test]
+    fn rsa_with_an_hmac_is_refused_by_name() {
+        // 6 was once read as OAEP-SHA256; it is OAEP-SHA1 with a mac we have
+        // no key to check. 5 is the SHA-256 one. Neither is accepted.
+        for value in ["5.Y3Q=|bWFj", "6.Y3Q=|bWFj", "6.Y3Q="] {
+            let err = EncString::parse(value).unwrap_err().to_string();
+            assert!(err.contains("deprecated"), "{value}: {err}");
         }
     }
 

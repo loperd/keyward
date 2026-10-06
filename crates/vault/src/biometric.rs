@@ -524,6 +524,60 @@ mod imp {
             .map_err(|e| keyward_core::fault!("err.keychainWrite", "reason" => e))
     }
 
+    /// The keychain's service for the keys the session files are sealed with.
+    const SESSION_SERVICE: &str = "keyward-session";
+
+    /// `security`'s exit status for "no such item".
+    const NOT_FOUND: i32 = 44;
+
+    /// The key a session file is sealed with, by the account's hashed name.
+    /// No finger: the daemon reads it on every start, and a sealed file is
+    /// all it guards — the vault's own keys stay behind the master password.
+    /// `None` when there is no such key; a keychain that does not answer is
+    /// an error, never "no key".
+    pub fn session_key_load(name: &str) -> anyhow::Result<Option<zeroize::Zeroizing<Vec<u8>>>> {
+        use base64::Engine as _;
+        let out = std::process::Command::new(SECURITY)
+            .args(["find-generic-password", "-s", SESSION_SERVICE, "-a", name, "-w"])
+            .output()
+            .map_err(|e| keyward_core::fault!("err.sessionKeyUnavailable", "reason" => e))?;
+        let text = zeroize::Zeroizing::new(out.stdout);
+        if !out.status.success() {
+            if out.status.code() == Some(NOT_FOUND) {
+                return Ok(None);
+            }
+            let err = String::from_utf8_lossy(&out.stderr);
+            return Err(keyward_core::fault!("err.sessionKeyUnavailable", "reason" => err.trim()));
+        }
+        let key = base64::engine::general_purpose::STANDARD
+            .decode(String::from_utf8_lossy(&text).trim())
+            .map_err(|_| keyward_core::fault!("err.keychainDamaged"))?;
+        Ok(Some(zeroize::Zeroizing::new(key)))
+    }
+
+    /// Keeps a session key. The value goes to `security -i` on stdin, never
+    /// in arguments a process list would show.
+    pub fn session_key_store(name: &str, key: &[u8]) -> anyhow::Result<()> {
+        use base64::Engine as _;
+        let text = zeroize::Zeroizing::new(base64::engine::general_purpose::STANDARD.encode(key));
+        let command = zeroize::Zeroizing::new(format!(
+            "add-generic-password -U -A -s {} -a {} -w {}",
+            quote(SESSION_SERVICE)?,
+            quote(name)?,
+            quote(&text)?
+        ));
+        run_security(&command).map_err(|e| keyward_core::fault!("err.sessionKeyUnavailable", "reason" => e))
+    }
+
+    pub fn session_key_forget(name: &str) -> anyhow::Result<()> {
+        match run_security(&format!("delete-generic-password -s {} -a {}", quote(SESSION_SERVICE)?, quote(name)?)) {
+            Ok(()) => Ok(()),
+            // Nothing to forget is what was asked for.
+            Err(e) if e.to_string().contains("could not be found") => Ok(()),
+            Err(e) => Err(keyward_core::fault!("err.sessionKeyUnavailable", "reason" => e)),
+        }
+    }
+
     static LAST_OK: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
 
     /// The sensor's or the keychain's last complaint. It lives until a
@@ -544,6 +598,15 @@ mod imp {
     }
     pub fn plugin_secret_forget(_item: &str) -> anyhow::Result<()> {
         Ok(())
+    }
+    pub fn session_key_load(_name: &str) -> anyhow::Result<Option<zeroize::Zeroizing<Vec<u8>>>> {
+        anyhow::bail!("err.keychainMacosOnly")
+    }
+    pub fn session_key_store(_name: &str, _key: &[u8]) -> anyhow::Result<()> {
+        anyhow::bail!("err.keychainMacosOnly")
+    }
+    pub fn session_key_forget(_name: &str) -> anyhow::Result<()> {
+        anyhow::bail!("err.keychainMacosOnly")
     }
     pub fn remember(_account: &str, _password: &str) -> anyhow::Result<()> {
         anyhow::bail!("biometrics are supported on macOS only")
@@ -576,5 +639,6 @@ mod imp {
 
 pub use imp::{
     confirm, diagnose, forget, forget_grace, is_available, is_remembered, last_failure, plugin_secret_exists,
-    plugin_secret_forget, plugin_secret_load, plugin_secret_store, recall, remember,
+    plugin_secret_forget, plugin_secret_load, plugin_secret_store, recall, remember, session_key_forget, session_key_load,
+    session_key_store,
 };

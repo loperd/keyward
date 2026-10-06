@@ -22,11 +22,17 @@
       "@tauri-real/core": [
         "../node_modules/@tauri-apps/api/core"
       ],
+      "@keyward/core": [
+        "../ui/core/src/index.ts"
+      ],
       "@keyward/*": [
         "src/*"
       ],
       "@plugin/hashicorp/*": [
         "../crates/plugins/hashicorp/*"
+      ],
+      "@plugin/kube/*": [
+        "../crates/plugins/kube/*"
       ],
       "@plugin/ssh/*": [
         "../crates/plugins/ssh/*"
@@ -38,6 +44,7 @@
   },
   "include": [
     "src",
+    "app",
     "../crates/plugins/*/ui"
   ]
 }

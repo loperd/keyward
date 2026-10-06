@@ -110,6 +110,20 @@ h1 { margin: 0 0 4px; font-size: 20px; line-height: 28px; font-weight: 600; }
 
 .notice span { color: var(--dim); font-size: 12px; line-height: 16px; }
 
+/* The five words of the extension's key: large, each its own, easy to read
+   off against keyward's window. */
+.notice-words { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.notice-words code {
+  font-family: ui-monospace, "IBM Plex Mono", monospace;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: inherit;
+}
+
 .choices { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
 .choice {
@@ -202,3 +216,6 @@ button:disabled { cursor: default; opacity: 0.6; }
 .ghost { background: transparent; color: var(--dim); padding: 0 8px; }
 
 @media (hover: hover) { .ghost:not(:disabled):hover { color: var(--text); } }
+
+.notice .notice-timer { margin-top: 4px; font-variant-numeric: tabular-nums; }
+.notice .notice-timer.expired { color: inherit; font-weight: 600; }

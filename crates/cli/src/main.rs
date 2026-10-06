@@ -5,6 +5,7 @@ mod autostart;
 mod icons;
 mod clipboard;
 mod daemon;
+mod extensions;
 mod passkeys;
 mod peer;
 mod plugins;
@@ -18,6 +19,63 @@ use keyward_core::proto::{Request, Response};
 struct Cli {
     #[command(subcommand)]
     command: Command,
+}
+
+/// Pairing browser extensions, for passkeys.
+#[derive(Subcommand)]
+enum ExtensionCommand {
+    /// The paired extensions and those asking to be paired, with their words.
+    List,
+    /// Pair one that is asking: compare its words with the extension's window.
+    /// Asks for your finger, with the words in the prompt.
+    Pair {
+        /// Its number in `keyward extension list`; with one asking, it may be
+        /// left out.
+        number: Option<usize>,
+    },
+    /// Unpair one by its number in `keyward extension list`.
+    Unpair { number: usize },
+}
+
+/// What the CLI may do to items.
+#[derive(Subcommand)]
+enum ItemCommand {
+    /// Add an item. Each write asks for your finger (one touch covers a
+    /// minute of writes). A secret is never an argument — arguments are seen
+    /// by every process through `ps` — it is typed without echo or read from
+    /// stdin.
+    Add {
+        /// The item's name.
+        name: String,
+        /// A secure note rather than a login.
+        #[arg(long)]
+        note_only: bool,
+        /// The login's user name.
+        #[arg(long)]
+        login: Option<String>,
+        /// A site address; repeat for several.
+        #[arg(long = "url")]
+        urls: Vec<String>,
+        /// Ask for the password without echo.
+        #[arg(long, conflicts_with = "password_stdin")]
+        password: bool,
+        /// Read the password from stdin: `pass-gen | keyward item add x --password-stdin`.
+        #[arg(long, conflicts_with = "stdin_field")]
+        password_stdin: bool,
+        /// Read a hidden custom field's value from stdin:
+        /// `ssh vps 'cat /root/key' | keyward item add backup --note-only --stdin-field KEY`.
+        #[arg(long, value_name = "NAME")]
+        stdin_field: Option<String>,
+        /// A text custom field, `name=value`; for what is not secret.
+        #[arg(long = "field", value_name = "NAME=VALUE")]
+        fields: Vec<String>,
+        /// A hidden custom field: its value is asked for without echo.
+        #[arg(long = "secret-field", value_name = "NAME")]
+        secret_fields: Vec<String>,
+        /// The folder's id.
+        #[arg(long)]
+        folder: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -54,6 +112,12 @@ enum Command {
     },
     /// Remember the master password under Touch ID.
     Remember,
+    /// Items in the vault. Writing only: the CLI never reads a value back.
+    #[command(subcommand)]
+    Item(ItemCommand),
+    /// Browser extensions that may ask for passkeys.
+    #[command(subcommand)]
+    Extension(ExtensionCommand),
     /// Forget the password saved under Touch ID.
     Forget,
     /// Forget the keys and take down every agent socket.
@@ -359,7 +423,7 @@ async fn run() -> anyhow::Result<()> {
                     }
                     println!("{}: {}", chosen.name, chosen.prompt);
                     let token: keyward_core::proto::Secret = rpassword::prompt_password("Code: ")?.into();
-                    match client::call(&Request::LoginTwoFactor { provider: chosen.id, token })? {
+                    match client::call(&Request::LoginTwoFactor { provider: chosen.id, token, remember: false })? {
                         Response::Vault { state } => println!("{}", state.summary()),
                         other => print_unexpected(other)?,
                     }
@@ -388,6 +452,99 @@ async fn run() -> anyhow::Result<()> {
                     println!("{}", state.summary());
                 }
                 other => print_unexpected(other)?,
+            }
+        }
+
+        Command::Item(ItemCommand::Add { name, note_only, login, urls, password, password_stdin, stdin_field, fields, secret_fields, folder }) => {
+            /// All of stdin, without the one line end a pipe leaves.
+            fn stdin_value() -> anyhow::Result<keyward_core::proto::Secret> {
+                let mut raw = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut raw)?;
+                let value = raw.strip_suffix('\n').map(|v| v.strip_suffix('\r').unwrap_or(v)).unwrap_or(&raw).to_string();
+                zeroize::Zeroize::zeroize(&mut raw);
+                if value.is_empty() {
+                    anyhow::bail!("stdin held nothing");
+                }
+                Ok(value.into())
+            }
+            use keyward_core::edits::{CustomEdit, ItemEdit};
+            use keyward_core::proto::Secret;
+            let mut edit = ItemEdit { name: Some(name.clone()), ..ItemEdit::default() };
+            if note_only {
+                if login.is_some() || !urls.is_empty() || password || password_stdin {
+                    anyhow::bail!("a secure note has no login, address or password");
+                }
+            } else {
+                edit.username = login;
+                if !urls.is_empty() {
+                    edit.uris = Some(urls);
+                }
+                if password {
+                    edit.password = Some(rpassword::prompt_password("Password: ")?.into());
+                } else if password_stdin {
+                    edit.password = Some(stdin_value()?);
+                }
+            }
+            for f in fields {
+                let (n, v) = f.split_once('=').ok_or_else(|| anyhow::anyhow!("a field is name=value: {f}"))?;
+                edit.custom.push(CustomEdit { name: n.to_string(), value: Secret::from(v.to_string()), kind: 0, linked_id: None });
+            }
+            if let Some(n) = stdin_field {
+                edit.custom.push(CustomEdit { name: n, value: stdin_value()?, kind: 1, linked_id: None });
+            }
+            for n in secret_fields {
+                let v: Secret = rpassword::prompt_password(format!("{n}: "))?.into();
+                edit.custom.push(CustomEdit { name: n, value: v, kind: 1, linked_id: None });
+            }
+            // Bitwarden's kinds: 1 a login, 2 a secure note.
+            let kind = if note_only { 2 } else { 1 };
+            match client::call(&Request::CreateItem { kind, folder_id: folder, edit })? {
+                Response::Vault { .. } => println!("added “{name}”"),
+                other => print_unexpected(other)?,
+            }
+        }
+
+        Command::Extension(cmd) => {
+            let (paired, pending) = match client::call(&Request::Extensions)? {
+                Response::Extensions { paired, pending } => (paired, pending),
+                other => return print_unexpected(other),
+            };
+            let show = |paired: &[keyward_core::passkey::ExtensionRow], pending: &[keyward_core::passkey::ExtensionRow]| {
+                for (i, r) in pending.iter().enumerate() {
+                    println!("{:>2}  asking   {}", i + 1, r.words.join(" "));
+                }
+                for (i, r) in paired.iter().enumerate() {
+                    println!("{:>2}  paired   {}", pending.len() + i + 1, r.words.join(" "));
+                }
+                if paired.is_empty() && pending.is_empty() {
+                    println!("no browser extension; try a passkey in the browser and it will ask");
+                }
+            };
+            match cmd {
+                ExtensionCommand::List => show(&paired, &pending),
+                ExtensionCommand::Pair { number } => {
+                    let row = match number {
+                        Some(n) => pending.get(n.checked_sub(1).ok_or_else(|| anyhow::anyhow!("numbers start at 1"))?),
+                        None if pending.len() == 1 => pending.first(),
+                        None => anyhow::bail!("{} extensions are asking; give the number from `keyward extension list`", pending.len()),
+                    }
+                    .ok_or_else(|| anyhow::anyhow!("no extension under that number is asking to be paired"))?;
+                    println!("pairing {} — compare with the extension's window, then touch the sensor", row.words.join(" "));
+                    match client::call(&Request::ExtensionPair { key: row.key.clone() })? {
+                        Response::Extensions { paired, pending } => show(&paired, &pending),
+                        other => print_unexpected(other)?,
+                    }
+                }
+                ExtensionCommand::Unpair { number } => {
+                    let row = number
+                        .checked_sub(1 + pending.len())
+                        .and_then(|i| paired.get(i))
+                        .ok_or_else(|| anyhow::anyhow!("no paired extension under that number"))?;
+                    match client::call(&Request::ExtensionUnpair { key: row.key.clone() })? {
+                        Response::Extensions { paired, pending } => show(&paired, &pending),
+                        other => print_unexpected(other)?,
+                    }
+                }
             }
         }
 

@@ -29,17 +29,25 @@ const PROVIDER_AUTHENTICATOR: i32 = 0;
 /// The identifier of the code-by-email provider.
 const PROVIDER_EMAIL: i32 = 1;
 
-/// The KDF in `keyward_bw`'s terms, out of the rbw database. The defaults are
-/// what Bitwarden gives a new account, for a database with no parameters.
-pub(crate) fn kdf_of(db: &rbw::db::Db) -> Kdf {
-    match db.kdf {
-        Some(rbw::api::KdfType::Argon2id) => Kdf::Argon2id {
-            iterations: db.iterations.unwrap_or(3),
-            memory_mib: db.memory.unwrap_or(64),
-            parallelism: db.parallelism.unwrap_or(4),
+/// The KDF in `keyward_bw`'s terms, out of the rbw database, within the
+/// bounds of [`Kdf::checked`].
+///
+/// No defaults: a missing parameter means the session never finished a login,
+/// and a guessed one derives another key. A session file holding parameters
+/// outside the bounds was not written by a login of ours (the prelogin answer
+/// is checked before it is stored), so it is refused rather than run.
+pub(crate) fn kdf_of(db: &rbw::db::Db) -> anyhow::Result<Kdf> {
+    let missing = || keyward_core::fault!("err.nothingToUnlock");
+    let iterations = db.iterations.ok_or_else(missing)?;
+    let kdf = match db.kdf.ok_or_else(missing)? {
+        rbw::api::KdfType::Argon2id => Kdf::Argon2id {
+            iterations,
+            memory_mib: db.memory.ok_or_else(missing)?,
+            parallelism: db.parallelism.ok_or_else(missing)?,
         },
-        _ => Kdf::Pbkdf2 { iterations: db.iterations.unwrap_or(600_000) },
-    }
+        rbw::api::KdfType::Pbkdf2 => Kdf::Pbkdf2 { iterations },
+    };
+    Ok(kdf.checked()?)
 }
 
 fn kdf_info(kdf: Kdf) -> KdfInfo {
@@ -72,28 +80,21 @@ fn kdf_params(kdf: Kdf) -> api::KdfParams {
     }
 }
 
-/// The same bounds Vaultwarden checks: a refusal here reads better than a 400
-/// from the server after a key has already been computed.
+/// The bounds every KDF keyward runs is held to ([`Kdf::checked`]): a refusal
+/// here reads better than a 400 from the server after a key has already been
+/// computed, and a KDF set here is one the next login accepts. The settings
+/// form names the field that is off, so each bound has its own word.
 fn validate_kdf(info: &KdfInfo) -> anyhow::Result<()> {
-    match *info {
-        KdfInfo::Pbkdf2 { iterations } => {
-            if !(100_000..=2_000_000).contains(&iterations) {
-                return Err(keyward_core::fault!("err.kdfPbkdf2Range"));
-            }
-        }
-        KdfInfo::Argon2id { iterations, memory_mib, parallelism } => {
-            if !(1..=10).contains(&iterations) {
-                return Err(keyward_core::fault!("err.kdfArgon2Iterations"));
-            }
-            if !(15..=1024).contains(&memory_mib) {
-                return Err(keyward_core::fault!("err.kdfArgon2Memory"));
-            }
-            if !(1..=16).contains(&parallelism) {
-                return Err(keyward_core::fault!("err.kdfArgon2Parallelism"));
-            }
-        }
+    use keyward_bw::crypto::KdfBound;
+    match kdf_from_info(info).checked() {
+        Ok(_) => Ok(()),
+        Err(e) => Err(keyward_core::fault!(match e.bound {
+            KdfBound::Pbkdf2Iterations => "err.kdfPbkdf2Range",
+            KdfBound::Argon2Iterations => "err.kdfArgon2Iterations",
+            KdfBound::Argon2Memory => "err.kdfArgon2Memory",
+            KdfBound::Argon2Parallelism => "err.kdfArgon2Parallelism",
+        })),
     }
-    Ok(())
 }
 
 /// The user key in full: encryption key ++ mac key.
@@ -138,13 +139,10 @@ fn rfc3986(s: &str) -> String {
     out
 }
 
-/// The device identifier rbw uses on the server. It is what marks "this
+/// The device identifier keyward logs in with. It is what marks "this
 /// device" in the list of devices.
 fn own_device_id() -> Option<String> {
-    std::fs::read_to_string(rbw::dirs::device_id_file())
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+    crate::device_id().ok()
 }
 
 fn rename_if_exists(from: &std::path::Path, to: &std::path::Path) {
@@ -158,7 +156,7 @@ fn rename_if_exists(from: &std::path::Path, to: &std::path::Path) {
 impl Vault {
     /// The account's KDF parameters.
     pub fn kdf_info(&self) -> anyhow::Result<KdfInfo> {
-        Ok(kdf_info(kdf_of(&self.db()?)))
+        Ok(kdf_info(kdf_of(&self.db()?)?))
     }
 
     /// The master key from the password, with a check that the password is
@@ -174,7 +172,7 @@ impl Vault {
         }
         let db = self.db()?;
         let (_, email) = self.identity();
-        let key = MasterKey::derive(password, &email, kdf_of(&db))?;
+        let key = MasterKey::derive(password, &email, kdf_of(&db)?)?;
         if let (Some(keys), Some(protected)) = (self.keys.as_ref(), db.protected_key.as_deref()) {
             if let Ok(sealed) = EncString::parse(protected) {
                 let opened = sealed.decrypt(&key.stretch()?).map_err(|_| anyhow::anyhow!("err.badPassword"))?;
@@ -184,6 +182,34 @@ impl Vault {
             }
         }
         Ok(key)
+    }
+
+    /// Whether `password` is this account's master password, checked here
+    /// against the open vault and changing nothing: no key is kept, no state
+    /// moves. Unlike [`Self::master_key_checked`] it never skips the check —
+    /// a locked vault or a protected key it cannot read is an error, not a
+    /// yes.
+    pub fn verify_password(&self, password: &str) -> anyhow::Result<bool> {
+        let keys = self.keys.as_ref().ok_or_else(|| keyward_core::fault!("err.vaultLocked"))?;
+        if password.is_empty() {
+            return Ok(false);
+        }
+        let db = self.db()?;
+        let protected = db.protected_key.as_deref().ok_or_else(|| keyward_core::fault!("err.nothingToUnlock"))?;
+        let sealed = EncString::parse(protected)
+            .map_err(|e| keyward_core::fault!("err.passwordCheckUnavailable", "reason" => e))?;
+        let (_, email) = self.identity();
+        let key = MasterKey::derive(password, &email, kdf_of(&db)?)?;
+        // The mac is checked before anything is decrypted: a wrong password
+        // fails right there, and that is the only failure that means "no".
+        let opened = match sealed.decrypt(&key.stretch()?) {
+            Ok(bytes) => zeroize::Zeroizing::new(bytes),
+            Err(_) => return Ok(false),
+        };
+        // Past the mac the key is the right one; the comparison guards only
+        // against a protected key that belongs to another account.
+        let mine = zeroize::Zeroizing::new(user_key_bytes(keys));
+        Ok(opened.as_slice() == mine.as_slice())
     }
 
     /// The user key wrapped in the new master key: what the server will save
@@ -314,8 +340,8 @@ impl Vault {
         }
         let master = self.master_key_checked(current)?;
         let current_hash = master.password_hash(current);
-        let (server, email) = self.identity();
-        let kdf = kdf_of(&self.db()?);
+        let (_, email) = self.identity();
+        let kdf = kdf_of(&self.db()?)?;
         let new_master = MasterKey::derive(new, &email, kdf)?;
         let new_hash = new_master.password_hash(new);
         let key = self.wrapped_user_key(&new_master)?;
@@ -343,7 +369,7 @@ impl Vault {
         // login does not go through, unlocking with the new password must work.
         let mut db = self.db()?;
         db.protected_key = Some(key);
-        db.save(&server, &email).map_err(|e| keyward_core::fault!("err.rbwDbNotSaved", "reason" => e))?;
+        self.save_db(&db)?;
 
         // Touch ID held the old password, which now opens the wrong thing.
         if crate::biometric::is_remembered(&email) {
@@ -396,8 +422,8 @@ impl Vault {
         }
         let master = self.master_key_checked(password)?;
         let hash = master.password_hash(password);
-        let (server, old_email) = self.identity();
-        let kdf = kdf_of(&self.db()?);
+        let (_, old_email) = self.identity();
+        let kdf = kdf_of(&self.db()?)?;
         let new_master = MasterKey::derive(password, &new_email, kdf)?;
         let new_hash = new_master.password_hash(password);
         let key = self.wrapped_user_key(&new_master)?;
@@ -410,14 +436,15 @@ impl Vault {
         .await?;
         tracing::warn!(from = %old_email, to = %new_email, "the account email was changed");
 
-        // The local move: the rbw database, the snapshot, the history, Touch
-        // ID, the PIN — all of it is keyed by the email or the account id.
+        // The local move: the session, the snapshot, the history, Touch ID,
+        // the PIN — all of it is keyed by the email or the account id.
         let old = self.account.clone();
         let next = Account::new(&old.base_url, &new_email, old.identity_url.as_deref());
-        let mut db = rbw::db::Db::load(&server, &old.email).unwrap_or_default();
+        // The session must be there: a changed email with none moves nothing
+        // and leaves the account signed out without a word.
+        let mut db = self.db()?;
         db.protected_key = Some(key);
-        db.save(&server, &next.email).map_err(|e| keyward_core::fault!("err.rbwDbNotSaved", "reason" => e))?;
-        let _ = std::fs::remove_file(rbw::dirs::db_file(&server, &old.email));
+        crate::session::rename(&old, &next, &db)?;
         rename_if_exists(
             &keyward_core::paths::snapshot_file(&old.id),
             &keyward_core::paths::snapshot_file(&next.id),
@@ -451,9 +478,9 @@ impl Vault {
         validate_kdf(kdf)?;
         let master = self.master_key_checked(password)?;
         let hash = master.password_hash(password);
-        let (server, email) = self.identity();
+        let (_, email) = self.identity();
         let new_kdf = kdf_from_info(kdf);
-        if new_kdf == kdf_of(&self.db()?) {
+        if new_kdf == kdf_of(&self.db()?)? {
             return Err(keyward_core::fault!("err.kdfUnchanged"));
         }
         let new_master = MasterKey::derive(password, &email, new_kdf)?;
@@ -478,22 +505,9 @@ impl Vault {
         tracing::warn!(email = %email, ?kdf, "the KDF was changed");
 
         let mut db = self.db()?;
-        match new_kdf {
-            Kdf::Pbkdf2 { iterations } => {
-                db.kdf = Some(rbw::api::KdfType::Pbkdf2);
-                db.iterations = Some(iterations);
-                db.memory = None;
-                db.parallelism = None;
-            }
-            Kdf::Argon2id { iterations, memory_mib, parallelism } => {
-                db.kdf = Some(rbw::api::KdfType::Argon2id);
-                db.iterations = Some(iterations);
-                db.memory = Some(memory_mib);
-                db.parallelism = Some(parallelism);
-            }
-        }
+        crate::set_kdf(&mut db, new_kdf);
         db.protected_key = Some(key);
-        db.save(&server, &email).map_err(|e| keyward_core::fault!("err.rbwDbNotSaved", "reason" => e))?;
+        self.save_db(&db)?;
 
         self.relogin(password).await
     }
@@ -525,12 +539,12 @@ impl Vault {
         Ok(())
     }
 
-    /// Erases everything local: the rbw database with its tokens, the
-    /// snapshot, the history, the passkeys' last uses, the password under
-    /// Touch ID and the PIN.
+    /// Erases everything local: the session with its tokens, the snapshot,
+    /// the history, the passkeys' last uses, the password under Touch ID and
+    /// the PIN.
     pub fn forget_local(&self) {
-        let (server, email) = self.identity();
-        let _ = std::fs::remove_file(rbw::dirs::db_file(&server, &email));
+        let (_, email) = self.identity();
+        crate::session::remove(&self.account);
         let _ = std::fs::remove_file(keyward_core::paths::snapshot_file(&self.account.id));
         let _ = std::fs::remove_file(keyward_core::paths::history_file(&self.account.id));
         let _ = std::fs::remove_file(keyward_core::paths::passkey_uses_file(&self.account.id));
@@ -750,6 +764,36 @@ mod tests {
         assert!(validate_kdf(&KdfInfo::Argon2id { iterations: 3, memory_mib: 8, parallelism: 4 }).is_err());
         assert!(validate_kdf(&KdfInfo::Argon2id { iterations: 0, memory_mib: 64, parallelism: 4 }).is_err());
         assert!(validate_kdf(&KdfInfo::Argon2id { iterations: 3, memory_mib: 64, parallelism: 32 }).is_err());
+        // The floors keyward shares with Bitwarden's clients, stricter than
+        // Vaultwarden's 1 iteration and 15 MiB.
+        let code = |info: KdfInfo| validate_kdf(&info).unwrap_err().to_string();
+        assert_eq!(code(KdfInfo::Argon2id { iterations: 1, memory_mib: 64, parallelism: 4 }), "err.kdfArgon2Iterations");
+        assert_eq!(code(KdfInfo::Argon2id { iterations: 3, memory_mib: 15, parallelism: 4 }), "err.kdfArgon2Memory");
+        assert_eq!(code(KdfInfo::Pbkdf2 { iterations: 2_000_001 }), "err.kdfPbkdf2Range");
+        assert_eq!(code(KdfInfo::Argon2id { iterations: 3, memory_mib: 64, parallelism: 17 }), "err.kdfArgon2Parallelism");
+    }
+
+    #[test]
+    fn stored_kdf_parameters_are_held_to_the_bounds() {
+        let mut db = rbw::db::Db::new();
+        db.kdf = Some(rbw::api::KdfType::Pbkdf2);
+        db.iterations = Some(600_000);
+        assert_eq!(kdf_of(&db).unwrap(), Kdf::Pbkdf2 { iterations: 600_000 });
+
+        // A session file edited to weaken the KDF, or to hang the daemon.
+        db.iterations = Some(1);
+        assert_eq!(kdf_of(&db).unwrap_err().to_string(), keyward_bw::crypto::KDF_OUT_OF_RANGE);
+        db.kdf = Some(rbw::api::KdfType::Argon2id);
+        db.iterations = Some(3);
+        db.memory = Some(1 << 20);
+        db.parallelism = Some(4);
+        assert_eq!(kdf_of(&db).unwrap_err().to_string(), keyward_bw::crypto::KDF_OUT_OF_RANGE);
+        db.memory = Some(64);
+        assert_eq!(kdf_of(&db).unwrap(), Kdf::Argon2id { iterations: 3, memory_mib: 64, parallelism: 4 });
+
+        // A missing parameter is not guessed.
+        db.parallelism = None;
+        assert_eq!(kdf_of(&db).unwrap_err().to_string(), "err.nothingToUnlock");
     }
 
     #[test]

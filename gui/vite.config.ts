@@ -20,6 +20,9 @@ export default defineConfig({
   clearScreen: false,
   resolve: {
     alias: [
+      // The shared core of the new window (app.html). It comes first: the
+      // "@keyward" alias below would otherwise take it for a path in src/.
+      { find: /^@keyward\/core$/, replacement: resolve(here, "../ui/core/src/index.ts") },
       // What the window lends a plugin's screens: the interface's bricks, the
       // dictionary, the types, the way to call the plugin.
       { find: "@keyward", replacement: resolve(here, "src") },
@@ -35,5 +38,11 @@ export default defineConfig({
   // The dictionaries and the plugins' screens live outside `gui`: the daemon
   // reads the same words, and a plugin's parts belong with the plugin.
   server: { port: 5173, strictPort: true, fs: { allow: [".."] } },
-  build: { target: "safari15", emptyOutDir: true },
+  // Two pages: the old window (index.html, what the Tauri window opens) and
+  // the new one on the shared core (app.html).
+  build: {
+    target: "safari15",
+    emptyOutDir: true,
+    rollupOptions: { input: { main: resolve(here, "index.html"), app: resolve(here, "app.html") } },
+  },
 });

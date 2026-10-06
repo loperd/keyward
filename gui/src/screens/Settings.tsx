@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { BrowserExtensions } from "./Extensions";
 import { invoke } from "@tauri-apps/api/core";
 
 /// What the daemon knows about the sensor just now.
 type BiometricState = { available: boolean; problem: string | null; last_failure: string | null };
 import QRCode from "qrcode";
-import { Alert, CopyButton, DangerZone, Field, Icon, Modal, Picker, Row, Rows, Section, Segmented, Toggle, inkOn } from "../ui";
-import { locale, setLanguage, t } from "../i18n";
+import { Alert, CopyButton, DangerZone, Field, Icon, Modal, Picker, Row, Rows, ScreenHead, Section, Segmented, Toggle, inkOn } from "../ui";
+import { locale, setLanguage, t, tMaybe } from "../i18n";
 import type { Key } from "../i18n";
 import type {
   AccountList,
@@ -37,6 +38,16 @@ type Tab = string;
 /// plus our own — ssh and "about". The order and the set of sections repeat
 /// Bitwarden's desktop, so that somebody coming from there does not have to
 /// look for the familiar afresh.
+/// Each settings page's icon: the column's entry and the page's head share it.
+export const SETTINGS_ICON: Record<string, string> = {
+  account: "identity",
+  security: "shield",
+  preferences: "eye",
+  app: "settings",
+  plugins: "puzzle",
+  about: "note",
+};
+
 export function SettingsScreen({
   status,
   accounts,
@@ -67,9 +78,13 @@ export function SettingsScreen({
   // leafing past everything else, and coming back meant hunting with the
   // eyes.
   const plugin = plugins.find((m) => m.id === tab && m.enabled);
-  const PluginBlock = plugin ? pluginEntry(plugin.id).SettingsSection : null;
+  const PluginBlock = plugin ? pluginEntry(plugin).SettingsSection : null;
+  // The same head as every other screen: the page's name and icon, as the
+  // column names it.
+  const title = plugin ? tMaybe(plugin.title, plugin.title) : t(`settings.tab.${tab}` as Key);
   return (
     <div className="settings">
+      <ScreenHead icon={plugin ? plugin.icon : SETTINGS_ICON[tab]} title={title} />
       {tab === "account" && (
         <AccountTab
           status={status}
@@ -1368,6 +1383,8 @@ function SecurityTab({ status, onChanged, onSettingsChanged }: { status: Status;
         {error && <Alert message={error} />}
       </Section>
 
+      <BrowserExtensions />
+
       {settings && (
         <Section title={t("settings.security.timeout")} tone="amber">
           <Rows>
@@ -1506,6 +1523,7 @@ function PinModal({ onClose, onChanged }: { onClose: () => void; onChanged: () =
 
 function AppTab({ onSettingsChanged, part }: { onSettingsChanged?: (s: AppSettings) => void; part: "preferences" | "app" }) {
   const { settings, error, saved, patch } = useSettings(onSettingsChanged);
+  const [interfaceError, setInterfaceError] = useState<string | null>(null);
   if (!settings) return error ? <Alert message={error} /> : null;
 
   return (
@@ -1550,6 +1568,16 @@ function AppTab({ onSettingsChanged, part }: { onSettingsChanged?: (s: AppSettin
           <Row title={t("settings.screenCapture")} hint={t("settings.screenCaptureHint")}>
             <Toggle on={settings.allow_screen_capture} onChange={(v) => void patch({ allow_screen_capture: v })} />
           </Row>
+          {/* Saved and the window reloaded into the other page at once. */}
+          <Row title={t("settings.newInterface")} hint={t("settings.newInterfaceHint")}>
+            <Toggle
+              on={settings.interface === "new"}
+              onChange={(v) => {
+                setInterfaceError(null);
+                invoke("set_interface", { ui: v ? "new" : "old" }).catch((e) => setInterfaceError(String(e)));
+              }}
+            />
+          </Row>
         </Rows>
       </Section>
       )}
@@ -1593,6 +1621,7 @@ function AppTab({ onSettingsChanged, part }: { onSettingsChanged?: (s: AppSettin
 
       {saved && <div className="hint">{t("settings.saved")}</div>}
       {error && <Alert message={error} />}
+      {interfaceError && <Alert message={interfaceError} />}
     </>
   );
 }

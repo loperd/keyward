@@ -1,0 +1,119 @@
+/* The gate: the window's first sheet. The strip stands as it will once the
+   vault opens (the traffic lights' blank, back and forward, the path, the
+   settings, the account); under it one sheet of the upper tier, and on it one
+   calm column at the document's gutter — a title and who it is for, then
+   rows of the document's label column and one 32px control, the main action
+   in the value column with its quiet ways out, the accounts as rows in the
+   columns' style. No card, no hero tile. Tokens only; 8-grid; 12/16, 20/28. */
+.kw-gate { height: 100%; display: flex; flex-direction: column; background: var(--tier-lo); color: var(--text); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans); }
+
+/* the strip: the window's own class, the line a still path */
+.kw-gate-line { flex: 1; min-width: 0; cursor: default; }
+.kw-gate-line .kw-crumb { cursor: default; }
+.kw-gate-line .kw-crumb:hover { background: transparent; color: var(--dim); }
+.kw-gate-line .kw-crumb.kw-last:hover { color: var(--text); }
+.kw-gate-line-fill { flex: 1; min-width: 0; }
+.kw-gate-me { position: relative; display: grid; place-items: center; width: var(--ctl); height: var(--ctl); flex: none; }
+
+/* the stage: one sheet, the whole width */
+.kw-gate-stage { flex: 1; min-height: 0; display: flex; }
+.kw-gate-sheet {
+  flex: 1; min-width: 0; overflow-y: auto; background: var(--tier-hi); box-shadow: inset 1px 0 0 var(--sheet-lit), inset 0 1px 0 var(--sheet-lit);
+  border-top-left-radius: var(--r-panel); scrollbar-width: thin;
+}
+.kw-gate-doc {
+  max-width: calc(var(--insp-max) + var(--insp-gutter) * 2); padding: var(--first-line) var(--insp-gutter) calc(var(--u) * 8);
+  animation: kw-gate-in 260ms var(--ease-out);
+}
+@keyframes kw-gate-in { from { opacity: 0; transform: translateY(var(--u)); } }
+
+/* the head: a title, then who and where */
+.kw-gate-head { display: flex; flex-direction: column; gap: var(--half); margin-bottom: var(--u3); }
+.kw-gate-head h1 { margin: 0; font: var(--w-head) var(--fs-l)/var(--lh-l) var(--sans); letter-spacing: -0.01em; }
+.kw-gate-head p { margin: 0; color: var(--dim); overflow-wrap: anywhere; }
+
+/* the rows: the document's label column, then the value column */
+.kw-gate-rows { display: flex; flex-direction: column; gap: var(--u); }
+.kw-gate-row { display: grid; grid-template-columns: var(--label-w) minmax(0, 1fr); column-gap: var(--u2); align-items: center; min-height: var(--ctl); }
+.kw-gate-row.kw-text { min-height: var(--lh-s); }
+.kw-gate-lbl { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-gate-val { min-width: 0; display: block; }
+
+/* a field: one 32px control */
+.kw-gin {
+  height: var(--ctl); display: flex; align-items: center; border-radius: var(--r-ctl); background: var(--line-bg);
+  box-shadow: inset 0 0 0 1px var(--line-edge); transition: box-shadow 150ms var(--ease-out);
+}
+.kw-gin:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
+.kw-gin input {
+  flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text); outline: none;
+  padding: 0 var(--u); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans);
+}
+.kw-gin input.kw-mono { font-family: var(--mono); letter-spacing: 0.08em; }
+.kw-gin input:focus-visible { box-shadow: none; }
+.kw-gin input::placeholder { color: var(--faint); }
+.kw-gin input:disabled { color: var(--dim); }
+.kw-gin-secret input[type="password"] { font-family: var(--mono); letter-spacing: 0.12em; }
+.kw-gin .kw-btn.kw-ico { width: var(--chip); height: var(--chip); min-width: var(--chip); margin-right: var(--half); border-radius: var(--r-in); }
+.kw-gin .kw-btn.kw-ico.kw-on { color: var(--sky); }
+
+/* a choice of a few: one segmented control */
+.kw-seg { height: var(--ctl); display: flex; gap: var(--half); padding: var(--half); border-radius: var(--r-ctl); background: var(--line-bg); box-shadow: inset 0 0 0 1px var(--line-edge); }
+.kw-seg button {
+  flex: 1 1 0; min-width: 0; height: 100%; border: 0; border-radius: var(--r-in); background: transparent; color: var(--dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 var(--u); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans);
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+.kw-seg button:hover:not(:disabled) { color: var(--text); }
+.kw-seg button.kw-on { background: var(--pill); color: var(--text); font-weight: var(--w-name); box-shadow: var(--sh-1), inset 0 0 0 1px var(--pill-edge); }
+
+.kw-gate-note { margin: 0; color: var(--dim); }
+.kw-gate-note.kw-faint { color: var(--faint); }
+.kw-gate-check { display: inline-flex; align-items: center; gap: var(--u); min-height: var(--ctl); color: var(--text); cursor: pointer; }
+.kw-gate-check input { width: var(--ic); height: var(--ic); margin: 0; accent-color: var(--blue); }
+
+.kw-gate-err .kw-mk { align-items: flex-start; white-space: normal; }
+.kw-gate-err .kw-w { color: var(--text); overflow: visible; }
+
+/* the main action, then the quiet ways out on the same line */
+.kw-gate-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--half); margin-top: var(--u); }
+.kw-gate-acts .kw-btn.kw-solid { margin-right: var(--u); }
+.kw-gate-acts .kw-btn .kw-kbd { margin-left: var(--half); }
+.kw-gate-acts .kw-btn.kw-on { color: var(--text); background: var(--hover); }
+.kw-gate-spin {
+  width: var(--ic); height: var(--ic); border-radius: 50%; flex: none;
+  border: var(--bar-w) solid color-mix(in srgb, var(--on-accent) 30%, transparent); border-top-color: var(--on-accent);
+  animation: kw-spin 700ms linear infinite;
+}
+@keyframes kw-spin { to { transform: rotate(1turn); } }
+
+/* the accounts: a section of the document, rows in the columns' style whose
+   content keeps the document's left edge */
+.kw-gate-accounts { display: flex; flex-direction: column; }
+/* "Another account": quiet, under the step's actions, on the value column. */
+.kw-gate-other { align-self: flex-start; margin: var(--sec-gap) 0 0 calc(var(--label-w) + var(--u2)); gap: var(--u); }
+.kw-gate-sec-h { display: flex; align-items: center; gap: var(--u); height: var(--ctl); margin-bottom: calc(var(--head-gap) - (var(--ctl) - var(--lh-s)) / 2); }
+.kw-gate-sec-h h2 { margin: 0; font: var(--w-head) var(--fs-s)/var(--lh-s) var(--sans); color: var(--text); }
+.kw-gate-sec-h .kw-n { color: var(--faint); font-variant-numeric: tabular-nums; }
+.kw-gate-accounts .kw-row { margin: 0 calc(var(--pad) * -1); }
+.kw-gate-accounts .kw-row[role="button"]:focus-visible { box-shadow: var(--ring); outline: none; }
+.kw-gate-accounts .kw-row[aria-disabled="true"] { pointer-events: none; opacity: 0.6; }
+.kw-gate-accounts .kw-row.kw-gate-here:hover { background: transparent; }
+.kw-gate-accounts .kw-row .kw-side .kw-btn.kw-ico { width: var(--chip); height: var(--chip); min-width: var(--chip); border-radius: var(--r-in); }
+.kw-gate-add { color: var(--dim); }
+.kw-gate-accounts .kw-row:hover .kw-gate-add { color: var(--text); }
+
+/* What the gate is doing: a pulsing mark, the words, a running bar. The bar
+   runs while the vault is opened; the pulse breathes while a finger is
+   awaited. Reduced motion keeps the words and drops the movement. */
+.kw-gate-progress { position: relative; display: flex; align-items: center; gap: var(--u); min-height: var(--ctl); color: var(--text); overflow: hidden; }
+.kw-gate-pulse { display: inline-grid; place-items: center; width: var(--ctl); height: var(--ctl); border-radius: 50%; color: var(--sky); background: color-mix(in srgb, var(--sky) 14%, transparent); }
+.kw-gate-progress-biometric .kw-gate-pulse { animation: kw-gate-breathe 1.4s ease-in-out infinite; }
+.kw-gate-bar { position: absolute; left: calc(var(--ctl) + var(--u)); right: 0; bottom: 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--sky) 18%, transparent); overflow: hidden; }
+.kw-gate-bar::after { content: ""; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: var(--sky); animation: kw-gate-run 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+@keyframes kw-gate-breathe { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--sky) 30%, transparent); } 50% { transform: scale(1.06); box-shadow: 0 0 0 6px color-mix(in srgb, var(--sky) 0%, transparent); } }
+@keyframes kw-gate-run { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) {
+  .kw-gate-progress-biometric .kw-gate-pulse, .kw-gate-bar::after { animation: none; }
+  .kw-gate-bar::after { width: 100%; opacity: 0.5; }
+}

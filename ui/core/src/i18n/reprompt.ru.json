@@ -1,0 +1,10 @@
+{
+  "reprompt.title": "Снова мастер-пароль",
+  "reprompt.lede": "Эта запись просит мастер-пароль, прежде чем что-то показать или скопировать",
+  "reprompt.password": "Мастер-пароль",
+  "reprompt.confirm": "Подтвердить",
+  "reprompt.checking": "Проверяю…",
+  "reprompt.cancel": "Отмена",
+  "reprompt.show": "Показать по мастер-паролю",
+  "reprompt.failed": "Пароль не проверен: {reason}"
+}

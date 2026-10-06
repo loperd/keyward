@@ -32,7 +32,7 @@ Building a keyward plugin's package.
 
   scripts/plugin-package.sh <id> [--target TRIPLE]
 
-  <id>              ssh or hashicorp — the directory crates/plugins/<id>
+  <id>              ssh, kube or hashicorp — the directory crates/plugins/<id>
   --target TRIPLE   whom to build for; by default this machine's triple
 TXT
   exit 2

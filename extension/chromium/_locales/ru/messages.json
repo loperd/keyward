@@ -70,5 +70,33 @@
   },
   "noKeyward": {
     "message": "keyward не ответил: проверь, что приложение запущено"
+  },
+  "unpairedTitle": {
+    "message": "Сопрягите этот браузер с keyward"
+  },
+  "unpairedText": {
+    "message": "Откройте keyward: там будут эти же слова. Сверьте их, сопрягите и нажмите «Попробовать снова»."
+  },
+  "pairLeft": {
+    "message": "Слова действуют ещё $1",
+    "placeholders": {
+      "left": {
+        "content": "$1"
+      }
+    }
+  },
+  "pairExpired": {
+    "message": "Слова истекли: нажмите «Попробовать снова», чтобы получить новые"
+  },
+  "noneTitle": {
+    "message": "В keyward нет passkey для $1",
+    "placeholders": {
+      "site": {
+        "content": "$1"
+      }
+    }
+  },
+  "noneText": {
+    "message": "Войдите другим способом: браузер предложит другие passkey, телефон или ключ безопасности."
   }
 }

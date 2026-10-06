@@ -1,6 +1,13 @@
 // The one road to keyward: the native messaging host `me.loper`,
 // which speaks to the daemon. It knows four requests and nothing else.
 //
+// Every request is signed with the extension's own key — ECDSA P-256, made
+// once and never exportable — and the daemon reads it only under a paired
+// key. The host is just the road: anything can start it and hand it any
+// origin, so what counts is this signature. A key that is not paired yet is
+// refused with its five words, and the person pairs it in keyward, comparing
+// them.
+//
 // Nothing on this road is in the clear. Every request opens a port of its own
 // and, on it, a session: an ephemeral ECDH P-256 exchange, two keys derived
 // with HKDF-SHA256 (salt `keyward bridge v1`, the direction and both public
@@ -9,6 +16,8 @@
 // host does the same in Rust (`crates/passkey-host/src/bridge.rs`).
 
 const HOST = "me.loper";
+// What the signature covers, before the signed string itself.
+const CONTEXT = new TextEncoder().encode("keyward extension v1\n");
 const SALT = new TextEncoder().encode("keyward bridge v1");
 const TO_HOST = new TextEncoder().encode("extension to host");
 const TO_EXTENSION = new TextEncoder().encode("host to extension");
@@ -56,6 +65,54 @@ async function sessionKeys(secret, extension, host) {
   return { toHost: await derive(TO_HOST, "encrypt"), toExtension: await derive(TO_EXTENSION, "decrypt") };
 }
 
+function database() {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open("keyward", 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("identity");
+    open.onsuccess = () => resolve(open.result);
+    open.onerror = () => reject(open.error);
+  });
+}
+
+// The extension's key: made on first use and kept as a non-extractable
+// CryptoKey, which no script — this one included — can read the private half
+// of. One promise for everyone, so two first requests do not make two keys.
+let identityPromise = null;
+function identity() {
+  identityPromise ??= (async () => {
+    const db = await database();
+    const read = () =>
+      new Promise((resolve, reject) => {
+        const req = db.transaction("identity").objectStore("identity").get("key");
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    let pair = await read();
+    if (!pair) {
+      pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("identity", "readwrite");
+        tx.objectStore("identity").put(pair, "key");
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    return { pair, public: b64(await crypto.subtle.exportKey("raw", pair.publicKey)) };
+  })().catch((e) => {
+    identityPromise = null;
+    throw e;
+  });
+  return identityPromise;
+}
+
+// The request as the daemon will read it: when, and what, signed.
+async function signedRequest(message) {
+  const { pair, public: key } = await identity();
+  const signed = JSON.stringify({ ts: Date.now(), ask: message });
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, pair.privateKey, concat(CONTEXT, new TextEncoder().encode(signed)));
+  return { id: 1, key, signed, sig: b64(sig) };
+}
+
 // One request over a sealed session of its own; resolves with the host's
 // answer, `{ ok, ... }`.
 export function native(message) {
@@ -87,7 +144,7 @@ export function native(message) {
             const hostKey = await crypto.subtle.importKey("raw", theirs, { name: "ECDH", namedCurve: "P-256" }, false, []);
             const secret = await crypto.subtle.deriveBits({ name: "ECDH", public: hostKey }, pair.privateKey, 256);
             keys = await sessionKeys(new Uint8Array(secret), mine, theirs);
-            const plain = new TextEncoder().encode(JSON.stringify({ id: 1, ...message }));
+            const plain = new TextEncoder().encode(JSON.stringify(await signedRequest(message)));
             const sealed = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce(0) }, keys.toHost, plain);
             port.postMessage({ sealed: b64(sealed) });
             return;

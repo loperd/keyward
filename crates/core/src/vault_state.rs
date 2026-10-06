@@ -17,6 +17,11 @@ pub enum VaultState {
     Unlocked { email: String, server: String, entries: usize, tagged: usize },
     /// The source is a file; the vault takes no part.
     Disabled,
+    /// The saved session is there and does not read (tampered, its key gone,
+    /// the keychain not answering): `reason` is the fault's code. Nothing is
+    /// thrown away by itself; the way out is the person's (`ResetSession`,
+    /// then a login).
+    Damaged { email: String, server: String, reason: String },
 }
 
 impl VaultState {
@@ -34,6 +39,7 @@ impl VaultState {
                 format!("unlocked: {entries} entries, {tagged} of them a plugin's to work with")
             }
             Self::Disabled => "off (the source is a file)".into(),
+            Self::Damaged { email, server, reason } => format!("the session does not read ({email} @ {server}): {reason}"),
         }
     }
 }

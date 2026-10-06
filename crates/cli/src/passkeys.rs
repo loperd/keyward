@@ -81,6 +81,35 @@ async fn active(shared: &Shared) -> anyhow::Result<(Vault, String)> {
 }
 
 
+/// Which browser asks, and whether it may.
+///
+/// The bridge is a signed program of ours, but anything can start it and
+/// hand it any extension's origin. So it counts only when a browser we know
+/// started it — its parent, checked by signature — and only while that very
+/// browser is in front: a sign-in is something a person does in the browser,
+/// looking at it, and a request from a browser in the background is not
+/// theirs.
+pub(crate) fn browser(peer: &Peer) -> anyhow::Result<String> {
+    use crate::peer::Trust;
+    match peer {
+        Peer::Socket { trust: Trust::Bridge, pid, .. } => {
+            let started_by = crate::peer::parent(*pid).and_then(crate::peer::browser);
+            let Some(b) = started_by else {
+                tracing::warn!(pid, "the passkey bridge was not started by a browser keyward knows; refused");
+                anyhow::bail!(keyward_core::fault!("err.passkeyNotFromBrowser"));
+            };
+            if crate::peer::front().and_then(crate::peer::browser) != Some(b) {
+                anyhow::bail!(keyward_core::fault!("err.passkeyBrowserNotInFront", "browser" => b.name));
+            }
+            Ok(b.name.to_string())
+        }
+        // An unsigned build has nothing to check with: the finger decides,
+        // and the prompt says so.
+        Peer::Socket { trust: Trust::Unknown, .. } => Ok("?".to_string()),
+        _ => Err(keyward_core::fault!("err.passkeyNotFromBrowser")),
+    }
+}
+
 /// Asks the sensor, off the async threads: a finger can take a minute.
 async fn touch(peer: &Peer, reason: String) -> anyhow::Result<()> {
     gate(peer)?;
@@ -95,8 +124,40 @@ async fn touch(peer: &Peer, reason: String) -> anyhow::Result<()> {
     }
 }
 
-pub(crate) async fn offers(shared: &Shared, sign_in: SignIn) -> Response {
+/// A request the extension signed, as the bridge passed it on. Nothing in it
+/// is read before the browser that started the bridge is checked, the
+/// signature holds and the key is a paired one.
+pub(crate) async fn bridge(shared: &Shared, peer: &Peer, key: &str, signed: &str, sig: &str) -> Response {
+    use keyward_core::passkey::BridgeAsk;
     let run = async {
+        browser(peer)?;
+        let request = crate::extensions::verify(key, signed, sig)?;
+        let (vault, _) = active(shared).await?;
+        if !matches!(vault.state(), keyward_core::VaultState::Unlocked { .. }) {
+            return Err(keyward_core::fault!("err.vaultLocked"));
+        }
+        if !crate::extensions::is_paired(&vault, key)? {
+            let (words, expires) = crate::extensions::asked(key);
+            let words = words.join(" ");
+            tracing::warn!(words, "a browser extension asked for a passkey without being paired");
+            anyhow::bail!(keyward_core::fault!("err.extensionNotPaired", "words" => words, "expires" => expires));
+        }
+        anyhow::Ok(request.ask)
+    };
+    match run.await {
+        Ok(BridgeAsk::Offers { sign_in }) => offers(shared, peer, sign_in).await,
+        Ok(BridgeAsk::Homes { sign_in }) => homes(shared, peer, sign_in).await,
+        Ok(BridgeAsk::SignIn { request }) => sign_in(shared, peer, request).await,
+        Ok(BridgeAsk::Register { request }) => register(shared, peer, request).await,
+        Err(e) => Response::error(e),
+    }
+}
+
+pub(crate) async fn offers(shared: &Shared, peer: &Peer, sign_in: SignIn) -> Response {
+    let run = async {
+        // Which accounts a site has is no secret the finger guards, but it is
+        // not for any process to list either.
+        browser(peer)?;
         let (req, _) = keyward_vault::passkey::prepare_sign_in(&sign_in)?;
         let (vault, _) = active(shared).await?;
         if !matches!(vault.state(), keyward_core::VaultState::Unlocked { .. }) {
@@ -110,8 +171,9 @@ pub(crate) async fn offers(shared: &Shared, sign_in: SignIn) -> Response {
     }
 }
 
-pub(crate) async fn homes(shared: &Shared, sign_in: SignIn) -> Response {
+pub(crate) async fn homes(shared: &Shared, peer: &Peer, sign_in: SignIn) -> Response {
     let run = async {
+        browser(peer)?;
         let (req, _) = keyward_vault::passkey::prepare_sign_in(&sign_in)?;
         let (vault, _) = active(shared).await?;
         if !matches!(vault.state(), keyward_core::VaultState::Unlocked { .. }) {
@@ -128,6 +190,7 @@ pub(crate) async fn homes(shared: &Shared, sign_in: SignIn) -> Response {
 pub(crate) async fn sign_in(shared: &Shared, peer: &Peer, request: SignInWith) -> Response {
     let run = async {
         gate(peer)?;
+        let from = browser(peer)?;
         let (req, client_data_json) = keyward_vault::passkey::prepare_sign_in(&request.sign_in)?;
         let (vault, account) = active(shared).await?;
         let offer = vault
@@ -139,8 +202,8 @@ pub(crate) async fn sign_in(shared: &Shared, peer: &Peer, request: SignInWith) -
 
         let user = offer.user_name.as_deref().or(offer.user_display_name.as_deref()).map(clean);
         let reason = match user.filter(|u| !u.is_empty()) {
-            Some(user) => keyward_core::text::t("touch.passkeySignIn", &[("site", &req.rp_id), ("user", &user)]),
-            None => keyward_core::text::t("touch.passkeySignInPlain", &[("site", &req.rp_id)]),
+            Some(user) => keyward_core::text::t("touch.passkeySignIn", &[("site", &req.rp_id), ("user", &user), ("browser", &from)]),
+            None => keyward_core::text::t("touch.passkeySignInPlain", &[("site", &req.rp_id), ("browser", &from)]),
         };
         touch(peer, reason).await?;
 
@@ -158,6 +221,7 @@ pub(crate) async fn sign_in(shared: &Shared, peer: &Peer, request: SignInWith) -
 pub(crate) async fn register(shared: &Shared, peer: &Peer, request: Register) -> Response {
     let run = async {
         gate(peer)?;
+        let from = browser(peer)?;
         let (req, client_data_json) = keyward_vault::passkey::prepare_register(&request)?;
         let (vault, account) = active(shared).await?;
         vault.passkey_check(&req, &request.target)?;
@@ -165,8 +229,8 @@ pub(crate) async fn register(shared: &Shared, peer: &Peer, request: Register) ->
 
         let user = req.user_name.as_deref().or(req.user_display_name.as_deref()).map(clean);
         let reason = match user.filter(|u| !u.is_empty()) {
-            Some(user) => keyward_core::text::t("touch.passkeyRegister", &[("site", &req.rp_id), ("user", &user)]),
-            None => keyward_core::text::t("touch.passkeyRegisterPlain", &[("site", &req.rp_id)]),
+            Some(user) => keyward_core::text::t("touch.passkeyRegister", &[("site", &req.rp_id), ("user", &user), ("browser", &from)]),
+            None => keyward_core::text::t("touch.passkeyRegisterPlain", &[("site", &req.rp_id), ("browser", &from)]),
         };
         touch(peer, reason).await?;
 
@@ -193,11 +257,21 @@ mod tests {
 
     #[test]
     fn every_use_asks_the_sensor_and_nobody_gets_around_it() {
-        assert!(gate(&socket(Trust::Ours)).is_ok(), "ours: asked, never given silently");
+        assert!(gate(&socket(Trust::App)).is_ok(), "ours: asked, never given silently");
         assert!(gate(&socket(Trust::Unknown)).is_ok(), "an unsigned build: asked");
         assert!(gate(&socket(Trust::Alien)).is_err(), "an outsider: refused");
         assert!(gate(&Peer::External).is_err(), "an external plugin: refused");
         assert!(gate(&Peer::Builtin).is_err(), "a built-in plugin: refused, not waved through");
+    }
+
+    #[test]
+    fn a_bridge_not_started_by_a_browser_gets_nothing() {
+        // The test's own process as the bridge: its parent is cargo, not a
+        // browser.
+        let bridge = Peer::Socket { pid: std::process::id() as i32, path: None, trust: Trust::Bridge };
+        assert!(browser(&bridge).unwrap_err().to_string().starts_with("err.passkeyNotFromBrowser"));
+        assert!(browser(&socket(Trust::App)).is_err(), "the window asks for no passkeys");
+        assert!(browser(&socket(Trust::Alien)).is_err());
     }
 
     #[test]

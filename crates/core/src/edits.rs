@@ -274,6 +274,7 @@ impl ItemEdit {
             && self.remove_custom.is_empty()
             && self.reprompt.is_none()
             && self.favorite.is_none()
+            && self.folder_id.is_none()
             && self.card.is_none()
             && self.identity.is_none()
             && self.ssh_key.is_none()
@@ -345,6 +346,9 @@ mod tests {
         let cleared = ItemEdit { password: Some(Secret::default()), ..Default::default() };
         assert!(!cleared.is_empty());
         assert_eq!(cleared.labels(), vec!["field.password".to_string()]);
+        // Moving an item between folders, or out of one, is an edit too.
+        assert!(!ItemEdit { folder_id: Some(None), ..Default::default() }.is_empty());
+        assert!(!ItemEdit { folder_id: Some(Some("f".into())), ..Default::default() }.is_empty());
     }
 
     #[test]

@@ -11,9 +11,10 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use keyward_plugin::Host;
 use russh::keys::PublicKey;
 use serde::Serialize;
 
@@ -389,7 +390,10 @@ impl Board {
     /// Each host's result lands on the board as soon as it is known, so the
     /// window shows the round filling in rather than a wait on the slowest
     /// host.
-    pub async fn run(&self, plans: Vec<Plan>, store: Store) -> Vec<Update> {
+    ///
+    /// With the core, each check reads the host keys confirmed in its item;
+    /// without it, only the files.
+    pub async fn run(&self, plans: Vec<Plan>, store: Store, core: Option<Arc<dyn Host>>) -> Vec<Update> {
         if self.running.swap(true, Ordering::AcqRel) {
             return Vec::new();
         }
@@ -415,7 +419,10 @@ impl Board {
         for plan in &plans {
             for target in &plan.targets {
                 let target = target.clone();
-                let store = store.clone();
+                let store = match &core {
+                    Some(core) => store.clone().for_item(&target.entry_id, Arc::clone(core)),
+                    None => store.clone(),
+                };
                 tasks.spawn(async move { (target.entry_id.clone(), check(&target, store).await) });
             }
         }
@@ -516,7 +523,7 @@ mod tests {
         std::fs::create_dir_all(&d).unwrap();
         let key = russh::keys::parse_public_key_base64("AAAAC3NzaC1lZDI1NTE5AAAAIJdD7y3aLq454yWBdwLWbieU1ebz9/cu7/QEXn9OIeZJ").unwrap();
         let target = Target { entry_id: "1".into(), entry_name: "k".into(), key: Some(key), host: "127.0.0.1".into(), address: "127.0.0.1".into(), port: 1, user: Some("u".into()), pin: None, alt: None, save: Vec::new(), aliases: Vec::new() };
-        let (got, update) = check(&target, Store { user: None, own: d.join("known_hosts") }).await;
+        let (got, update) = check(&target, Store { user: None, own: d.join("known_hosts"), item: None }).await;
         assert!(update.is_none());
         assert_eq!(got.status, Status::Unreachable);
         assert!(got.detail.unwrap().starts_with("err.sshUnreachable"));

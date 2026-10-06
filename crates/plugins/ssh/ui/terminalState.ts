@@ -42,6 +42,9 @@ export type Tab = {
   key: string;
   /// Bumped by "reconnect": the tab's terminal starts over with a new shell.
   epoch?: number;
+  /// The shell was open at some point: a failure after that ends a session,
+  /// a failure before it means there never was one.
+  opened?: boolean;
   destination?: Destination;
   session?: string;
   info?: TermInfo;
@@ -160,7 +163,7 @@ export function reconnectTab(key: string) {
       const destination: Destination | undefined = t.info
         ? { entry_id: t.info.entry_id, host: t.info.host, port: t.info.port, user: t.info.user }
         : t.destination;
-      return { ...t, destination, session: undefined, state: { kind: "connecting" }, epoch: (t.epoch ?? 0) + 1 };
+      return { ...t, destination, session: undefined, state: { kind: "connecting" }, epoch: (t.epoch ?? 0) + 1, opened: false };
     }),
   );
 }

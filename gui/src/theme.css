@@ -9,6 +9,9 @@
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/cyrillic-400.css";
 
+/* design compiler: applied fixes, unlayered so they win over @layer'd rules */
+@import "./design-compiler.generated.css";
+
 /*
   The palette inherits Bitwarden's blue, but the ground is ink-blue rather than
   white: the application lives next to a terminal. Indigo is left to actions and
@@ -38,6 +41,17 @@
   --blue-hi: #8d7cff;
   --sky: #b4a8ff;
   --mint: #42d6a4;
+  /* Cyan for what a terminal paints cyan: no accent stands in for it. */
+  --cyan: #4fc8d8;
+  /* Words on a filled accent: a primary button, its ring while at work. */
+  --on-accent: #fff;
+  /* Dark words on a bright fill (a light folder colour, a card's chip). */
+  --on-bright: #111419;
+  /* A sheen and a shade: what light and shadow are mixed from. Every
+     highlight and every shadow is a share of these, so a theme moves them
+     all at once. */
+  --hi: #fff;
+  --shade: #000;
   --amber: #f2c14e;
   --rose: #ff6f7d;
   --orange: #ff9560;
@@ -60,10 +74,10 @@
 
   /* One height for every control in the top bar: a mismatch between the search
      field and the buttons reads as carelessness faster than anything. */
-  --bar: 64px;
+  --bar: 48px;
   /* One height for every control: the field, the list, the button. A mismatch
      between them reads as carelessness faster than anything else. */
-  --control: 36px;
+  --control: 32px;
   --titlebar: 28px;
 
   /* The scale of radii — exactly four steps, and each has work of its own.
@@ -114,6 +128,7 @@
     --blue-hi: #725fff;
     --sky: #5544c7;
     --mint: #158f6d;
+    --cyan: #0f7f8f;
     --amber: #946d0c;
     --rose: #d4475a;
     --orange: #c45b26;
@@ -189,3 +204,24 @@ textarea:focus-visible {
   *, *::before, *::after { transition-property: opacity, color, background-color, border-color !important; }
   .modal, .toast, .pane { animation: none !important; }
 }
+
+/* A theme chosen by hand overrules the system's: the same tokens as above,
+   kept here beside them so that the palette lives in one file. */
+:root[data-theme="dark"] {
+  --ink: #101016; --rail: #14141d; --surface: #1a1a25; --raise: #292837;
+  --edge: #343343; --edge-soft: #292837; --sky: #b4a8ff; --mint: #42d6a4;
+  --amber: #f2c14e; --rose: #ff6f7d; --text: #f0eff8; --dim: #a6a4b6; --faint: #777587;
+  --panel: #171720; --block: #20202c; --field: #232330; --field-focus: #2a2939; --orange: #ff9560; --blue: #7865f5; --blue-hi: #8d7cff;
+  --cyan: #4fc8d8;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --ink: #f7f6fb; --rail: #eeedf5; --surface: #fff; --raise: #ebeaf3;
+  --edge: #dedce8; --edge-soft: #e9e7f0; --sky: #5544c7; --mint: #158f6d;
+  --amber: #946d0c; --rose: #d4475a; --text: #1d1c28; --dim: #625f72; --faint: #908ca0;
+  --panel: #fbfaff; --block: #f2f1f8; --field: #fff; --field-focus: #fff; --orange: #c45b26; --blue: #6250dc; --blue-hi: #725fff;
+  --cyan: #0f7f8f;
+  color-scheme: light;
+}
+

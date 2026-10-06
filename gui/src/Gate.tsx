@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Alert, Icon } from "./ui";
+import { Alert, Icon, useEscape } from "./ui";
 import { t } from "./i18n";
 import type { Key } from "./i18n";
 import type { LoginReply, Status, TwoFactorProvider, VaultState } from "./types";
@@ -41,28 +41,56 @@ function Crest({ title, sub }: { title: string; sub?: string }) {
 }
 
 /// The gate: exactly one screen is shown, the one the state calls for.
+/// The way out of a gate screen: back to the account one came from, or out
+/// of the setup one opened. A press or Escape.
+export type GateBack = { label: string; go: () => void };
+
 export function Gate({
   status,
   onChanged,
   forceSetup,
   onSetupDone,
+  onEditSetup,
+  back,
 }: {
   status: Status;
   onChanged: () => void;
   forceSetup: boolean;
   onSetupDone: () => void;
+  /// "Change the server or the login": the setup opens over the login.
+  onEditSetup: () => void;
+  /// Where Escape and the back button lead; none when there is nowhere to go.
+  back: GateBack | null;
 }) {
   const v = status.vault;
+  let screen = null;
   if (forceSetup || v.state === "needs_setup") {
-    return <Setup onChanged={onChanged} onDone={onSetupDone} closable={v.state !== "needs_setup"} />;
-  }
-  if (v.state === "unlocked" || v.state === "disabled") return null;
-  if (v.state === "logged_out") return <Login vault={v} onChanged={onChanged} onEdit={onSetupDone} />;
-  if (v.state === "locked") return <Unlock vault={v} biometric={status.biometric} pin={status.pin} onChanged={onChanged} />;
-  return null;
+    screen = <Setup onChanged={onChanged} onDone={onSetupDone} />;
+  } else if (v.state === "logged_out") screen = <Login vault={v} onChanged={onChanged} onEdit={onEditSetup} />;
+  else if (v.state === "damaged") screen = <Damaged vault={v} onChanged={onChanged} />;
+  else if (v.state === "locked") screen = <Unlock vault={v} biometric={status.biometric} pin={status.pin} onChanged={onChanged} />;
+  if (!screen) return null;
+  return (
+    <>
+      {screen}
+      {back && <BackButton back={back} />}
+    </>
+  );
 }
 
-function Setup({ onChanged, onDone, closable }: { onChanged: () => void; onDone: () => void; closable: boolean }) {
+/// A screen one can always leave: no gate is a dead end while there is an
+/// account or a screen to go back to.
+function BackButton({ back }: { back: GateBack }) {
+  useEscape(back.go);
+  return (
+    <button type="button" className="btn gate-back" onClick={back.go} title={`${back.label} (Esc)`}>
+      <Icon name="chevron" size={14} />
+      {back.label}
+    </button>
+  );
+}
+
+function Setup({ onChanged, onDone }: { onChanged: () => void; onDone: () => void }) {
   const [region, setRegion] = useState<"us" | "eu" | "self">("us");
   const [url, setUrl] = useState("");
   const [identityUrl, setIdentityUrl] = useState("");
@@ -138,11 +166,6 @@ function Setup({ onChanged, onDone, closable }: { onChanged: () => void; onDone:
           <button type="submit" className="btn primary" disabled={busy || !email || (region === "self" && !url)}>
             {busy ? t("action.saving") : t("action.save")}
           </button>
-          {closable && (
-            <button type="button" className="link" onClick={onDone}>
-              {t("action.cancel")}
-            </button>
-          )}
         </form>
       </div>
     </div>
@@ -167,7 +190,7 @@ function Login({
     return (
       <div className="gate">
         <div className="gate-card">
-          <Crest title={usable.length === 0 ? t("twofactor.unsupported.title") : t("twofactor.title")} sub={vault.email} />
+          <Crest title={usable.length === 0 ? t("twofactor.unsupported.title") : usable.every((p) => p.kind === "new_device") ? t("twofactor.newDeviceTitle") : t("twofactor.title")} sub={vault.email} />
           <TwoFactorForm
             providers={providers}
             onDone={() => {
@@ -205,6 +228,26 @@ function Login({
             {t("login.changeServer")}
           </button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/// The saved session does not read: the daemon's words for why, and the way
+/// out — forget it and log in again. Nothing goes without the press.
+function Damaged({ vault, onChanged }: { vault: Extract<VaultState, { state: "damaged" }>; onChanged: () => void }) {
+  const { busy, error, run } = useAction(onChanged);
+  return (
+    <div className="gate">
+      <div className="gate-card">
+        <Crest title={t("login.title")} sub={`${vault.email} · ${vault.server}`} />
+        <div className="form">
+          <Alert message={vault.reason} />
+          {error && <Alert message={error} />}
+          <button type="button" className="btn primary" disabled={busy} onClick={() => void run(() => invoke("vault_reset_session"))}>
+            {t("login.submit")}
+          </button>
+        </div>
       </div>
     </div>
   );

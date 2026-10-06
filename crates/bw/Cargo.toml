@@ -27,3 +27,7 @@ base64 = "0.22"
 zeroize = { version = "1", features = ["derive"] }
 subtle = "2"
 rand = "0.8"
+
+[dev-dependencies]
+# A make-believe Vaultwarden on loopback for the login and refresh tests.
+tokio.workspace = true

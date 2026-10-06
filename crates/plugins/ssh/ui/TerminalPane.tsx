@@ -1,73 +1,14 @@
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
-import { Terminal, type ITheme } from "@xterm/xterm";
+import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { Alert, Icon, copyText } from "@keyward/ui";
+import { Alert, Icon, copyText, onThemeChange, terminalTheme, themeToken } from "@keyward/ui";
 import { t, tError } from "@keyward/i18n";
+import { call } from "@keyward/plugins/call";
 import { Controller } from "./controller";
 import { closeTab, patchTab, reconnectTab, registerCloser, stepFont, useFontSize, type Tab } from "./terminalState";
-
-/// A colour token of the window's theme, as it is now.
-function token(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
-
-/// Whether a `#rrggbb` colour is light.
-function light(hex: string): boolean {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return false;
-  const n = parseInt(m[1], 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 150;
-}
-
-function translucent(hex: string, alpha: string): string {
-  return /^#[0-9a-f]{6}$/i.test(hex) ? `${hex}${alpha}` : hex;
-}
-
-/// The terminal's colours out of the window's palette: the same accents, the
-/// same grounds, in the light theme and the dark one alike.
-function theme(): ITheme {
-  const background = token("--block", "#20202c");
-  const text = token("--text", "#f0eff8");
-  const dim = token("--dim", "#a6a4b6");
-  const faint = token("--faint", "#777587");
-  const raise = token("--raise", "#292837");
-  const sky = token("--sky", "#b4a8ff");
-  const isLight = light(background);
-  const red = token("--rose", "#ff6f7d");
-  const green = token("--mint", "#42d6a4");
-  const yellow = token("--amber", "#f2c14e");
-  const blue = token("--blue-hi", "#8d7cff");
-  const orange = token("--orange", "#ff9560");
-  const cyan = isLight ? "#0f7f8f" : "#4fc8d8";
-  return {
-    background,
-    foreground: text,
-    cursor: sky,
-    cursorAccent: background,
-    selectionBackground: translucent(sky, "55"),
-    black: isLight ? text : raise,
-    red,
-    green,
-    yellow,
-    blue,
-    magenta: sky,
-    cyan,
-    white: isLight ? faint : dim,
-    brightBlack: faint,
-    brightRed: red,
-    brightGreen: green,
-    brightYellow: orange,
-    brightBlue: blue,
-    brightMagenta: sky,
-    brightCyan: cyan,
-    brightWhite: isLight ? dim : text,
-  };
-}
 
 const IS_MAC = navigator.platform.toLowerCase().includes("mac");
 
@@ -97,14 +38,14 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
     if (!el) return;
     setBroken(null);
     const t0 = new Terminal({
-      fontFamily: token("--mono", "IBM Plex Mono, ui-monospace, Menlo, monospace"),
+      fontFamily: themeToken("--mono"),
       fontSize,
       lineHeight: 1.15,
       cursorBlink: true,
       scrollback: 10000,
       allowProposedApi: true,
       macOptionIsMeta: true,
-      theme: theme(),
+      theme: terminalTheme(),
     });
     const f = new FitAddon();
     const s = new SearchAddon();
@@ -155,7 +96,7 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
 
     const ctl = new Controller(t0, tab.session, tab.destination, {
       onInfo: (info) => patchTab(tab.key, { info, session: info.id }),
-      onState: (state) => patchTab(tab.key, { state }),
+      onState: (state) => patchTab(tab.key, state.kind === "open" ? { state, opened: true } : { state }),
       onBroken: (error) => setBroken(error),
     });
     controller.current = ctl;
@@ -163,13 +104,9 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
     const unregister = registerCloser(tab.key, () => ctl.close());
 
     // The window's palette can change under a running terminal.
-    const retheme = () => {
-      t0.options.theme = theme();
-    };
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener("change", retheme);
-    const watcher = new MutationObserver(retheme);
-    watcher.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", "data-theme"] });
+    const untheme = onThemeChange(() => {
+      t0.options.theme = terminalTheme();
+    });
 
     const resize = new ResizeObserver(() => {
       if (el.offsetWidth > 0 && el.offsetHeight > 0) f.fit();
@@ -179,8 +116,7 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
     return () => {
       unregister();
       resize.disconnect();
-      watcher.disconnect();
-      media.removeEventListener("change", retheme);
+      untheme();
       ctl.stop();
       t0.dispose();
       term.current = null;
@@ -214,6 +150,22 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
 
   const state = tab.state;
   const where = tab.info ? `${tab.info.user}@${tab.info.host}` : (tab.destination?.host ?? "");
+  // A shell that never opened leaves nothing to show but why.
+  const failed = !tab.opened && (Boolean(broken) || state.kind === "closed");
+  const failure = broken ?? (state.kind === "closed" ? state.error : null);
+  // A changed host key names the host and port it was seen on: that is what
+  // forgetting the old key needs.
+  const changed = failure?.startsWith("err.sshHostKeyChanged") ? hostOf(failure) : null;
+  const [forgot, setForgot] = useState<string | null>(null);
+  const forget = async () => {
+    if (!changed) return;
+    try {
+      const dropped = await call<number>("ssh", "term_forget_host", changed);
+      setForgot(dropped > 0 ? t("term.forgotten") : t("term.notOurs"));
+    } catch (e) {
+      setForgot(tError(String(e)));
+    }
+  };
 
   const answer = async (yes: boolean) => {
     setBusy(true);
@@ -228,13 +180,14 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
 
   const find = (backwards = false) => {
     if (!query) return;
-    const opts = { caseSensitive: false, decorations: { matchOverviewRuler: "#888", activeMatchColorOverviewRuler: "#fff" } };
+    // The search's marks in the theme's colours too.
+    const opts = { caseSensitive: false, decorations: { matchOverviewRuler: themeToken("--faint"), activeMatchColorOverviewRuler: themeToken("--sky") } };
     if (backwards) search.current?.findPrevious(query, opts);
     else search.current?.findNext(query, opts);
   };
 
   return (
-    <div className={`term-pane ${visible ? "" : "hidden"}`}>
+    <div className={`term-pane ${visible ? "" : "hidden"} ${failed ? "failed" : ""}`}>
       <div className="term-host" ref={host} onMouseDown={() => term.current?.focus()} />
 
       {finding && (
@@ -275,11 +228,37 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
         </div>
       )}
 
+      {failed && (
+        <div className="term-failed" role="alert">
+          <Icon name="warn" size={22} />
+          <h3>{state.kind === "closed" && !failure ? t("term.ended") : t("term.failed", { where })}</h3>
+          {failure && <p>{tError(failure)}</p>}
+          {forgot && <p className="term-forgot">{forgot}</p>}
+          <div className="term-actions">
+            {changed && !forgot && (
+              <button type="button" className="btn" onClick={() => void forget()}>
+                {t("term.forgetKey")}
+              </button>
+            )}
+            <button type="button" className="btn" onClick={() => void closeTab(tab.key)}>
+              {t("term.closeTab")}
+            </button>
+            <button type="button" className="btn primary" onClick={() => reconnectTab(tab.key)} autoFocus>
+              <Icon name="sync" size={13} />
+              {t("term.reconnect")}
+            </button>
+          </div>
+        </div>
+      )}
+
       {state.kind === "connecting" && !broken && (
         <div className="term-overlay">
           <div className="term-card">
             <span className="term-spinner" aria-hidden="true" />
             <b>{t("term.connecting", { where })}</b>
+            <button type="button" className="btn" onClick={() => void closeTab(tab.key)}>
+              {t("action.cancel")}
+            </button>
           </div>
         </div>
       )}
@@ -290,6 +269,9 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
             <Icon name="key" size={20} />
             <b>{t("term.authenticating")}</b>
             <p className="hint">{t("term.authenticatingHint", { key: tab.info?.entry_name ?? "", where })}</p>
+            <button type="button" className="btn" onClick={() => void closeTab(tab.key)}>
+              {t("action.cancel")}
+            </button>
           </div>
         </div>
       )}
@@ -317,7 +299,7 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
         </div>
       )}
 
-      {(state.kind === "closed" || broken) && (
+      {!failed && (state.kind === "closed" || broken) && (
         <div className="term-ended">
           {broken ? (
             <Alert message={broken} />
@@ -342,6 +324,18 @@ export function TerminalPane({ tab, visible }: { tab: Tab; visible: boolean }) {
       )}
     </div>
   );
+}
+
+/// The host and port out of a changed-key refusal's arguments.
+function hostOf(error: string): { host: string; port: number } | null {
+  const at = error.indexOf("{");
+  if (at < 0) return null;
+  try {
+    const args = JSON.parse(error.slice(at)) as { host?: string; port?: number | string };
+    return args.host ? { host: args.host, port: Number(args.port ?? 22) || 22 } : null;
+  } catch {
+    return null;
+  }
 }
 
 /// A tab's state as the strip shows it: a dot's tone and a word.

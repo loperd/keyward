@@ -1,0 +1,12 @@
+{
+  "mapui.closeMap": "Close the map · Esc",
+  "mapui.hoverPaths": "Hover — paths",
+  "mapui.clickPick": "Click — pick in the columns",
+  "mapui.open": "Open",
+  "mapui.close": "Close",
+  "mapui.itsRelations": "Its relations",
+  "mapui.counts": "{points} · {links}",
+  "mapui.subMarks": "{sub} ·",
+  "mapui.points": { "one": "{n} point", "other": "{n} points" },
+  "mapui.links": { "one": "{n} link", "other": "{n} links" }
+}

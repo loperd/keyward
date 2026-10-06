@@ -1,0 +1,12 @@
+{
+  "mapui.closeMap": "Закрыть карту · Esc",
+  "mapui.hoverPaths": "Наведите — пути",
+  "mapui.clickPick": "Щелчок — выбрать в колонках",
+  "mapui.open": "Открыть",
+  "mapui.close": "Закрыть",
+  "mapui.itsRelations": "Связи этого",
+  "mapui.counts": "{points} · {links}",
+  "mapui.subMarks": "{sub} ·",
+  "mapui.points": { "one": "{n} точка", "few": "{n} точки", "many": "{n} точек", "other": "{n} точек" },
+  "mapui.links": { "one": "{n} связь", "few": "{n} связи", "many": "{n} связей", "other": "{n} связей" }
+}

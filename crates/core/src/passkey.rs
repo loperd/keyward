@@ -329,3 +329,37 @@ mod tests {
         assert_eq!(serde_json::from_value::<AssertionRequest>(json).unwrap(), req);
     }
 }
+
+/// What the extension asks, inside what it signs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum BridgeAsk {
+    Offers { sign_in: SignIn },
+    Homes { sign_in: SignIn },
+    SignIn { request: SignInWith },
+    Register { request: Register },
+}
+
+/// The string the extension signs: when, and what. The time keeps a signed
+/// request from being replayed later.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Signed {
+    /// Milliseconds since the epoch, the extension's clock.
+    pub ts: u64,
+    pub ask: BridgeAsk,
+}
+
+/// A browser extension, for the list a person pairs from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtensionRow {
+    /// Its public key, base64 SEC1.
+    pub key: String,
+    /// The five words a person compares with the extension's screen.
+    pub words: Vec<String>,
+    /// Seconds since the epoch: when it was paired, or last asked.
+    pub at: u64,
+    /// Seconds since the epoch when a pairing's words stop counting; zero
+    /// for a paired key.
+    #[serde(default)]
+    pub expires: u64,
+}

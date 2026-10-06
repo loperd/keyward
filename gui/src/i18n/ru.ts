@@ -11,9 +11,10 @@
 /// engines or an ssh route, and it has no business knowing.
 import core from "../../../i18n/ru.json";
 import hashicorp from "@plugin/hashicorp/i18n/ru.json";
+import kube from "@plugin/kube/i18n/ru.json";
 import ssh from "@plugin/ssh/i18n/ru.json";
 import vaultwarden from "@plugin/vaultwarden/i18n/ru.json";
 
-export const ru = { ...core, ...hashicorp, ...ssh, ...vaultwarden };
+export const ru = { ...core, ...hashicorp, ...kube, ...ssh, ...vaultwarden };
 
 export type Key = keyof typeof ru;

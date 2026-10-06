@@ -757,7 +757,7 @@ impl crate::Vault {
                     fido2_credentials: Some(serde_json::Value::Array(vec![record])),
                     ..Default::default()
                 });
-                self.post_new_cipher(&cipher).await?;
+                self.post_new_cipher(&cipher, &[]).await?;
                 // The server names the item; after the sync it is found by
                 // the passkey it carries.
                 let stored = stored_id(&attestation.credential_id);

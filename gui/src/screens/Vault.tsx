@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useImageHue, useSiteIcon } from "../icons";
 import { folderColor } from "../folders";
 import { Countdown, prettyCode, useTotpCode } from "../Totp";
-import { Alert, Empty, Icon, Skeleton } from "../ui";
+import { Alert, Empty, Icon, ScreenHead, Skeleton } from "../ui";
+import type { LocalChange } from "./Detail";
 import { CardBrandMark, detectCardBrand } from "../CardBrand";
 import { t } from "../i18n";
 import { kindKey, type Catalog, type VaultItem } from "../types";
@@ -45,6 +46,7 @@ export function VaultScreen({
   serverUrl,
   onCopied,
   onChanged,
+  onLocal,
 }: {
   catalog: Catalog | null;
   filter: Filter;
@@ -55,6 +57,8 @@ export function VaultScreen({
   serverUrl: string;
   onCopied: (text: string) => void;
   onChanged: () => void;
+  /// A change shown before the server confirms it (see the card's).
+  onLocal: (change: LocalChange) => { undo: () => void; settle: () => void };
 }) {
   // Picking works only in the trash: that is where it is needed — things are
   // deleted from there in batches, and one item at a time is a dozen
@@ -117,17 +121,24 @@ export function VaultScreen({
     return () => io.disconnect();
   }, [items.length, limit]);
 
+  // As on the card: the trash empties at once, the server confirms after.
+  // `[]` is the whole trash.
   const purge = async (ids: string[]) => {
+    const targets = ids.length ? ids : (catalog?.items ?? []).filter((i) => i.deleted).map((i) => i.id);
+    const locals = targets.map((id) => onLocal({ kind: "purged", id }));
+    setPicked(new Set());
     setBusy(true);
     setError(null);
     try {
       await invoke("purge_items", { entryIds: ids });
-      setPicked(new Set());
-      onChanged();
     } catch (e) {
+      // The first change's "before" is the list as it was: undone last.
+      [...locals].reverse().forEach((l) => l.undo());
       setError(String(e));
     } finally {
+      locals.forEach((l) => l.settle());
       setBusy(false);
+      onChanged();
     }
   };
 
@@ -171,13 +182,7 @@ export function VaultScreen({
 
       {error && <Alert message={error} />}
 
-      <div className="vault-list-head">
-        <span>
-          <small>{t("app.name")}</small>
-          <h1>{t("nav.items")}</h1>
-        </span>
-        <b className="vault-list-count" title={`${items.length} ${t("nav.items").toLowerCase()}`}>{items.length}</b>
-      </div>
+      <ScreenHead icon="all" title={t("nav.items")} count={items.length} />
 
       <div className="list vault-list">
         {shown.map((i) =>
@@ -290,7 +295,9 @@ function ItemRow({
   return (
     <button type="button"
       className={`row item ${active ? "active" : ""}${hue === null ? "" : " hued"}`}
-      style={hue === null ? undefined : ({ ["--h" as string]: String(hue) } as React.CSSProperties)}
+      // A name for the view transition: the row folds away when it leaves the
+      // list and the rest slide up into its place.
+      style={{ viewTransitionName: `row-${item.id}`, ...(hue === null ? {} : { ["--h" as string]: String(hue) }) } as React.CSSProperties}
       onClick={onSelect}
       title={item.folder_name ?? undefined}
     >

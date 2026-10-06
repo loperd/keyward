@@ -6,13 +6,13 @@
 //! argument, and speaks to it over stdin/stdout: each message is a 32-bit
 //! length in native byte order followed by that much JSON.
 //!
-//! What it is not: a proxy. It understands exactly four requests — the
-//! passkeys a sign-in may use, the logins a new one may go into, a sign-in,
-//! a registration — and turns each into the daemon's own request; anything
-//! else is refused here, before the socket. The daemon trusts this binary as its own (it is signed with the
-//! same identity), so a hole here would be a hole in the vault: an extension
-//! compromised, or a page that got hold of its port, must not be able to ask
-//! for a password through it.
+//! What it is not: a judge. The extension signs every request with a key of
+//! its own, and the host passes the signed string on to the daemon untouched
+//! (`Request::PasskeyBridge`); the daemon checks the signature, that the key
+//! is paired and that a browser it knows started this host, before it reads
+//! a word. The host itself only refuses early what could not be one of the
+//! four passkey requests at all. Anything can start this binary and hand it
+//! any origin, so nothing it says on its own may count for anything.
 //!
 //! Nothing secret passes through: a request carries a challenge and a site,
 //! an answer a signature and public data. The private key stays in the daemon.
@@ -24,7 +24,7 @@ mod bridge;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use keyward_core::passkey::{Register, SignIn, SignInWith};
+use keyward_core::passkey::Signed;
 use keyward_core::proto::{Request, Response};
 use serde::Deserialize;
 
@@ -47,33 +47,26 @@ const MAX_MESSAGE: usize = 64 * 1024;
 /// A sign-in waits for Touch ID, which the daemon gives a minute.
 const WAIT: Duration = Duration::from_secs(90);
 
-/// What the extension may ask.
-#[derive(Debug, Deserialize)]
-#[serde(tag = "op", rename_all = "snake_case")]
-enum Ask {
-    Offers { sign_in: SignIn },
-    Homes { sign_in: SignIn },
-    SignIn { request: SignInWith },
-    Register { request: Register },
-}
-
-#[derive(Debug, Deserialize)]
+/// What the extension sends: a request it signed with its own key.
+///
+/// The host decides nothing about it: the daemon checks the signature and
+/// that the key is paired. The host only refuses early what could not be one
+/// of the four passkey requests at all, so that junk does not reach the
+/// socket.
+#[derive(Deserialize)]
 struct Envelope {
     /// The extension's own number for the request, sent back as it came.
     #[serde(default)]
     id: u64,
-    #[serde(flatten)]
-    ask: Ask,
+    key: String,
+    signed: String,
+    sig: String,
 }
 
-impl Ask {
-    fn into_request(self) -> Request {
-        match self {
-            Self::Offers { sign_in } => Request::PasskeyOffers { sign_in },
-            Self::Homes { sign_in } => Request::PasskeyHomes { sign_in },
-            Self::SignIn { request } => Request::PasskeySignIn { request },
-            Self::Register { request } => Request::PasskeyRegister { request },
-        }
+impl Envelope {
+    fn into_request(self) -> Option<Request> {
+        serde_json::from_str::<Signed>(&self.signed).ok()?;
+        Some(Request::PasskeyBridge { key: self.key, signed: self.signed, sig: self.sig })
     }
 }
 
@@ -83,7 +76,18 @@ impl Ask {
 fn answer(id: u64, response: anyhow::Result<Response>) -> serde_json::Value {
     let fail = |message: &str| {
         let code = message.split_whitespace().next().filter(|w| w.starts_with("err.")).unwrap_or("err.passkeyHost");
-        serde_json::json!({ "id": id, "ok": false, "code": code, "error": keyward_core::text::render(message) })
+        // The words of an unpaired key go along on their own, so that the
+        // extension can show them as words to compare rather than lost in a
+        // sentence.
+        let args = (code == "err.extensionNotPaired")
+            .then(|| message.split_once(' ').and_then(|(_, args)| serde_json::from_str::<serde_json::Value>(args).ok()))
+            .flatten();
+        let words: Option<Vec<String>> = args
+            .as_ref()
+            .and_then(|a| a.get("words").and_then(serde_json::Value::as_str).map(|w| w.split_whitespace().map(str::to_string).collect()));
+        // When this pairing's words stop counting, seconds since the epoch.
+        let expires = args.as_ref().and_then(|a| a.get("expires")).and_then(|v| v.as_u64().or_else(|| v.as_str()?.parse().ok()));
+        serde_json::json!({ "id": id, "ok": false, "code": code, "error": keyward_core::text::render(message), "words": words, "expires": expires })
     };
     match response {
         Ok(Response::PasskeyOffers { offers }) => serde_json::json!({ "id": id, "ok": true, "offers": offers }),
@@ -128,11 +132,15 @@ fn write_message(output: &mut impl Write, value: &serde_json::Value) -> anyhow::
 
 /// One request of the extension, opened: the daemon's answer, as JSON.
 fn handle(message: &[u8], call: &dyn Fn(&Request) -> anyhow::Result<Response>) -> serde_json::Value {
-    match serde_json::from_slice::<Envelope>(message) {
-        Ok(Envelope { id, ask }) => answer(id, call(&ask.into_request())),
+    let envelope = serde_json::from_slice::<Envelope>(message).ok().and_then(|e| {
+        let id = e.id;
+        e.into_request().map(|r| (id, r))
+    });
+    match envelope {
+        Some((id, request)) => answer(id, call(&request)),
         // An unknown operation or a malformed one: refused here, never passed
         // on.
-        Err(_) => {
+        None => {
             let id = serde_json::from_slice::<serde_json::Value>(message)
                 .ok()
                 .and_then(|v| v.get("id").and_then(serde_json::Value::as_u64))
@@ -264,8 +272,15 @@ mod tests {
         })
     }
 
+    /// A signed request as the extension sends it. The host does not check
+    /// signatures — the daemon does — so any will do here.
+    fn signed(id: u64, ask: serde_json::Value) -> serde_json::Value {
+        let signed = serde_json::json!({ "ts": 1, "ask": ask }).to_string();
+        serde_json::json!({ "id": id, "key": "a2V5", "signed": signed, "sig": "c2ln" })
+    }
+
     fn offers() -> serde_json::Value {
-        serde_json::json!({"id":7,"op":"offers","sign_in":{"origin":"https://example.com","challenge":"AAAAAAAAAAAAAAAAAAAAAA"}})
+        signed(7, serde_json::json!({"op":"offers","sign_in":{"origin":"https://example.com","challenge":"AAAAAAAAAAAAAAAAAAAAAA"}}))
     }
 
     #[test]
@@ -278,12 +293,14 @@ mod tests {
         let out = roundtrip(
             &[
                 offers(),
-                serde_json::json!({"id":8,"op":"copy_secret","entry_id":"e","field":"password"}),
-                serde_json::json!({"id":9,"op":"reveal_secret","entry_id":"e","field":"password"}),
+                signed(8, serde_json::json!({"op":"copy_secret","entry_id":"e","field":"password"})),
+                // Unsigned, the old way: not a request any more.
+                serde_json::json!({"id":9,"op":"offers","sign_in":{"origin":"https://example.com","challenge":"AAAAAAAAAAAAAAAAAAAAAA"}}),
             ],
             &call,
         );
         assert_eq!(seen.lock().unwrap().len(), 1, "only the passkey request reached the daemon");
+        assert_eq!(seen.lock().unwrap()[0], "PasskeyBridge", "passed on as the extension signed it");
         assert_eq!(out[0]["id"], 7);
         assert_eq!(out[0]["ok"], true);
         for (reply, id) in out[1..].iter().zip([8, 9]) {

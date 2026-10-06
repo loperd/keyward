@@ -92,12 +92,18 @@ async function begin(kind, raw, sender) {
     console.warn("keyward: the bridge is not reachable; the browser handles this request", e);
     return { fallback: true };
   }
-  const locked = !lookup.ok && lookup.code === "err.vaultLocked";
+  // A locked vault and an extension not paired yet both open the chooser:
+  // the person can do something about either, and a pairing's words have to
+  // be seen to be compared.
+  const unpaired = !lookup.ok && lookup.code === "err.extensionNotPaired";
+  const locked = !lookup.ok && (lookup.code === "err.vaultLocked" || unpaired);
   if (!lookup.ok && !locked) {
     console.warn("keyward: the daemon refused; the browser handles this request", lookup.code);
     return { fallback: true };
   }
-  if (kind === "get" && !locked && lookup.offers.length === 0) return { fallback: true };
+  // No passkey for the site in keyward: the chooser still opens and says so,
+  // with the browser's own way one press away. Stepping aside silently left
+  // a person unsure whether keyward was there at all.
 
   // One flow per tab: a new request ends an older one.
   for (const [, old] of await flowsWhere((f) => f.tabId === sender.tab.id)) {
@@ -112,6 +118,9 @@ async function begin(kind, raw, sender) {
     origin,
     request,
     locked,
+    // The daemon's words for why, rendered: a pairing's carries the key's
+    // five words.
+    unpaired: unpaired ? { words: Array.isArray(lookup.words) ? lookup.words : [], expires: Number(lookup.expires) || 0 } : null,
     offers: kind === "get" && lookup.ok ? lookup.offers : [],
     homes: kind === "create" && lookup.ok ? lookup.homes : [],
   };

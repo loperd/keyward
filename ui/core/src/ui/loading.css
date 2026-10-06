@@ -1,0 +1,177 @@
+/* What stands while something is on its way: skeletons in the shape of what
+   is coming, one shared shimmer, a status line with a running bar, and the
+   boot screen that is the window's own skeleton. Tokens only; 8-grid; the
+   bars sit on the centre of the line their text will take (an 8px bar in a
+   16px line, a 16px bar in a 28px title). */
+
+/* ---------- the tones: a bar is the text's colour at a whisper, the sheen a
+   share of the light ---------- */
+:root {
+  --sk: color-mix(in srgb, var(--text) 7%, transparent);
+  --sk-hi: color-mix(in srgb, var(--hi) 7%, transparent);
+  --sk-w: 40vw; /* the sheen's breadth */
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --sk: color-mix(in srgb, var(--text) 7%, transparent);
+    --sk-hi: color-mix(in srgb, var(--hi) 75%, transparent);
+  }
+}
+:root[data-theme="light"] {
+  --sk: color-mix(in srgb, var(--text) 6%, transparent);
+  --sk-hi: color-mix(in srgb, var(--hi) 75%, transparent);
+}
+:root[data-theme="dark"] {
+  --sk: color-mix(in srgb, var(--text) 7%, transparent);
+  --sk-hi: color-mix(in srgb, var(--hi) 7%, transparent);
+}
+
+/* ---------- a bar, and the one shimmer that sweeps every bar at once ----------
+   The sheen is fixed to the window, not to the bar: every bar shows its own
+   slice of one gradient that crosses the whole window once per --dur-loop. */
+.kw-sk {
+  display: block; flex: none; height: var(--u); border-radius: var(--r-in);
+  background-color: var(--sk);
+  background-image: linear-gradient(90deg, transparent, var(--sk-hi), transparent);
+  background-size: var(--sk-w) 100%; background-repeat: no-repeat; background-attachment: fixed;
+  animation: kw-shimmer var(--dur-loop) linear infinite;
+}
+@keyframes kw-shimmer { from { background-position: calc(var(--sk-w) * -1) 0; } to { background-position: 100vw 0; } }
+
+/* a skeleton inside a sheet comes up only for a wait the eye would notice */
+.kw-sk-late { animation: kw-sk-in var(--dur) var(--ease-out) var(--dur-fast) both; }
+@keyframes kw-sk-in { from { opacity: 0; } }
+/* what replaces a skeleton fades in where it stood */
+.kw-arrived > :not(.kw-sec-h) { animation: kw-sk-in var(--dur) var(--ease-out); }
+
+/* ---------- the shapes ---------- */
+.kw-sk-line { display: flex; align-items: center; height: var(--lh-s); }
+.kw-sk-line.kw-sk-l { height: var(--lh-l); }
+.kw-sk-two { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--u); }
+.kw-sk-title { height: var(--u2); width: 44%; }
+.kw-sk-place { width: 28%; }
+.kw-sk-state { margin-top: var(--u); }
+.kw-sk-state .kw-sk { width: 20%; }
+.kw-sk-hero-tile { width: var(--tile-hero); height: var(--tile-hero); border-radius: var(--r-ctl); }
+.kw-sk-button { width: calc(var(--u) * 16); height: var(--ctl); border-radius: var(--r-ctl); margin-right: var(--half); }
+.kw-sk-icon { width: var(--ctl); height: var(--ctl); border-radius: var(--r-ctl); }
+.kw-sk-hero .kw-acts { display: flex; }
+.kw-sk-head { width: calc(var(--u) * 12); }
+.kw-sk-caption { width: calc(var(--u) * 10); }
+.kw-sk-label { width: calc(var(--u) * 10); }
+.kw-sk-value { width: 48%; }
+.kw-sk-f:nth-child(3n + 2) .kw-sk-label { width: calc(var(--u) * 8); }
+.kw-sk-f:nth-child(3n + 2) .kw-sk-value { width: 64%; }
+.kw-sk-f:nth-child(3n) .kw-sk-label { width: calc(var(--u) * 12); }
+.kw-sk-f:nth-child(3n) .kw-sk-value { width: 36%; }
+.kw-sk-f, .kw-sk-f:hover { background: transparent; }
+
+/* a list row: the tile, a name, a line under it — the column's own geometry */
+.kw-sk-row { margin: 0 calc(var(--gutter) - var(--pad)); height: var(--row-2); padding: 0 var(--pad); display: flex; align-items: center; gap: var(--lead-gap); }
+.kw-sk-tile { width: var(--tile); height: var(--tile); border-radius: var(--r-in); }
+.kw-sk-tile-round { width: var(--tile); height: var(--tile); border-radius: 50%; }
+.kw-sk-name { width: 62%; }
+.kw-sk-sub { width: 40%; }
+.kw-sk-row:nth-child(4n + 3) .kw-sk-name { width: 48%; }
+.kw-sk-row:nth-child(4n + 3) .kw-sk-sub { width: 56%; }
+.kw-sk-row:nth-child(4n) .kw-sk-name { width: 74%; }
+.kw-sk-row:nth-child(4n) .kw-sk-sub { width: 30%; }
+.kw-sk-row:nth-child(4n + 1) .kw-sk-name { width: 54%; }
+.kw-sk-row:nth-child(4n + 1) .kw-sk-sub { width: 46%; }
+
+/* the members table: its own grid, rows of bars */
+.kw-sk-mt { align-items: center; }
+.kw-sk-mt, .kw-sk-mt:hover { background: transparent; cursor: default; }
+.kw-sk-role { width: calc(var(--u) * 8); }
+.kw-sk-mark { width: calc(var(--u) * 9); }
+.kw-sk-access { width: calc(var(--u) * 10); }
+.kw-sk-mt:nth-child(3n) .kw-sk-name { width: 40%; }
+.kw-sk-mt:nth-child(3n + 1) .kw-sk-name { width: 52%; }
+.kw-sk-mt:nth-child(3n) .kw-sk-sub { width: 58%; }
+
+/* the one-time code on its way: a bar of the code's breadth */
+.kw-sk-code { width: calc(var(--u) * 10); height: var(--u2); }
+
+/* the fingerprint phrase on its way: a bar of a phrase's breadth on a title's line */
+.kw-sk-phrase { width: min(calc(var(--u) * 52), 100%); height: var(--u2); }
+
+/* ---------- the status line: a turning mark in a soft circle, the words, a running bar ---------- */
+.kw-load-status { position: relative; display: flex; align-items: center; gap: var(--u); min-height: var(--ctl); margin-top: var(--sec-gap); color: var(--text); overflow: hidden; }
+.kw-sk-block > .kw-load-status { margin-top: var(--u2); }
+.kw-load-pulse { display: inline-grid; place-items: center; width: var(--ctl); height: var(--ctl); border-radius: 50%; flex: none; color: var(--sky);
+  background: color-mix(in srgb, var(--sky) 14%, transparent); }
+.kw-load-words { animation: kw-sk-in var(--dur) var(--ease-out); }
+.kw-load-bar { position: absolute; left: calc(var(--ctl) + var(--u)); right: 0; bottom: 0; height: var(--bar-w); border-radius: var(--bar-w);
+  background: color-mix(in srgb, var(--sky) 18%, transparent); overflow: hidden; }
+.kw-load-bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--sky), transparent); animation: kw-sweep var(--dur-loop) var(--ease-in-out) infinite; }
+
+/* the turning mark: a faint ring and a quarter of it that turns */
+.kw-load-ring circle { fill: none; stroke-width: 1.6; }
+.kw-load-ring .kw-load-ring-bg { stroke: currentColor; opacity: 0.25; }
+.kw-load-ring .kw-load-ring-fg { stroke: currentColor; stroke-dasharray: 9 26; stroke-linecap: round; }
+.kw-load-ring { animation: kw-turn var(--dur-spin) linear infinite; }
+.kw-load-crumb-mark { color: var(--sky); }
+
+/* ---------- the boot screen: the window's skeleton over everything ---------- */
+/* it comes in at once: it continues the page's splash, drawn the same */
+.kw-loading { position: fixed; inset: 0; z-index: 60; }
+.kw-loading.kw-leaving { pointer-events: none; animation: kw-load-out var(--dur) var(--ease-out) forwards; }
+@keyframes kw-load-out { to { opacity: 0; } }
+.kw-loading .kw-sk-qline { flex: 1; min-width: 0; cursor: default; }
+.kw-loading .kw-crumb { cursor: default; }
+.kw-loading .kw-crumb:hover { background: transparent; }
+.kw-sk-ctl { width: var(--ic); height: var(--ic); margin: var(--u); border-radius: var(--r-in); }
+.kw-sk-tools { display: flex; align-items: center; gap: var(--u); flex: none; }
+.kw-sk-ava { width: var(--chip); height: var(--chip); margin: var(--half); border-radius: 50%; }
+.kw-sk-col { width: var(--col-w); }
+.kw-sk-col .kw-list { overflow: hidden; }
+.kw-sk-col .kw-grp { align-items: flex-end; padding-bottom: calc(var(--u) + (var(--lh-s) - var(--u)) / 2); }
+.kw-sk-tier-0 { --bg: color-mix(in srgb, var(--tier-hi) 12%, var(--tier-lo)); }
+.kw-sk-tier-1 { --bg: color-mix(in srgb, var(--tier-hi) 80%, var(--tier-lo)); }
+.kw-loading .kw-insp { overflow: hidden; }
+/* below the narrow width one list stays open, as in the window: the first
+   column's width is the column's above --narrow and nothing under it */
+.kw-sk-col.kw-sk-tier-0 { width: clamp(0px, (100vw - var(--narrow)) * 1000, var(--col-w)); }
+
+/* a secret being revealed: its dots breathe while the eye's ring turns */
+.kw-f:has(> .kw-fa [aria-busy="true"]) .kw-dots { animation: kw-breathe var(--dur-loop) ease-in-out infinite; }
+
+/* Less movement: the bars breathe in place instead of being swept, the mark
+   breathes instead of turning, the bar fills its track and breathes. */
+@media (prefers-reduced-motion: reduce) {
+  .kw-sk, .kw-load-ring, .kw-load-bar::after, .kw-f:has(> .kw-fa [aria-busy="true"]) .kw-dots { animation: kw-breathe var(--dur-loop) ease-in-out infinite !important; }
+  .kw-sk { background-image: none; }
+  .kw-load-bar::after { width: 100%; }
+}
+
+/* ---------- a session that would not load: calm, the document's type, one way on ---------- */
+.kw-load-failed p { margin: var(--u) 0 0; max-width: var(--insp-max); color: var(--dim); overflow-wrap: anywhere; }
+.kw-load-failed .kw-acts { margin-top: var(--u3); }
+
+/* ---------- small waits in a line: a turning mark and quiet words ---------- */
+.kw-sk-fprint { display: flex; flex-direction: column; gap: var(--u); }
+.kw-load-inline { display: inline-flex; align-items: center; gap: var(--u); color: var(--faint); }
+.kw-load-inline .kw-load-ring { color: var(--sky); }
+/* an account menu's other accounts on their way: a row of the menu, a bar for the address */
+.kw-mrow.kw-sk-mrow, .kw-mrow.kw-sk-mrow:hover { background: transparent; }
+.kw-sk-mrow .kw-ic { color: var(--sky); }
+.kw-sk-mrow .kw-sk { width: 60%; }
+
+/* ---------- a map being built: its lanes and points as bars over the points
+   being measured, then the map fades in ---------- */
+.kw-mcanvas.kw-building > .kw-medges, .kw-mcanvas.kw-building > .kw-mnodes, .kw-mcanvas.kw-building > .kw-mchips, .kw-mcanvas.kw-building > .kw-mlanes { opacity: 0; }
+.kw-mcanvas.kw-built > .kw-mnodes, .kw-mcanvas.kw-built > .kw-mlanes { animation: kw-sk-in var(--dur) var(--ease-out); }
+.kw-mbuild { position: absolute; inset: 0; display: flex; justify-content: space-around; padding: var(--u2) var(--u5) 0; pointer-events: none; }
+.kw-mbuild-lane { display: flex; flex-direction: column; gap: var(--map-gap); width: calc(var(--u) * 24); }
+.kw-mbuild-lane > .kw-sk-caption { margin-bottom: calc(var(--map-top) - var(--u2) - var(--map-gap) - var(--u)); }
+.kw-mbuild-pt { display: flex; align-items: center; gap: var(--u); }
+.kw-mbuild-dot { width: var(--tile); height: var(--tile); border-radius: 50%; }
+.kw-mbuild-say { position: absolute; left: var(--u5); right: var(--u5); bottom: var(--u3); pointer-events: none; }
+.kw-mbuild-say .kw-load-status { margin-top: 0; max-width: calc(var(--u) * 40); }
+
+/* ---------- the gate that opened the vault, fading out over the window ---------- */
+.kw-gate-box { display: contents; }
+.kw-gate.kw-gate-ghost { position: fixed; inset: 0; z-index: 59; pointer-events: none; animation: kw-load-out var(--dur) var(--ease-out) forwards; }
+/* re-inserted, its parts would play their entrances again: they stand still */
+.kw-gate.kw-gate-ghost * { animation: none !important; }

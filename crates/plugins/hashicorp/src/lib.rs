@@ -143,6 +143,8 @@ impl Plugin for HashicorpPlugin {
                 Permission::Clipboard,
             ],
             probe: false,
+            declared: false,
+            places: false,
         }
     }
 

@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "keyward",
         "width": 760,
         "height": 600,
@@ -23,7 +24,7 @@
         "center": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 14, "y": 22 },
+        "trafficLightPosition": { "x": 16, "y": 18 },
         "transparent": true
       }
     ],

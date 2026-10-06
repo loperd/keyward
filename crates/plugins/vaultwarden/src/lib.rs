@@ -331,6 +331,8 @@ impl Plugin for VaultwardenPlugin {
             // Its token in the keychain, and the network to reach the panel.
             permissions: vec![Permission::Keychain, Permission::Network],
             probe: true,
+            declared: false,
+            places: false,
         }
     }
 

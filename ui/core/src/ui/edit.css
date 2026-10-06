@@ -1,0 +1,108 @@
+/* An item's document as a form: the page keeps its grid, each value turns
+   into an input standing where the value stood (its text on the value's
+   line), a stored secret keeps its dots. The generator's options float under
+   the password. Tokens only. */
+.kw-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.kw-form fieldset:disabled { opacity: 0.72; }
+
+/* ---------- inputs ---------- */
+.kw-in {
+  height: var(--ctl); width: 100%; min-width: 0; padding: 0 var(--u); border: 0; border-radius: var(--r-ctl);
+  background: var(--field); color: var(--text); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans);
+  box-shadow: inset 0 0 0 1px var(--edge-soft); outline: none;
+  transition: box-shadow var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.kw-in.kw-mono { font-family: var(--mono); }
+.kw-in::placeholder { color: var(--faint); font-family: var(--sans); }
+.kw-in:hover { box-shadow: inset 0 0 0 1px var(--edge); }
+.kw-in:focus, .kw-in:focus-visible { background: var(--field-focus); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 45%, var(--edge)), var(--ring); }
+textarea.kw-in { height: auto; min-height: calc(var(--u) * 12); padding: var(--u); resize: vertical; display: block; }
+/* a secret typed and not shown: masked as it is typed, a textarea too */
+.kw-in.kw-masked { -webkit-text-security: disc; }
+input.kw-in.kw-masked:not(:placeholder-shown) { letter-spacing: 2px; }
+
+/* in place: an input's text stands on the line its value stood on */
+.kw-fe .kw-in { margin-left: calc(var(--u) * -1); width: calc(100% + var(--u)); }
+.kw-in-title {
+  height: var(--u5); font-size: var(--fs-l); line-height: var(--lh-l); font-weight: var(--w-head); letter-spacing: -0.01em;
+  margin: calc((var(--lh-l) - var(--u5)) / 2) 0 calc((var(--lh-l) - var(--u5)) / 2) calc(var(--u) * -1); width: calc(100% + var(--u));
+  background: transparent; box-shadow: inset 0 0 0 1px var(--edge-soft);
+}
+.kw-in-title::placeholder { font-weight: var(--w-text); }
+
+/* ---------- rows ---------- */
+.kw-f.kw-fe { position: relative; }
+.kw-f.kw-fe:hover { background: transparent; }
+.kw-f.kw-fe .kw-fa { opacity: 1; align-items: center; gap: 0; }
+.kw-f.kw-fe.kw-top { align-items: start; padding-top: var(--u); padding-bottom: var(--u); }
+.kw-f.kw-fe.kw-top > .kw-k { line-height: var(--ctl); }
+.kw-fe .kw-v { min-height: var(--ctl); }
+/* a value with no actions of its own reaches the content's edge, as the title does */
+.kw-fe > .kw-in:last-child, .kw-fe > .kw-sel:last-child { grid-column: 2 / 4; }
+.kw-inline { display: flex; align-items: center; gap: var(--u2); min-width: 0; }
+.kw-fe .kw-btn.kw-replace { color: var(--sky); }
+.kw-fe .kw-btn.kw-replace:hover { color: var(--sky); }
+.kw-fe .kw-btn.kw-add { margin-left: calc(var(--u) * -1); color: var(--dim); }
+.kw-fe .kw-btn.kw-on, .kw-gen-at .kw-btn.kw-on { background: var(--press); color: var(--text); }
+.kw-parts { display: flex; align-items: center; gap: var(--u); }
+.kw-fe .kw-parts .kw-in { width: calc(var(--u) * 6); margin-left: 0; text-align: center; }
+.kw-fe .kw-parts .kw-in:first-child { margin-left: calc(var(--u) * -1); }
+.kw-fe .kw-parts .kw-in.kw-year { width: calc(var(--u) * 8); }
+
+/* a select drawn as an input, its chevron turned down */
+span.kw-sel { position: relative; display: block; min-width: 0; }
+.kw-sel select.kw-in { appearance: none; -webkit-appearance: none; padding-right: var(--u4); cursor: default; }
+.kw-sel .kw-sel-ic { position: absolute; right: var(--u); top: 50%; transform: translateY(-50%) rotate(90deg); color: var(--faint); pointer-events: none; }
+
+/* a switch: a pill and a knob, the accent when on */
+.kw-switch {
+  width: calc(var(--u4) + var(--half)); height: calc(var(--u2) + var(--half)); border: 0; border-radius: var(--r-pill); flex: none; position: relative;
+  background: color-mix(in srgb, var(--faint) 45%, var(--edge)); transition: background-color var(--dur) var(--ease-out); justify-self: start;
+}
+.kw-switch::after {
+  content: ""; position: absolute; top: calc(var(--half) / 2); left: calc(var(--half) / 2); width: var(--u2); height: var(--u2); border-radius: 50%;
+  background: var(--on-accent); box-shadow: var(--sh-1); transition: transform var(--dur) var(--ease-out);
+}
+.kw-switch.kw-on { background: var(--blue); }
+.kw-switch.kw-on::after { transform: translateX(var(--u2)); }
+
+/* the kinds of a new item: icons, the chosen one pressed in */
+.kw-kinds { display: flex; gap: var(--half); margin-top: var(--u); }
+.kw-kinds .kw-btn.kw-on { background: var(--press); color: var(--text); box-shadow: inset 0 0 0 1px var(--edge); }
+.kw-form .kw-acts .kw-why { color: var(--faint); padding-left: var(--u); }
+
+/* ---------- the generator's options ---------- */
+.kw-gen-at { position: relative; display: inline-flex; }
+.kw-gen {
+  position: absolute; right: var(--pad); top: calc(100% + var(--u)); width: calc(var(--u) * 44); padding: var(--u2); z-index: 30;
+  background: var(--surface); border-radius: var(--r-panel); box-shadow: var(--sh-pop), inset 0 0 0 1px var(--edge);
+  display: flex; flex-direction: column; gap: var(--u); animation: kw-pop-in var(--dur) var(--ease-out); cursor: default;
+}
+.kw-seg2 { display: grid; grid-template-columns: 1fr 1fr; padding: var(--half); border-radius: var(--r-ctl); background: var(--field); box-shadow: inset 0 0 0 1px var(--edge-soft); margin-bottom: var(--half); }
+.kw-seg2 button { height: var(--chip); border: 0; border-radius: var(--r-in); background: transparent; color: var(--dim); transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.kw-seg2 button:hover { color: var(--text); }
+.kw-seg2 button.kw-on { background: var(--raise); color: var(--text); font-weight: var(--w-name); box-shadow: var(--sh-1); }
+.kw-gen-row { display: grid; grid-template-columns: calc(var(--u) * 11) minmax(0, 1fr) auto; align-items: center; column-gap: var(--u2); min-height: var(--ctl); }
+.kw-gen-row .kw-k { color: var(--dim); }
+.kw-gen-row .kw-in.kw-short { width: var(--ctl); text-align: center; padding: 0; }
+.kw-gen-n { font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); color: var(--text); min-width: var(--u3); text-align: right; font-variant-numeric: tabular-nums; }
+.kw-range { width: 100%; margin: 0; accent-color: var(--blue); height: var(--u2); cursor: default; }
+.kw-chips { display: flex; flex-wrap: wrap; gap: var(--half); grid-column: 2 / 4; }
+.kw-chip {
+  height: var(--chip); padding: 0 var(--u); border: 0; border-radius: var(--r-in); background: transparent; color: var(--dim);
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); box-shadow: inset 0 0 0 1px var(--edge);
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.kw-chip.kw-sans { font-family: var(--sans); }
+.kw-chip:hover { color: var(--text); }
+.kw-chip.kw-on { color: var(--text); background: color-mix(in srgb, var(--sky) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 40%, transparent); }
+.kw-chip:disabled { opacity: 1; cursor: default; }
+.kw-gen-pair { display: flex; align-items: center; gap: var(--u); grid-column: 2 / 4; }
+.kw-gen-foot { display: flex; justify-content: flex-end; margin-top: var(--half); }
+
+/* a generated value fades into its field; each new one again (the field's
+   data-made turns between two names of the same fade) */
+.kw-f[data-made="odd"] .kw-in { animation: kw-made-a var(--dur) var(--ease-out); }
+.kw-f[data-made="even"] .kw-in { animation: kw-made-b var(--dur) var(--ease-out); }
+@keyframes kw-made-a { from { opacity: 0; } }
+@keyframes kw-made-b { from { opacity: 0; } }
