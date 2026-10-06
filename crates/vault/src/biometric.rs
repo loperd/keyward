@@ -242,7 +242,7 @@ mod imp {
         let cipher = Aes256Gcm::new_from_slice(&key[..])
             .map_err(|e| anyhow::anyhow!("the cipher could not be built: {e}"))?;
         let sealed = cipher
-            .encrypt(Nonce::from_slice(&nonce), password.as_bytes())
+            .encrypt(&Nonce::from(nonce), password.as_bytes())
             .map_err(|_| anyhow::anyhow!("the password would not encrypt"))?;
 
         let path = key_path(account);
@@ -290,7 +290,7 @@ mod imp {
         let cipher = Aes256Gcm::new_from_slice(&key[..])
             .map_err(|e| anyhow::anyhow!("the cipher could not be built: {e}"))?;
         let plain = cipher
-            .decrypt(Nonce::from_slice(nonce), body)
+            .decrypt(&Nonce::try_from(nonce).map_err(|_| anyhow::anyhow!("the nonce is not twelve bytes"))?, body)
             .map_err(|_| anyhow::anyhow!("the halves do not match — turn Touch ID on again"))?;
         String::from_utf8(plain).map_err(|_| anyhow::anyhow!("the decrypted password is not text"))
     }
@@ -313,7 +313,7 @@ mod imp {
         match unsafe { context.canEvaluatePolicy_error(LAPolicy::DeviceOwnerAuthenticationWithBiometrics) }
         {
             Ok(()) => None,
-            Err(e) => Some(unsafe { e.localizedDescription() }.to_string()),
+            Err(e) => Some(e.localizedDescription().to_string()),
         }
     }
 
@@ -376,7 +376,7 @@ mod imp {
         let policy = LAPolicy::DeviceOwnerAuthenticationWithBiometrics;
 
         unsafe { context.canEvaluatePolicy_error(policy) }.map_err(|e| {
-            let why = unsafe { e.localizedDescription() }.to_string();
+            let why = e.localizedDescription().to_string();
             note_failure(&why);
             anyhow::anyhow!("{}", keyward_core::text::t("err.touchIdUnavailable", &[("reason", &why)]))
         })?;
@@ -458,7 +458,7 @@ mod imp {
         getrandom::fill(&mut nonce).map_err(|e| anyhow::anyhow!("no randomness: {e}"))?;
         let cipher = Aes256Gcm::new_from_slice(&key[..]).map_err(|e| anyhow::anyhow!("the cipher could not be built: {e}"))?;
         let sealed = cipher
-            .encrypt(Nonce::from_slice(&nonce), value.as_bytes())
+            .encrypt(&Nonce::from(nonce), value.as_bytes())
             .map_err(|_| anyhow::anyhow!("the secret would not encrypt"))?;
         let mut blob = nonce.to_vec();
         blob.extend_from_slice(&sealed);
@@ -500,7 +500,7 @@ mod imp {
         let (nonce, body) = blob.split_at(12);
         let cipher = Aes256Gcm::new_from_slice(&key[..]).map_err(|e| anyhow::anyhow!("the cipher could not be built: {e}"))?;
         let plain = cipher
-            .decrypt(Nonce::from_slice(nonce), body)
+            .decrypt(&Nonce::try_from(nonce).map_err(|_| anyhow::anyhow!("the nonce is not twelve bytes"))?, body)
             // Another vault's key, or a changed one: the secret is someone
             // else's now, and has to be given again.
             .map_err(|_| keyward_core::fault!("err.keychainNotOurs"))?;
