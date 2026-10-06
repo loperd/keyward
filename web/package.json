@@ -1,7 +1,7 @@
 {
   "name": "@keyward/web",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "The web app: a browser client for the one Vaultwarden/Bitwarden server it is deployed in front of. The keys live in the tab, never anywhere else.",
   "scripts": {
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "hash-wasm": "4.12.0",
-    "@keyward/core": "0.1.0",
+    "@keyward/core": "0.2.0",
     "react": "^19",
     "react-dom": "^19"
   },
