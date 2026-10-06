@@ -119,6 +119,7 @@ submission; do not use account data or production screenshots.
    - `ALLOWED` in `crates/passkey-host/src/main.rs`;
    - `EXTENSION_ORIGINS` in `scripts/install.sh`.
    Release the app with it, or the store build finds no bridge to talk to.
+   The store id is `codlckblccbcnadacdnoieimkmdieajg`; both lists carry it.
 4. Submit for review.
 
 ## Changes log

@@ -132,6 +132,7 @@ HOST_NAME="me.loper"
 # checks the same list itself (`ALLOWED` in crates/passkey-host/src/main.rs).
 EXTENSION_ORIGINS=(
   "chrome-extension://cblgcmdaededmmnlihjkalbkhdeegehl/"
+  "chrome-extension://codlckblccbcnadacdnoieimkmdieajg/"
 )
 browser_dirs() {
   local base="$HOME/Library/Application Support"

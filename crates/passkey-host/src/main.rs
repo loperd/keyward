@@ -31,7 +31,13 @@ use serde::Deserialize;
 /// The extensions allowed to start the host. Chrome checks the manifest's
 /// `allowed_origins` itself; this is the second lock on the same door, for a
 /// manifest someone edited.
-const ALLOWED: &[&str] = &["chrome-extension://cblgcmdaededmmnlihjkalbkhdeegehl/"];
+///
+/// The unpacked extension (its id comes from the `key` in its manifest) and
+/// the Chrome Web Store's.
+const ALLOWED: &[&str] = &[
+    "chrome-extension://cblgcmdaededmmnlihjkalbkhdeegehl/",
+    "chrome-extension://codlckblccbcnadacdnoieimkmdieajg/",
+];
 
 /// The largest message taken from the browser. An honest one is well under
 /// two kilobytes; the ceiling stops a runaway length from allocating
