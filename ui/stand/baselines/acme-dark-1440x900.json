@@ -1,0 +1,30 @@
+{
+  "url": "http://localhost:5190/?p=acme",
+  "layout": "OO|insp",
+  "pads": [
+    "kw-doc: 24 40 64 40 ×1",
+    "kw-list: 16 0 24 0 ×2",
+    "kw-mapdoor: 8 8 8 8 ×1",
+    "kw-mt-h: 0 8 8 8 ×1",
+    "kw-mt-r: 0 8 0 8 ×9",
+    "kw-qline: 0 4 0 4 ×1",
+    "kw-ref: 0 8 0 8 ×3",
+    "kw-row: 0 16 0 8 ×1",
+    "kw-row: 0 8 0 8 ×15",
+    "kw-sig: 0 8 0 8 ×6",
+    "kw-strip: 0 16 0 80 ×1"
+  ],
+  "type": [
+    "12px/400 sans ×73  e.g. span \"Хранилище\"",
+    "12px/600 sans ×59  e.g. span.kw-ava \"AM\"",
+    "12px/500 sans ×45  e.g. span \"Acme\"",
+    "12px/400 mono ×11  e.g. kbd.kw-kbd \"⌘K\"",
+    "20px/600 sans ×1  e.g. span.kw-tile.kw-xl.kw-hue-orange \"A\"",
+    "20px/600 sans ls-0.2px ×1  e.g. h1.kw-h1 \"Acme\""
+  ],
+  "findings": {
+    "audit": {},
+    "align": []
+  },
+  "consoleErrors": []
+}

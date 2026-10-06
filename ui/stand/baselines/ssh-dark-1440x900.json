@@ -1,0 +1,29 @@
+{
+  "url": "http://localhost:5190/?p=ssh",
+  "layout": "sOO|insp",
+  "pads": [
+    "kw-doc: 24 40 64 40 ×1",
+    "kw-f: 0 8 0 8 ×4",
+    "kw-list: 16 0 24 0 ×2",
+    "kw-qline: 0 4 0 4 ×1",
+    "kw-ref: 0 8 0 8 ×1",
+    "kw-row: 0 16 0 8 ×3",
+    "kw-row: 0 8 0 8 ×17",
+    "kw-sig: 0 8 0 8 ×3",
+    "kw-spine: 16 0 16 0 ×1",
+    "kw-strip: 0 16 0 80 ×1"
+  ],
+  "type": [
+    "12px/400 sans ×37  e.g. span \"Хранилище\"",
+    "12px/500 sans ×27  e.g. span \"db-1.prod.demo.example\"",
+    "12px/600 sans ×27  e.g. span.kw-ava \"AM\"",
+    "12px/400 mono ×11  e.g. kbd.kw-kbd \"⌘K\"",
+    "12px/500 mono ×6  e.g. span.kw-t.kw-mono \"git\"",
+    "20px/400 mono ×1  e.g. h1.kw-h1.kw-mono \"db-1.prod.demo.example\""
+  ],
+  "findings": {
+    "audit": {},
+    "align": []
+  },
+  "consoleErrors": []
+}
