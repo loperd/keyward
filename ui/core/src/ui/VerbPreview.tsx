@@ -3,11 +3,12 @@
 // (verbs/core.ts or a plugin's); this only draws it and runs its effect.
 import { isKey, t, text, type Text } from "../i18n";
 import { previewOf } from "../verbs/core";
-import { type DeltaSide, type Effect, type Line, PreviewKind } from "../verbs/spec";
+import { type DeltaSide, type Effect, type Line, PreviewKind, type SecretAsk } from "../verbs/spec";
 import { Icon } from "./Icons";
 import { VerbForm } from "./VerbForm";
 import { BtnIcon, Glyph, Kbd, Mark, Tile, nodeLead, useCore } from "./marks";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Ref } from "react";
+import { SecretForm, type SecretFormHandle } from "./SecretForm";
 import { useMemberFingerprint, type ShownFingerprint, FingerprintPhase } from "./writes-context";
 import { Phase } from "./feedback";
 import { Level } from "../model/types";
@@ -115,7 +116,7 @@ function Target({ id }: { id: string }) {
   );
 }
 
-export function VerbPreview({ run, onRun }: { run: RunState; onRun: (e: Effect) => void }) {
+export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: (e: Effect) => void; secretForm: Ref<SecretFormHandle> }) {
   const { dir, query, store } = useCore();
   const st = store.get().state;
   const verb = st.verb!;
@@ -125,6 +126,8 @@ export function VerbPreview({ run, onRun }: { run: RunState; onRun: (e: Effect) 
   const close = () => store.verb(null);
   // A refusal nudges the button it came from, once per refusal.
   const [shake, setShake] = useState(false);
+  // Whether every secret field holds something: ↵ waits for it.
+  const [typed, setTyped] = useState(false);
   useEffect(() => {
     if (run.phase === RunPhase.Failed) setShake(true);
   }, [run]);
@@ -178,6 +181,7 @@ export function VerbPreview({ run, onRun }: { run: RunState; onRun: (e: Effect) 
       <p className="kw-lede">{say(p.lede)}</p>
       {p.fingerprint && <Fingerprint shown={print} compare={p.fingerprint.compare} />}
       {p.form && <VerbForm form={p.form} onEnter={() => !p.blocked && !held && run.phase !== RunPhase.Running && onRun(p.effect)} />}
+      {p.secrets && run.phase !== RunPhase.Done && <SecretForm ref={secretForm} asks={p.secrets} onFilled={setTyped} onEnter={() => !p.blocked && typed && run.phase !== RunPhase.Running && onRun(p.effect)} />}
       {!p.form && steps}
       {p.now && (
         <Section title={t("ui.now")}>
@@ -221,7 +225,7 @@ export function VerbPreview({ run, onRun }: { run: RunState; onRun: (e: Effect) 
           <button
             type="button"
             className={`kw-btn kw-solid${p.danger ? " kw-danger" : ""}${shake ? " kw-shake" : ""}`}
-            disabled={run.phase === RunPhase.Running || !!p.blocked || !!held}
+            disabled={run.phase === RunPhase.Running || !!p.blocked || !!held || (!!p.secrets && !typed)}
             aria-busy={run.phase === RunPhase.Running || undefined}
             onClick={() => onRun(p.effect)}
             onAnimationEnd={(e) => {
@@ -262,9 +266,9 @@ export function VerbPreview({ run, onRun }: { run: RunState; onRun: (e: Effect) 
 
 /// The effect a line's verb would run, if it is ready to: what ↵ does, and
 /// the preview's title, to say it was done once the sheet has moved on.
-export function readyEffect(core: ReturnType<typeof useCore>): { effect: Effect; title: Text } | null {
+export function readyEffect(core: ReturnType<typeof useCore>): { effect: Effect; title: Text; secrets: SecretAsk[] | null } | null {
   const st = core.store.get().state;
   if (st.verb === null) return null;
   const p = previewOf(core.dir, core.query.verbs, st.verb, st.segs.length ? core.store.object() : null, st.arg);
-  return p.kind === PreviewKind.Ready && !p.blocked ? { effect: p.effect, title: p.title } : null;
+  return p.kind === PreviewKind.Ready && !p.blocked ? { effect: p.effect, title: p.title, secrets: p.secrets ?? null } : null;
 }

@@ -57,3 +57,7 @@ export type AppSettings = {
 };
 
 export type SettingsPatch = Partial<AppSettings>;
+
+/// How the account opens on this computer besides the master password.
+/// `biometricProblem`: why Touch ID cannot be used here, if it cannot.
+export type UnlockState = { biometric: boolean; biometricProblem: string | null; pin: boolean };

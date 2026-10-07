@@ -39,8 +39,9 @@ import { Toasts, ToastKind } from "./toasts";
 import { Toaster } from "./Toaster";
 import { LoadPhase, Loading } from "./Loading";
 import { SettingsContext, type SettingsHold } from "./settings-context";
-import { SettingsPage } from "../settings/pages";
-import type { AppSettings, SettingsPatch } from "../settings/types";
+import { SettingsPage, SETTINGS_ID } from "../settings/pages";
+import type { AppSettings, SettingsPatch, UnlockState } from "../settings/types";
+import { ACCOUNT_VERBS } from "../verbs/account";
 import { applyLook } from "../settings/apply";
 
 export type AppProps = {
@@ -130,7 +131,14 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     },
     [calls],
   );
-  const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings }), [settings, settingsFailed, patchSettings]);
+  // How the account opens here besides the master password: read once the
+  // vault is open, and again after each change of it.
+  const [unlock, setUnlock] = useState<UnlockState | null>(null);
+  const readUnlock = useCallback(() => {
+    if (!backend.unlockState) return;
+    backend.unlockState().then(setUnlock, report);
+  }, [backend, report]);
+  const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings, unlock }), [settings, settingsFailed, patchSettings, unlock]);
   const pages = useMemo(() => (backend.settings ? [SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), SettingsPage.App] : []), [backend]);
 
   // A person's places: read when the vault opens, dropped when it closes.
@@ -171,6 +179,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       setMine(opened.places);
     }
     setClosed(null);
+    if (!up.current) readUnlock();
     up.current = true;
     setLoaded({ session, catalog, contributions, at: Date.now() });
     setVersion((v) => v + 1);
@@ -181,7 +190,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       for (const [id, del] of o) if (catalog.items.find((i) => i.id === id)?.deleted === del) next.delete(id);
       return next.size === o.size ? o : next;
     });
-  }, [backend, hold]);
+  }, [backend, hold, readUnlock]);
   const boot = useCallback(() => {
     load().catch((e: unknown) => setFailure(e instanceof Error ? e.message : String(e)));
   }, [load]);
@@ -203,7 +212,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     const catalog: Catalog = overlay.size ? { ...loaded.catalog, items: loaded.catalog.items.map((i) => (overlay.has(i.id) ? { ...i, deleted: overlay.get(i.id)! } : i)) } : loaded.catalog;
     return new Directory(catalog, loaded.contributions, { places, settings: pages });
   }, [loaded, overlay, places, hold, pages]);
-  const query = useMemo(() => (dir && loaded ? new Query(dir, [...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS), ...loaded.contributions.flatMap((c) => c.verbs ?? [])]) : null), [dir, loaded, writes]);
+  const query = useMemo(() => (dir && loaded ? new Query(dir, [...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS), ...(backend.account && dir.has(SETTINGS_ID) ? ACCOUNT_VERBS : []), ...loaded.contributions.flatMap((c) => c.verbs ?? [])]) : null), [dir, loaded, writes, backend]);
 
   // The path lives in the hold, and goes with the session. A new graph is
   // read before anything draws from it: a step that vanished must drop out
@@ -237,6 +246,13 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
         await calls.sync();
         return true;
       }
+      if ("account" in e) {
+        if (!calls.account) throw new Error("this app cannot change how the account opens");
+        if (!e.account.secrets) throw new Error("an account's change ran without what was typed for it");
+        await calls.account(e.account.op, e.account.secrets);
+        readUnlock();
+        return true;
+      }
       if ("trash" in e || "restore" in e) {
         const ids = "trash" in e ? e.trash : e.restore;
         const del = "trash" in e;
@@ -260,7 +276,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       }
       return false;
     },
-    [calls, store, report, hold, toasts],
+    [calls, store, report, hold, toasts, readUnlock],
   );
 
   const savePlace = useCallback(() => {

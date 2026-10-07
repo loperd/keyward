@@ -7,7 +7,8 @@ import type { Catalog, ItemDetail, SecretRef, Totp } from "./model/types";
 import type { Contribution } from "./path/directory";
 import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
-import type { AppSettings, SettingsPatch } from "./settings/types";
+import type { AppSettings, SettingsPatch, UnlockState } from "./settings/types";
+import type { AccountOp } from "./verbs/spec";
 
 /// What a session is doing: the state of the app's session, and of each of
 /// its accounts.
@@ -179,6 +180,13 @@ export interface Backend {
   settings?(): Promise<AppSettings>;
   /// Changes some of them and answers with all of them as they now stand.
   setSettings?(patch: SettingsPatch): Promise<AppSettings>;
+
+  /// How the account opens here besides the master password; present where
+  /// it can open otherwise (`unlockBiometric`, `unlockPin`).
+  unlockState?(): Promise<UnlockState>;
+  /// Changes that: `secrets` are what the person typed for it (the master
+  /// password, the PIN), by the preview's field ids, for this one call.
+  account?(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void>;
 
   /// The desktop app's choice of window, while the old one and this one live
   /// side by side: saves it and reloads the window into that page. Absent

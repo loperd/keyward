@@ -36,7 +36,7 @@ const rows = (title: Key, keys: SettingKey[]): Section => ({ title: { key: title
 
 const SECTIONS: Record<SettingsPage, Section[]> = {
   [SettingsPage.Security]: [rows("set.sec.timeout", [SettingKey.LockTimeout, SettingKey.LockAction]), rows("set.sec.clipboard", [SettingKey.Clipboard])],
-  [SettingsPage.Unlock]: [rows("set.sec.touchId", [SettingKey.TouchIdOnLaunch, SettingKey.TouchIdForSecrets, SettingKey.Grace])],
+  [SettingsPage.Unlock]: [rows("set.sec.touchId", [SettingKey.Biometric, SettingKey.TouchIdOnLaunch, SettingKey.TouchIdForSecrets, SettingKey.Grace]), rows("set.sec.pin", [SettingKey.Pin])],
   [SettingsPage.App]: [
     rows("set.sec.window", [SettingKey.HideOnCopy, SettingKey.KeepInDock, SettingKey.KeepInTray, SettingKey.StartOnLogin, SettingKey.ScreenCapture]),
     rows("set.sec.look", [SettingKey.Theme, SettingKey.Language, SettingKey.Icons]),

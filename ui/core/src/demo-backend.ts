@@ -4,7 +4,8 @@
 // like a real password. It also brings what a plugin would: SSH hosts, keys
 // and a topology, and Kubernetes clusters, as nodes of the graph with pages in
 // the core's vocabulary and words of their own.
-import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice } from "./settings/types";
+import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState } from "./settings/types";
+import { AccountOp } from "./verbs/spec";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
 import { registerWords, t, type Text, type Words, Lang } from "./i18n";
@@ -572,7 +573,7 @@ export class DemoBackend implements Backend {
   ];
   private adding = false;
   private pending: LoginStepKind.TwoFactor | LoginStepKind.NewDevice | null = null;
-  private readonly opts: DemoOptions;
+  private opts: DemoOptions;
   /// What the gate sent, for the tests: never a password.
   readonly calls: string[] = [];
   /// Whether the members are in (at once, unless the demo is slow).
@@ -680,6 +681,30 @@ export class DemoBackend implements Backend {
     }
     this.appSettings = { ...this.appSettings, ...structuredClone(patch) };
     return structuredClone(this.appSettings);
+  }
+
+  /// Touch ID remembered and a PIN set, as the demo's account stands; the
+  /// stand's `?pin=1` sets one at the start.
+  private unlocks: UnlockState = { biometric: false, biometricProblem: null, pin: false };
+  async unlockState(): Promise<UnlockState> {
+    await this.wait();
+    return { ...this.unlocks, pin: this.unlocks.pin || !!this.opts.pin };
+  }
+  async account(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void> {
+    if (this.failNext) {
+      const why = this.failNext;
+      this.failNext = null;
+      throw new Error(why);
+    }
+    if ((op === AccountOp.RememberBiometric || op === AccountOp.SetPin) && secrets.password === DEMO_WRONG) throw new Error("err.badPassword");
+    this.calls.push(`account:${op}`);
+    if (op === AccountOp.RememberBiometric) this.unlocks = { ...this.unlocks, biometric: true };
+    if (op === AccountOp.ForgetBiometric) this.unlocks = { ...this.unlocks, biometric: false };
+    if (op === AccountOp.SetPin) this.unlocks = { ...this.unlocks, pin: true };
+    if (op === AccountOp.ClearPin) {
+      this.unlocks = { ...this.unlocks, pin: false };
+      this.opts = { ...this.opts, pin: false };
+    }
   }
 
   async lock(): Promise<void> {

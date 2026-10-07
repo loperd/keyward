@@ -1,6 +1,8 @@
 // The top sheet: the answer takes the shape of the question — a verb is a
 // preview, a map is a map, a flat filter is a calm list, one object is its
 // document. An item's document waits for the opened item from the backend.
+import type { Ref } from "react";
+import type { SecretFormHandle } from "./SecretForm";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ItemDetail } from "../model/types";
 import { buildDoc } from "../doc/build";
@@ -46,10 +48,13 @@ export function Inspector({
   mapHover,
   onMapHover,
   version,
+  secretForm,
 }: {
   answer: Answer;
   run: RunState;
   onRun: (e: Effect) => void;
+  /// Where a preview's secret fields are read at ↵.
+  secretForm: Ref<SecretFormHandle>;
   lsel: number;
   mapHover: string | null;
   onMapHover: (id: string | null) => void;
@@ -109,7 +114,7 @@ export function Inspector({
   else if (editing) body = detail ? <EditDocument nodeId={docId!} detail={detail} /> : <DocSkeleton rows={4} />;
   else if (answer.kind === AnswerKind.Verb) {
     cls += " kw-act";
-    body = <VerbPreview run={run} onRun={onRun} />;
+    body = <VerbPreview run={run} onRun={onRun} secretForm={secretForm} />;
   } else if (answer.kind === AnswerKind.List) {
     cls += " kw-flat";
     body = <CalmList column={answer.column as Extract<Column, { type: ColumnType.Results }>} lsel={lsel} />;

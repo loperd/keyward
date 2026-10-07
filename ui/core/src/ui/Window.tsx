@@ -2,6 +2,8 @@
 // walk the columns, typing anywhere goes to the line, ⌘K opens it, ⌘[ ⌘] walk
 // the history, Space looks quickly, Esc steps back out of a preview, a map or
 // a look.
+import type { SecretFormHandle } from "./SecretForm";
+import { secretsProblem, withSecrets } from "../verbs/account";
 import { SETTINGS_ID } from "../settings/pages";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { answerOf, columns, fold, type Column, AnswerKind, ColumnType } from "../path/query";
@@ -92,11 +94,25 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
   const focus = Math.min(snap.focus, Math.max(0, n - 1));
   const obj = store.object();
 
+  const secretForm = useRef<SecretFormHandle>(null);
   const confirm = useCallback((): boolean => {
     const ready = readyEffect(core);
     if (!ready || runState.phase === RunPhase.Running || runState.phase === RunPhase.Done) return false;
-    const e = ready.effect;
+    let e = ready.effect;
     const at = snap.line;
+    // A verb with secret fields takes what was typed now, and only now: the
+    // fields are emptied as they are read, and a mistake is said, not sent.
+    if (ready.secrets) {
+      const form = secretForm.current;
+      if (!form) return false;
+      const typed = form.take();
+      const problem = secretsProblem(ready.secrets, typed);
+      if (problem) {
+        setRun({ line: at, state: { phase: RunPhase.Failed, reason: t(problem) } });
+        return true;
+      }
+      e = withSecrets(e, typed);
+    }
     setRun({ line: at, state: { phase: RunPhase.Running } });
     (writes?.perform(e) ?? perform(e)).then(
       (changed) => {
@@ -239,7 +255,7 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
       <main className="kw-stage" ref={stage}>
         <ActivityBar activity={core.activity} />
         <Columns cols={cols as Column[]} open={open} widths={W} focus={focus} lit={mapHover} onHover={onRowHover} />
-        <Inspector answer={answer} run={runState} onRun={() => confirm()} lsel={lsel} mapHover={mapHover} onMapHover={onMapHover} version={version} />
+        <Inspector answer={answer} run={runState} onRun={() => confirm()} lsel={lsel} mapHover={mapHover} onMapHover={onMapHover} version={version} secretForm={secretForm} />
         {lens && obj && <QuickLook id={obj} left={used} onClose={() => setLens(false)} />}
       </main>
     </div>

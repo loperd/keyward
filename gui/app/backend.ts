@@ -39,6 +39,8 @@ import {
   parseLockAction,
   parseLockTimeoutKind,
   parseThemeChoice,
+  type UnlockState,
+  AccountOp,
 } from "@keyward/core";
 import type { PluginCall } from "@keyward/core";
 import { invokeSecret } from "./seal";
@@ -125,6 +127,17 @@ function withPatch(w: DaemonSettings, p: SettingsPatch): DaemonSettings {
   if (p.accentColor !== undefined) out.accent_color = p.accentColor;
   if (p.language !== undefined) out.language = p.language;
   return out;
+}
+
+/// What the window says about the sensor (`biometric_state`).
+type DaemonBiometric = { available: boolean; problem: string | null; last_failure: string | null };
+
+/// boundary: a typed secret the preview promised; a missing one stops the
+/// call rather than sending an empty value.
+function typed(secrets: Readonly<Record<string, string>>, id: string): string {
+  const v = secrets[id];
+  if (v === undefined || v === "") throw new Error(`the preview's field "${id}" was not filled in`);
+  return v;
 }
 
 /// Bitwarden's provider numbers, as the daemon speaks them.
@@ -574,6 +587,30 @@ export class DaemonBackend implements Backend {
     const saved = await invoke<DaemonSettings>("set_settings", { settings: withPatch(now, patch) });
     await invoke("apply_window_prefs");
     return settingsOf(saved);
+  }
+
+  async unlockState(): Promise<UnlockState> {
+    const [st, bio] = await Promise.all([invoke<Status>("daemon_status"), invoke<DaemonBiometric>("biometric_state")]);
+    if (typeof st.biometric !== "boolean" || typeof st.pin !== "boolean" || typeof bio.available !== "boolean") throw new Error("the daemon's word on Touch ID and the PIN does not read");
+    return { biometric: st.biometric, pin: st.pin, biometricProblem: bio.available ? null : (bio.problem ?? "unavailable") };
+  }
+
+  /// The master password and the PIN go to the daemon for this one call.
+  async account(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void> {
+    switch (op) {
+      case AccountOp.RememberBiometric:
+        await invoke("biometric_remember", { password: typed(secrets, "password") });
+        return;
+      case AccountOp.ForgetBiometric:
+        await invoke("biometric_forget");
+        return;
+      case AccountOp.SetPin:
+        await invoke("pin_set", { pin: typed(secrets, "pin"), masterPassword: typed(secrets, "password") });
+        return;
+      case AccountOp.ClearPin:
+        await invoke("pin_clear");
+        return;
+    }
   }
 
   /// Saved in the settings; the window reloads into the other page.

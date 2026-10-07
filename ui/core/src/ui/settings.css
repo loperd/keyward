@@ -15,3 +15,7 @@
 .kw-set .kw-switch { justify-self: end; }
 .kw-set[aria-busy="true"] .kw-switch, .kw-set[aria-busy="true"] .kw-chip { opacity: 0.6; }
 .kw-set-wait b { color: var(--dim); }
+/* a way to open the vault: its state as a word, then the buttons that change it */
+.kw-set-acts { display: flex; align-items: center; gap: var(--u); justify-self: end; }
+.kw-set-state { color: var(--faint); font-size: var(--fs-s); line-height: var(--lh-s); padding-right: var(--half); }
+.kw-set-state.kw-on { color: var(--mint); }

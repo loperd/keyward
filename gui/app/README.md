@@ -60,7 +60,7 @@ removed once every blocker below is in the new one. Tick a line when it is in
       2FA (authenticator QR, email, recovery code, turn off)
       (old: Settings.tsx:579-993).
 - [ ] **Export** of the vault, CSV and JSON (old: Settings.tsx:1146).
-- [ ] **Touch ID:** turn on and off, on launch, for secrets, grace time; **PIN:**
+- [x] **Touch ID:** turn on and off, on launch, for secrets, grace time; **PIN:**
       set and clear (old: Settings.tsx:1320-1476).
 - [ ] **Browser extensions:** list, pair, unpair, and the pairing prompt that
       polls `extensions` (old: `src/screens/Extensions.tsx`, `src/PairPrompt.tsx`).
@@ -68,12 +68,13 @@ removed once every blocker below is in the new one. Tick a line when it is in
       Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).
 - [ ] **Plugin management:** catalogue, install from file, enable, remove,
       trust, sources (old: `src/plugins/Plugins.tsx`).
-- [ ] **Plugin screens through the declarative protocol only** (no plugin
-      TS/CSS in the window): the core renderer in `ui/core` learns pages,
-      drawers, dialogs and the terminal (`pluginAct` go/drawer/dialog now
-      throw, `app/contributions.ts:84-87`); ssh, hashicorp and vaultwarden move
-      from `crates/plugins/*/ui` to Rust pages like kube; their settings
-      sections too.
+- [ ] **Plugin screens in `ui/core`, declarative only** (no plugin TS/CSS in
+      the window): the core renderer learns pages, drawers, dialogs and the
+      terminal (`pluginAct` go/drawer/dialog now throw,
+      `app/contributions.ts:84-87`).
+- [ ] **Plugins moved to Rust pages:** ssh, hashicorp and vaultwarden go from
+      `crates/plugins/*/ui` to pages declared in Rust, like kube; their
+      settings sections too.
 
 ### Phase 2 — important
 - [ ] Account profile (name, avatar colour, fingerprint); devices,

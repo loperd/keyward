@@ -10,7 +10,16 @@ import { createRoot, type Root } from "react-dom/client";
 import { App } from "../ui/App";
 import { DemoBackend, DEMO_SETTINGS } from "../demo-backend";
 import { DEMO } from "../demo";
-import { allTexts, Lang, setLang, currentLang } from "../i18n";
+import { allTexts, Lang, setLang, currentLang, text } from "../i18n";
+import { PIN_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb } from "../verbs/account";
+import { SecretAskKind, PreviewKind } from "../verbs/spec";
+import type { UnlockState } from "./types";
+
+const UNLOCKS: UnlockState[] = [
+  { biometric: false, biometricProblem: null, pin: false },
+  { biometric: true, biometricProblem: null, pin: true },
+  { biometric: false, biometricProblem: "no sensor", pin: false },
+];
 import { Directory, NodeKind } from "../path/directory";
 import { ROWS, RowKind, SettingKey } from "./rows";
 import { pageDoc, pageId, SETTINGS_ID, SettingsPage } from "./pages";
@@ -35,7 +44,12 @@ describe("the settings' rows", () => {
     for (const key of Object.values(SettingKey)) {
       const row = ROWS[key];
       expect(allTexts(row.title).every((w) => w.length > 0)).toBe(true);
-      if (row.hint) expect(allTexts(row.hint(DEMO_SETTINGS)).every((w) => w.length > 0)).toBe(true);
+      if (row.kind === RowKind.Method) {
+        for (const u of UNLOCKS) {
+          expect(text(row.hint(u)).length).toBeGreaterThan(0);
+          for (const v of row.verbs(u)) expect(allTexts(v.label).every((w) => w.length > 0)).toBe(true);
+        }
+      } else if (row.hint) expect(allTexts(row.hint(DEMO_SETTINGS)).every((w) => w.length > 0)).toBe(true);
     }
   });
 
@@ -160,5 +174,98 @@ describe("a settings page", () => {
     expect((await b.settings()).hideOnCopy).toBe(false);
     expect(switchOf("Сворачивать при копировании")?.getAttribute("aria-checked")).toBe("false");
     expect(document.body.textContent).toContain("Настройка не сохранилась: the daemon is away");
+  });
+});
+
+describe("what is typed for an account's change", () => {
+  const pin = ACCOUNT_VERBS.find((v) => v.id === AccountVerb.Pin)!;
+  const asks = (() => {
+    const p = pin.preview!(new Directory(DEMO, [], { settings: [SettingsPage.Unlock] }), pageId(SettingsPage.Unlock), "");
+    if (p.kind !== PreviewKind.Ready || !p.secrets) throw new Error("the PIN's preview asks for nothing");
+    return p.secrets;
+  })();
+
+  it("asks for the PIN twice and the master password, never through the line", () => {
+    expect(asks.map((a) => a.kind)).toEqual([SecretAskKind.Pin, SecretAskKind.Pin, SecretAskKind.Password]);
+  });
+
+  it("is refused when empty, short or not repeated", () => {
+    expect(secretsProblem(asks, { pin: "1234", again: "1234", password: "" })).toBe("verb.acct.empty");
+    expect(secretsProblem(asks, { pin: "1".repeat(PIN_MIN - 1), again: "1".repeat(PIN_MIN - 1), password: "p" })).toBe("verb.acct.pinShort");
+    expect(secretsProblem(asks, { pin: "1234", again: "1235", password: "p" })).toBe("verb.acct.pinMismatch");
+    expect(secretsProblem(asks, { pin: "1234", again: "1234", password: "p" })).toBeNull();
+  });
+});
+
+describe("the unlocking page", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+    setLang(Lang.Ru);
+  });
+
+  const go = () => host.querySelector<HTMLButtonElement>("button[data-confirm]");
+  const type = (label: string, value: string) => {
+    const el = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
+    if (!el) throw new Error(`no field "${label}"`);
+    el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  const pinRow = () => [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Открывать по PIN"));
+
+  async function openPin(b: DemoBackend, lines: string[]) {
+    act(() => root.render(<App backend={b} line="settings › settings-unlock" onLine={(l) => lines.push(l)} autoBiometric={false} />));
+    await flush();
+    await flush();
+    expect(pinRow()?.textContent).toContain("Выключено");
+    const on = [...pinRow()!.querySelectorAll("button")].find((x) => x.textContent?.includes("Включить"))!;
+    await act(async () => on.click());
+    await flush();
+  }
+
+  it("sets a PIN through its preview, sends it once and keeps it nowhere", async () => {
+    const b = new DemoBackend();
+    const lines: string[] = [];
+    await openPin(b, lines);
+    expect(go()?.disabled).toBe(true);
+    await act(async () => {
+      type("PIN", "4821");
+      type("PIN ещё раз", "4821");
+      type("Мастер-пароль", "correct horse");
+    });
+    expect(go()?.disabled).toBe(false);
+    await act(async () => go()!.click());
+    await flush();
+    await flush();
+    expect(b.calls).toContain("account:setPin");
+    expect(lines.join("\n")).not.toMatch(/4821|correct horse/);
+    expect(location.href).not.toMatch(/4821|correct/);
+    for (const el of host.querySelectorAll("input")) expect(el.value).toBe("");
+    expect(host.innerHTML).not.toMatch(/4821|correct horse/);
+    expect((await b.unlockState()).pin).toBe(true);
+  });
+
+  it("says a PIN typed differently the second time, and sends nothing", async () => {
+    const b = new DemoBackend();
+    await openPin(b, []);
+    await act(async () => {
+      type("PIN", "4821");
+      type("PIN ещё раз", "4822");
+      type("Мастер-пароль", "correct horse");
+    });
+    await act(async () => go()!.click());
+    await flush();
+    expect(b.calls).not.toContain("account:setPin");
+    expect(host.textContent).toContain("PIN не совпадают");
+    for (const el of host.querySelectorAll("input")) expect(el.value).toBe("");
   });
 });

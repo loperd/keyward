@@ -3,7 +3,8 @@
 // choices; what it changes is saved at once. Pure: the page names a row by its
 // key, the window draws it against the settings it holds.
 import type { Key, Text } from "../i18n";
-import { type AppSettings, LanguageChoice, LockAction, type LockTimeout, LockTimeoutKind, type SettingsPatch, ThemeChoice } from "./types";
+import { type AppSettings, LanguageChoice, LockAction, type LockTimeout, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState } from "./types";
+import { AccountVerb } from "../verbs/account-ids";
 
 export enum SettingKey {
   LockTimeout = "lockTimeout",
@@ -20,18 +21,27 @@ export enum SettingKey {
   ScreenCapture = "screenCapture",
   Theme = "theme",
   Language = "language",
+  Biometric = "biometric",
+  Pin = "pin",
 }
 
 export enum RowKind {
   Toggle = "toggle",
   Choice = "choice",
+  /// A way to open the vault: whether it is on, and the verbs that turn it
+  /// on, change or off.
+  Method = "method",
 }
 
 export type SettingChoice = { label: Text; on: boolean; patch: SettingsPatch };
 
 export type SettingRow =
   | { kind: RowKind.Toggle; title: Key; hint?: (s: AppSettings) => Key; on: (s: AppSettings) => boolean; patch: (on: boolean) => SettingsPatch }
-  | { kind: RowKind.Choice; title: Key; hint?: (s: AppSettings) => Key; choices: (s: AppSettings) => SettingChoice[] };
+  | { kind: RowKind.Choice; title: Key; hint?: (s: AppSettings) => Key; choices: (s: AppSettings) => SettingChoice[] }
+  | { kind: RowKind.Method; title: Key; hint: (u: UnlockState) => Text; on: (u: UnlockState) => boolean; available: (u: UnlockState) => boolean; verbs: (u: UnlockState) => MethodVerb[] };
+
+/// A button of a method's row: the verb it opens.
+export type MethodVerb = { label: Key; icon: string; verb: AccountVerb; quiet?: boolean };
 
 const k = (key: Key, args?: Record<string, number>): Text => (args ? { key, args } : { key });
 
@@ -114,6 +124,30 @@ export const ROWS: Record<SettingKey, SettingRow> = {
     title: "set.theme",
     choices: (s) =>
       [ThemeChoice.System, ThemeChoice.Dark, ThemeChoice.Light].map((v) => ({ label: k(`set.theme.${v}`), on: s.theme === v, patch: { theme: v } })),
+  },
+  [SettingKey.Biometric]: {
+    kind: RowKind.Method,
+    title: "set.biometric",
+    hint: (u) => (u.biometricProblem !== null && !u.biometric ? { key: "set.biometric.unavailable", args: { reason: u.biometricProblem } } : k(u.biometric ? "set.biometric.on" : "set.biometric.off")),
+    on: (u) => u.biometric,
+    // A sensor that cannot be used is no reason to keep a key that was
+    // remembered behind it: turning it off is always offered.
+    available: (u) => u.biometric || u.biometricProblem === null,
+    verbs: (u) => (u.biometric ? [{ label: "set.turnOff", icon: "finger", verb: AccountVerb.TouchIdOff, quiet: true }] : [{ label: "set.turnOn", icon: "finger", verb: AccountVerb.TouchIdOn }]),
+  },
+  [SettingKey.Pin]: {
+    kind: RowKind.Method,
+    title: "set.pin",
+    hint: (u) => k(u.pin ? "set.pin.on" : "set.pin.off"),
+    on: (u) => u.pin,
+    available: () => true,
+    verbs: (u) =>
+      u.pin
+        ? [
+            { label: "set.change", icon: "hash", verb: AccountVerb.Pin, quiet: true },
+            { label: "set.turnOff", icon: "hash", verb: AccountVerb.PinOff, quiet: true },
+          ]
+        : [{ label: "set.turnOn", icon: "hash", verb: AccountVerb.Pin }],
   },
   [SettingKey.Language]: {
     kind: RowKind.Choice,

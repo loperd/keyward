@@ -12,7 +12,29 @@ export type Line = { level: Level; title: Text; sub?: Text };
 
 /// What ↵ asks of the backend. `none` is a verb the backend cannot do yet:
 /// the preview still shows, and the window says that nothing was changed.
-export type Effect = { copy: SecretRef } | { lock: true } | { trash: string[] } | { restore: string[] } | { sync: true } | { org: OrgWrite } | { folder: FolderWrite } | { plugin: PluginCall } | { none: true };
+export type Effect = { copy: SecretRef } | { lock: true } | { trash: string[] } | { restore: string[] } | { sync: true } | { org: OrgWrite } | { folder: FolderWrite } | { plugin: PluginCall } | { account: AccountWrite } | { none: true };
+
+/// A change to how this account opens on this computer.
+export enum AccountOp {
+  RememberBiometric = "rememberBiometric",
+  ForgetBiometric = "forgetBiometric",
+  SetPin = "setPin",
+  ClearPin = "clearPin",
+}
+/// `secrets`: what the person typed into the preview's secret fields, by the
+/// field's id — `null` in the preview, put in by the window at ↵ from fields
+/// that are emptied as they are read (`withSecrets`). Never kept anywhere.
+export type AccountWrite = { op: AccountOp; secrets: Readonly<Record<string, string>> | null };
+
+/// What a secret field of a preview is for: a field the line never carries
+/// (a master password, a PIN), typed into the sheet and read once at ↵.
+export enum SecretAskKind {
+  Password = "password",
+  NewPassword = "newPassword",
+  Pin = "pin",
+}
+/// `same`: the id of the field it must repeat; `min`: its shortest length.
+export type SecretAsk = { id: string; label: Text; kind: SecretAskKind; same?: string; min?: number };
 
 /// One of a plugin's actions, asked of the backend as the plugin declared it:
 /// the core does not read into `op` or `payload`.
@@ -89,6 +111,8 @@ export type Preview =
       blocked?: Text;
       /// It takes something away: the button says so in its colour.
       danger?: boolean;
+      /// Secret fields typed into the sheet, read at ↵ and never kept.
+      secrets?: SecretAsk[];
       /// A member whose fingerprint phrase the window fetches and shows
       /// before ↵ may run; `compare` tells the person what to do with it.
       fingerprint?: { orgId: string; memberId: string; compare: Text };
