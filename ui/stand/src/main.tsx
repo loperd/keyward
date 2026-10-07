@@ -21,6 +21,10 @@ const PRESETS: Record<string, string> = {
   "map-aws": "personal › work › aws-production map:aws-production",
   "map-acme": "acme › acme-access",
   "map-ssh": "ssh › topology",
+  // A cluster whose page opens a plugin's declared screen (its Open).
+  kube: "kubernetes › prod-eu-1",
+  plugins: "settings › settings-plugins",
+  consent: "settings › settings-plugins › plugin-notes-sync > enable",
   typing: "acme",
 };
 
