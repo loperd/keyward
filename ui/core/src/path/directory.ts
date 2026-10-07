@@ -3,8 +3,8 @@
 // item, a member, and what plugins add (hosts, clusters). Built from the
 // catalogue each time it changes; pure, no React, no backend.
 import { text, textsOf, type Key, type Text, type Words } from "../i18n";
-import { signals, worst, type Signal } from "../model/signals";
-import { itemState, itemStateOf, memberState, type ExtraSignal } from "../model/reasons";
+import { worst, type Signal } from "../model/signals";
+import { duplicatesOf, itemState, itemStateOf, memberState, settledSignals, type ExtraSignal } from "../model/reasons";
 import { type Catalog, type Collection, type Item, ItemKind, Level, type Member, type Org, Permission, type Policy, PolicyType, MemberStatus } from "../model/types";
 import { type DocSpec, Hue } from "../doc/spec";
 import type { Link, MapModel } from "../map/types";
@@ -81,6 +81,9 @@ export type Node = {
   /// A thing a filter can find; `place` is the path of nodes it lives under.
   result?: { group: ResultGroup; kind: string; orgId: string | null; place: string[]; haystack: string };
   item?: Item;
+  /// How many other copies of the item's record the vault holds: what
+  /// `> merge` is offered on.
+  copies?: number;
   member?: Member;
   policy?: Policy;
   /// The organisation it lives in: what a verb asks of `can` there.
@@ -336,7 +339,7 @@ export class Directory {
     const sigs = new Map<Item, Signal[]>();
     const sigsOf = (i: Item) => {
       let xs = sigs.get(i);
-      if (!xs) sigs.set(i, (xs = signals(i, this.now)));
+      if (!xs) sigs.set(i, (xs = settledSignals(i, this.catalog, this.now)));
       return xs;
     };
     const state = (i: Item) => {
@@ -595,6 +598,7 @@ export class Directory {
         wide: true,
         kids: () => dead.map((i) => ({ id: itemId(i) })),
       });
+    const copies = (i: Item) => duplicatesOf(i, this.catalog).length;
     for (const i of items) {
       const home = [...place(i), itemId(i)];
       const st = state(i);
@@ -610,6 +614,7 @@ export class Directory {
         why: st.why,
         short: st.short,
         item: i,
+        ...(copies(i) > 0 ? { copies: copies(i) } : {}),
         home,
         // A deleted item is found in the trash, not by a search of the vault.
         ...(i.deleted

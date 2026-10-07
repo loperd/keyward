@@ -154,6 +154,11 @@ pub struct ItemEdit {
     /// the interface — they are derived from the private key.
     #[serde(default)]
     pub ssh_key: Option<SshKeyEdit>,
+    /// Passkeys brought over from records merged into this one, already
+    /// sealed with this item's key. Only the daemon fills it in: a window
+    /// has no keys to seal a passkey with, and none comes over the wire.
+    #[serde(skip)]
+    pub add_passkeys: Vec<serde_json::Value>,
 }
 
 /// Which kind of key to make.
@@ -261,7 +266,7 @@ impl std::fmt::Debug for IdentityEdit {
 
 impl ItemEdit {
     pub fn is_empty(&self) -> bool {
-        if !self.remove_passkeys.is_empty() || self.clear_password_history {
+        if !self.remove_passkeys.is_empty() || !self.add_passkeys.is_empty() || self.clear_password_history {
             return false;
         }
         self.name.is_none()
@@ -291,6 +296,7 @@ impl ItemEdit {
         if self.notes.is_some() { out.push("field.note".to_string()); }
         if self.ssh_key.is_some() { out.push("field.privateKey".to_string()); }
         if self.clear_password_history { out.push("field.passwordHistory".to_string()); }
+        if !self.add_passkeys.is_empty() { out.push("field.passkeys".to_string()); }
         out.extend(self.custom.iter().map(|f| f.name.clone()));
         out
     }

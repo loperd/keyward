@@ -8,6 +8,7 @@ export const LEVEL_MARK: Record<Level, string> = { [Level.Critical]: "!", [Level
 
 export type SignalKey =
   | "sig.reused"
+  | "sig.duplicate"
   | "sig.expired"
   | "sig.expiresSoon"
   | "sig.oldPassword"

@@ -15,7 +15,7 @@
 // - A generated value comes back sealed (`invokeSecret`) and is opened here
 //   only to be shown; `drop` lets go of it.
 import { invoke } from "@tauri-apps/api/core";
-import { type Change, type DraftField, type GeneratorOptions, type Invite, type ItemDraft, ItemKind, OrgRole, Permission, type SecretInput, type Writes, ChangeKind, GeneratorKind, enumParser } from "@keyward/core";
+import { type Change, type DraftField, type GeneratorOptions, type Invite, type ItemDraft, ItemKind, type MergeComparison, MergeField, type MergePlan, type MergeSlot, OrgRole, Permission, type SecretInput, type Writes, ChangeKind, GeneratorKind, enumParser } from "@keyward/core";
 import { invokeSecret } from "../src/seal";
 import type { Catalog as DaemonCatalog, ItemDetail as DaemonDetail, OrgMember, PendingEdit, VaultState } from "../src/types";
 
@@ -207,6 +207,17 @@ const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((
 const access = (a: Record<string, Permission>): CollectionAccess[] =>
   Object.entries(a).map(([id, p]) => ({ id, permission: PERMISSION[p] ?? fail(`an unknown permission "${p}"`) }));
 
+/// A merge's slot as the daemon spells it (`keyward_core::merge::MergeSlot`).
+type WireSlot = { field: string; name?: string };
+const parseMergeField = enumParser(MergeField, "a merge field");
+function slotOf(w: WireSlot): MergeSlot {
+  const field = parseMergeField(w.field);
+  if (field !== MergeField.Custom) return { field };
+  return { field, name: typeof w.name === "string" ? w.name : fail("a custom merge field without a name") };
+}
+const wireSlot = (s: MergeSlot): WireSlot => (s.field === MergeField.Custom ? { field: s.field, name: s.name } : { field: s.field });
+type WireComparison = { rows: { slot: WireSlot; secret: boolean; holders: { entry_id: string; group: number }[] }[] };
+
 export class DaemonWrites implements Writes {
   /// `changed` is the backend's own announcer: a write tells the window what
   /// to read again the way a sync does.
@@ -216,6 +227,19 @@ export class DaemonWrites implements Writes {
     private readonly changed: (c: Change) => void,
     private readonly membersChanged: () => void,
   ) {}
+
+  async compareForMerge(itemIds: string[]): Promise<MergeComparison> {
+    const c = await invoke<WireComparison>("merge_compare", { entryIds: itemIds });
+    return { rows: c.rows.map((r) => ({ slot: slotOf(r.slot), secret: r.secret, holders: r.holders.map((h) => ({ itemId: h.entry_id, group: h.group })) })) };
+  }
+
+  /// The values move inside the daemon: the plan names records and fields.
+  async merge(plan: MergePlan) {
+    await invoke<VaultState>("merge_items", {
+      plan: { keeper: plan.keeper, others: plan.others, takes: plan.takes.map((t) => ({ from: t.from, slot: wireSlot(t.slot), as_name: t.asName })) },
+    });
+    this.changed({ kind: ChangeKind.Catalog });
+  }
 
   async verifyPassword(password: string) {
     return invoke<boolean>("verify_password", { password });

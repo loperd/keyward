@@ -13,6 +13,7 @@ pub mod fault;
 pub mod generator;
 pub mod harden;
 pub mod items;
+pub mod merge;
 pub mod passkey;
 pub mod paths;
 pub mod peer;

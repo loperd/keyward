@@ -26,7 +26,7 @@
 import { type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "@keyward/core/backend";
 import { type Catalog, type ItemDetail, type Member, type OrgRole, type Permission, type SecretRef, type Totp, SecretField } from "@keyward/core/model/types";
 import type { Contribution } from "@keyward/core/path/directory";
-import type { GeneratorOptions, Invite, ItemDraft, Writes } from "@keyward/core/writes";
+import type { GeneratorOptions, Invite, ItemDraft, MergeComparison, MergePlan, Writes } from "@keyward/core/writes";
 import { Api, isPathId, spent, type FetchLike, type LoginAnswer, type Tokens, LoginAnswerKind } from "./api";
 import { abilitiesOf, buildCatalog, buildDetail, findCipher, membersOf, secretText } from "./catalog";
 import { ClipboardGuard, realTimers, type ClipboardLike, type ClipboardState, type FocusEnv, type Timers } from "./clipboard";
@@ -560,6 +560,12 @@ export class WebBackend implements Backend, Writes {
   }
   generate(opts: GeneratorOptions): Promise<{ value: string; drop: () => void }> {
     return this.writes.generate(opts);
+  }
+  compareForMerge(itemIds: string[]): Promise<MergeComparison> {
+    return this.writes.compareForMerge(itemIds);
+  }
+  merge(plan: MergePlan): Promise<void> {
+    return this.writes.merge(plan);
   }
   createFolder(name: string): Promise<string> {
     return this.writes.createFolder(name);

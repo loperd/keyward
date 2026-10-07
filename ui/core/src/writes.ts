@@ -44,6 +44,30 @@ export type GeneratorOptions =
   | { kind: GeneratorKind.Password; length: number; upper: boolean; lower: boolean; digits: boolean; symbols: boolean; avoidAmbiguous: boolean }
   | { kind: GeneratorKind.Passphrase; words: number; separator: string; capitalize: boolean; number: boolean };
 
+/// A field of a login that a merge compares and may take: the built-in
+/// ones, a custom field by name, or the record's passkeys all together.
+export enum MergeField {
+  Username = "username",
+  Password = "password",
+  Totp = "totp",
+  Notes = "notes",
+  Custom = "custom",
+  Passkeys = "passkeys",
+}
+export type MergeSlot = { field: Exclude<MergeField, MergeField.Custom> } | { field: MergeField.Custom; name: string };
+/// One field of the records being merged, compared where the keys are: the
+/// records holding it, and which of them hold the same value (one `group`).
+/// No value comes with it. For passkeys each record is a group of its own.
+export type MergeRow = { slot: MergeSlot; secret: boolean; holders: { itemId: string; group: number }[] };
+export type MergeComparison = { rows: MergeRow[] };
+/// A field taken from a merged record into the kept one: into its own place,
+/// or, with `asName`, beside the kept record's own as a custom field.
+export type MergeTake = { from: string; slot: MergeSlot; asName: string | null };
+/// The kept record, the records merged into it, and what is taken from
+/// them. Every record's addresses are joined; the others go to the trash
+/// once the kept record is saved.
+export type MergePlan = { keeper: string; others: string[]; takes: MergeTake[] };
+
 export type Invite = { emails: string[]; role: OrgRole; accessAll: boolean; access: Record<string, Permission> };
 
 export interface Writes {
@@ -55,6 +79,13 @@ export interface Writes {
   update(id: string, draft: ItemDraft): Promise<void>;
   /// A fresh password or passphrase, as a value shown for a moment.
   generate(opts: GeneratorOptions): Promise<{ value: string; drop: () => void }>;
+
+  /// The records compared field by field where the keys are, in the order
+  /// asked: which hold a field and which agree, never what it holds.
+  compareForMerge(itemIds: string[]): Promise<MergeComparison>;
+  /// Merges records into the plan's kept one, the values carried where the
+  /// keys are; the others go to the trash only once it is saved.
+  merge(plan: MergePlan): Promise<void>;
 
   createFolder(name: string): Promise<string>;
   renameFolder(id: string, name: string): Promise<void>;

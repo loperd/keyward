@@ -18,6 +18,7 @@ pub mod bwapi;
 pub mod edits;
 pub mod export;
 pub mod fingerprint;
+mod merge;
 pub mod pin;
 pub mod passkey;
 pub mod read;
@@ -1210,6 +1211,16 @@ impl Vault {
             }
         }
 
+        // Passkeys merged in from another record, sealed for this one by the
+        // daemon already.
+        if !edit.add_passkeys.is_empty() {
+            let login = next.login.as_mut().ok_or_else(|| keyward_core::fault!("err.mergeOnlyLogins"))?;
+            match login.fido2_credentials.get_or_insert_with(|| serde_json::Value::Array(Vec::new())) {
+                serde_json::Value::Array(list) => list.extend(edit.add_passkeys.iter().cloned()),
+                _ => return Err(keyward_core::fault!("err.passkeyDamaged")),
+            }
+        }
+
         // Cards and identities: each kind of item has its own set of fields,
         // and until now only the name, the note and the login could be edited —
         // the rest could be changed only in somebody else's client.
@@ -1449,6 +1460,45 @@ impl Vault {
                 .ok_or_else(|| keyward_core::fault!("err.totpNothingToRestore"))?
         };
         self.update_item(entry_id, ItemEdit { totp: Some(secret.into()), ..Default::default() }).await
+    }
+
+    /// Which of the records hold each field of a login and which of them
+    /// agree on it, compared here: no value leaves the daemon.
+    pub fn compare_for_merge(&self, entry_ids: &[String]) -> anyhow::Result<keyward_core::merge::MergeComparison> {
+        if entry_ids.len() < 2 {
+            return Err(keyward_core::fault!("err.mergeNothing"));
+        }
+        let snapshot = self.snapshot();
+        let ring = self.ring().ok_or_else(|| keyward_core::fault!("err.vaultLocked"))?;
+        let ciphers = entry_ids.iter().map(|id| live_cipher(&snapshot, id)).collect::<anyhow::Result<Vec<_>>>()?;
+        crate::merge::compare(&ring, &ciphers)
+    }
+
+    /// Merges records into one: the kept record takes the plan's fields and
+    /// every record's addresses, and only once it is saved on the server do
+    /// the others go to the trash. An edit left waiting in the queue keeps
+    /// them where they are, and says so.
+    pub async fn merge_items(&self, plan: &keyward_core::merge::MergePlan) -> anyhow::Result<()> {
+        plan.check().map_err(|code| keyward_core::fault!(code))?;
+        let edit = {
+            let snapshot = self.snapshot();
+            let ring = self.ring().ok_or_else(|| keyward_core::fault!("err.vaultLocked"))?;
+            let keeper = live_cipher(&snapshot, &plan.keeper)?;
+            let others = plan.others.iter().map(|id| live_cipher(&snapshot, id)).collect::<anyhow::Result<Vec<_>>>()?;
+            crate::merge::edit_for(&ring, keeper, &others, plan)?
+        };
+        // Nothing to take and no address to add: the kept record stays as it
+        // is and the copies simply go.
+        if !edit.is_empty() {
+            let saved = self.update_item(&plan.keeper, edit).await?;
+            if !matches!(saved.state, EditState::Pushed) {
+                return Err(keyward_core::fault!("err.mergeKeeperWaiting"));
+            }
+        }
+        for id in &plan.others {
+            self.trash_item(id).await?;
+        }
+        Ok(())
     }
 
     // -- For plugins ----------------------------------------------------------
@@ -2255,6 +2305,15 @@ fn only_trashed(
 /// Puts a refresh's tokens in the session: the new access token, and the new
 /// refresh token when the server rotated one in — the old one runs out on its
 /// own date.
+/// A record in the vault and not in the trash: one in the trash is not merged.
+fn live_cipher<'a>(snapshot: &'a keyward_bw::Sync, id: &str) -> anyhow::Result<&'a keyward_bw::model::Cipher> {
+    let c = snapshot.ciphers.iter().find(|c| c.id == id).ok_or_else(|| keyward_core::fault!("err.itemNotFoundSync"))?;
+    if c.in_trash() {
+        return Err(keyward_core::fault!("err.mergeInTrash"));
+    }
+    Ok(c)
+}
+
 fn rotate(db: &mut rbw::db::Db, tokens: keyward_bw::identity::Tokens) {
     db.access_token = Some(tokens.access_token.to_string());
     if let Some(r) = tokens.refresh_token {

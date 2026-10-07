@@ -16,6 +16,7 @@ use keyward_core::proto::Secret;
 use keyward_core::detail::{ItemDetail, SecretField};
 use keyward_core::edits::{ItemEdit, PendingEdit};
 use keyward_core::items::{Catalog, OrgMember};
+use keyward_core::merge::{MergeComparison, MergePlan};
 use keyward_core::settings::{Interface, Settings as AppSettings};
 use keyward_core::proto::AccountView;
 use keyward_core::proto::{Request, Response, Status};
@@ -1045,6 +1046,20 @@ async fn update_item(entry_id: String, edit: ItemEdit) -> Result<PendingEdit, St
     }
 }
 
+#[tauri::command]
+async fn merge_compare(entry_ids: Vec<String>) -> Result<MergeComparison, String> {
+    match ask(Request::MergeCompare { entry_ids }).await? {
+        Response::MergeComparison { comparison } => Ok(comparison),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
+}
+
+#[tauri::command]
+async fn merge_items(plan: MergePlan) -> Result<VaultState, String> {
+    vault_op(Request::MergeItems { plan }).await
+}
+
 async fn edits_op(req: Request) -> Result<Vec<PendingEdit>, String> {
     match ask(req).await? {
         Response::Edits { edits } => Ok(edits),
@@ -1530,6 +1545,8 @@ pub fn run() {
             retry_edit,
             rollback_edit,
             restore_totp,
+            merge_compare,
+            merge_items,
             regenerate_password,
             actionlog::ui_log,
             discard_edit,

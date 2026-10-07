@@ -173,6 +173,12 @@ pub enum Request {
     /// Change an item. It goes to the server at once; if the server is
     /// unreachable, the edit stays in the queue.
     UpdateItem { entry_id: String, edit: ItemEdit },
+    /// Which of the records hold each field of a login and which agree on
+    /// it — never the values.
+    MergeCompare { entry_ids: Vec<String> },
+    /// Merge records into one, here where the keys are: the kept record
+    /// takes the plan's fields, the others go to the trash.
+    MergeItems { plan: crate::merge::MergePlan },
     /// The queue of edits: what did not reach the server.
     Edits,
     /// Send it again.
@@ -459,6 +465,9 @@ impl std::fmt::Debug for Request {
             Self::UpdateItem { entry_id, edit } => {
                 write!(f, "UpdateItem {{ entry_id: {entry_id:?}, fields: {:?} }}", edit.labels())
             }
+            Self::MergeCompare { entry_ids } => write!(f, "MergeCompare {{ entry_ids: {entry_ids:?} }}"),
+            // A plan names records and fields, never a value.
+            Self::MergeItems { plan } => write!(f, "MergeItems {{ plan: {plan:?} }}"),
             Self::Edits => write!(f, "Edits"),
             Self::RetryEdit { id } => write!(f, "RetryEdit {{ id: {id:?} }}"),
             Self::RollbackEdit { id } => write!(f, "RollbackEdit {{ id: {id:?} }}"),
@@ -576,6 +585,8 @@ pub enum Response {
     Secret { value: Secret },
     /// An edit's outcome.
     Edit { edit: PendingEdit },
+    /// The records to merge, compared.
+    MergeComparison { comparison: crate::merge::MergeComparison },
     /// The queue of edits.
     Edits { edits: Vec<PendingEdit> },
     /// The application's settings.
@@ -675,6 +686,7 @@ impl std::fmt::Debug for Response {
             Self::Extensions { paired, pending } => write!(f, "Extensions({} paired, {} pending)", paired.len(), pending.len()),
             Self::Secret { .. } => write!(f, "Secret {{ value: <hidden> }}"),
             Self::Edit { edit } => write!(f, "Edit({:?}, {:?})", edit.id, edit.state),
+            Self::MergeComparison { comparison } => write!(f, "MergeComparison({} rows)", comparison.rows.len()),
             Self::Edits { edits } => write!(f, "Edits({} of them)", edits.len()),
             Self::Settings { .. } => write!(f, "Settings"),
             Self::Fields { names } => write!(f, "Fields({} of them)", names.len()),

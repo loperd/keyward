@@ -13,6 +13,7 @@ import { MapSheet } from "./MapSheet";
 import { VerbPreview, type RunState } from "./VerbPreview";
 import { useCore } from "./marks";
 import { EditDocument, NewDocument } from "./Editor";
+import { MergeDocument } from "./MergeDocument";
 import { useWrites } from "./writes-context";
 import { detailOf, kindOfVerb } from "../edit/draft";
 
@@ -68,8 +69,13 @@ export function Inspector({
   const making =
     writes && answer.kind === AnswerKind.Verb && kindOfVerb(st.verb) !== undefined && query.verbs.find((v) => v.id === st.verb)?.applies(obj ? dir.node(obj) : null) === true;
   const editing = !!writes && !!itemId && writes.editing === itemId;
+  // `> merge` is a document of its own too: its choices do not fit a line.
+  const merging =
+    !!writes && !making && answer.kind === AnswerKind.Verb && st.verb === "merge" && !!obj && query.verbs.find((v) => v.id === "merge")?.applies(dir.node(obj)) === true;
   const key = making
     ? `new:${obj}`
+    : merging
+      ? `merge:${obj}`
     : answer.kind === AnswerKind.Map
       ? `map:${st.map!.kind}:${st.map!.anchor}`
       : answer.kind === AnswerKind.Verb
@@ -98,6 +104,7 @@ export function Inspector({
   let body: React.ReactNode;
   let cls = "kw-doc kw-enter";
   if (making) body = <NewDocument at={obj} verb={st.verb!} arg={st.arg} />;
+  else if (merging) body = <MergeDocument itemId={dir.node(obj!).item!.id} />;
   else if (answer.kind === AnswerKind.Map) body = <MapSheet map={st.map!} hover={mapHover} onHover={onMapHover} />;
   else if (editing) body = detail ? <EditDocument nodeId={docId!} detail={detail} /> : <DocSkeleton rows={4} />;
   else if (answer.kind === AnswerKind.Verb) {

@@ -10,7 +10,7 @@ import type { Verb } from "../path/query";
 import type { Writes } from "../writes";
 import { type Delta, type FolderWrite, type Preview, PreviewKind, FolderOp } from "./spec";
 import { LeadTile, type Lead } from "../doc/spec";
-import { Level } from "../model/types";
+import { ItemKind, Level } from "../model/types";
 
 const k = (key: Key, args?: Record<string, string | number | Text>): Text => (args ? { key, args } : { key });
 const raw = (s: string): Text => ({ raw: s });
@@ -99,14 +99,19 @@ function deleteFolder(dir: Directory, obj: string): Preview {
   };
 }
 
+/// A login with copies of its record: what `> merge` works on.
+const merges = (n: Node | null) => !!n?.item && !n.item.deleted && n.item.kind === ItemKind.Login && (n.copies ?? 0) > 0;
+const firstCopied = (dir: Directory) => dir.all().find((n) => merges(n))?.id ?? null;
+
 const named = (_d: Directory, _o: string | null, arg: string): Text | null => (arg.trim() ? raw(arg.trim()) : null);
 
 /// The verbs that open a document rather than a preview: the inspector
 /// draws the item's form for them.
-export const DOCUMENT_VERBS = new Set(["edit", "new", "new login", "new card", "new note", "new identity", "new ssh"]);
+export const DOCUMENT_VERBS = new Set(["edit", "merge", "new", "new login", "new card", "new note", "new identity", "new ssh"]);
 
 export const WRITE_VERBS: Verb[] = [
   { id: "edit", name: k("verb.edit"), icon: "edit", applies: editable, example: firstItem },
+  { id: "merge", name: k("verb.merge"), icon: "merge", applies: merges, example: firstCopied },
   { id: "new", name: k("doc.newItem"), icon: "plus", applies: makesItems, argName: named },
   { id: "new login", name: k("verb.newLogin"), icon: "login", applies: makesItems, argName: named },
   { id: "new card", name: k("verb.newCard"), icon: "card", applies: makesItems, argName: named },

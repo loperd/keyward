@@ -6,7 +6,7 @@
 import * as nc from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Change } from "@keyward/core/backend";
-import { type ItemDraft, GeneratorKind } from "@keyward/core/writes";
+import { type ItemDraft, GeneratorKind, MergeField } from "@keyward/core/writes";
 import { fromB64 } from "../src/backend/bytes";
 import { importSymKey } from "../src/backend/crypto";
 import { decryptString, parseEncString } from "../src/backend/encstring";
@@ -500,6 +500,82 @@ describe("item writes", () => {
     expect(await code(t.backend.update("zzz", blank()))).toBe("err.itemNotFound");
     expect(await code(t.backend.update("../x", blank()))).toBe("err.badIdentifier");
     expect(t.writes.filter((w) => w.method === "PUT")).toEqual([]);
+  });
+});
+
+describe("merging", () => {
+  let t: Setup;
+  beforeEach(async () => {
+    t = setup();
+    await t.backend.login({ email: EMAIL, password: PASSWORD });
+    t.changes.length = 0;
+  });
+
+  it("compares two records, one sealed with its own key, and says no value", async () => {
+    const cmp = await t.backend.compareForMerge(["a", "b"]);
+    const row = (field: string, name?: string) => cmp.rows.find((r) => r.slot.field === field && (name === undefined || ("name" in r.slot && r.slot.name === name)))?.holders;
+    expect(row(MergeField.Username)).toEqual([{ itemId: "a", group: 0 }, { itemId: "b", group: 1 }]);
+    expect(row(MergeField.Password)).toEqual([{ itemId: "a", group: 0 }, { itemId: "b", group: 1 }]);
+    expect(row(MergeField.Totp)).toEqual([{ itemId: "a", group: 0 }]);
+    expect(row(MergeField.Custom, "Token")).toEqual([{ itemId: "a", group: 0 }]);
+    expect(row(MergeField.Passkeys)).toEqual([{ itemId: "a", group: 0 }]);
+    const said = JSON.stringify(cmp);
+    for (const leak of ["stored-password", "bot-password", "stored-token", "GEZDGNBVGY3TQOJQ", "alex", "bot\"", "pk-material"]) expect(said).not.toContain(leak);
+  });
+
+  it("carries values into the kept record sealed with its key, keeps both under a new name, and only then trashes the copy", async () => {
+    const a = t.fx.ciphers.a as any;
+    await t.backend.merge({
+      keeper: "a",
+      others: ["b"],
+      takes: [
+        { from: "b", slot: { field: MergeField.Username }, asName: null },
+        { from: "b", slot: { field: MergeField.Password }, asName: "Password (bot)" },
+      ],
+    });
+    const [put, del] = t.writes.slice(-2);
+    expect([put!.method, put!.path, del!.method, del!.path]).toEqual(["PUT", "ciphers/a", "PUT", "ciphers/b/delete"]);
+    const b = put!.body as Record<string, any>;
+    const k = t.fx.user;
+    expect(dec2(k, b.login.username)).toBe("bot");
+    expect(b.login.password).toBe(a.login.password);
+    expect(b.passwordHistory).toEqual(a.passwordHistory);
+    expect(dec2(k, b.name)).toBe("GitLab");
+    expect(b.login.fido2Credentials).toEqual(a.login.fido2Credentials);
+    const beside = (b.fields as any[]).filter((f) => dec2(k, f.name) === "Password (bot)");
+    expect(beside.map((f) => [f.type, dec2(k, f.value)])).toEqual([[1, "bot-password"]]);
+    expect(b.fields).toHaveLength(a.fields.length + 1);
+    expect(b.lastKnownRevisionDate).toBe(a.revisionDate);
+  });
+
+  it("puts a value in place of the kept one's, the old password into the history, and reseals passkeys for their new record", async () => {
+    await t.backend.merge({
+      keeper: "b",
+      others: ["a"],
+      takes: [
+        { from: "a", slot: { field: MergeField.Password }, asName: null },
+        { from: "a", slot: { field: MergeField.Passkeys }, asName: null },
+        { from: "a", slot: { field: MergeField.Custom, name: "Token" }, asName: null },
+      ],
+    });
+    const put = t.writes.find((w) => w.path === "ciphers/b")!.body as Record<string, any>;
+    const own = t.fx.own;
+    expect(dec2(own, put.login.password)).toBe("stored-password");
+    expect(dec2(own, put.passwordHistory[0].password)).toBe("bot-password");
+    expect(put.login.passwordRevisionDate).toBe(NOW_ISO);
+    expect(dec2(own, put.login.uris[0].uri)).toBe("https://gitlab.example.com");
+    expect(put.login.fido2Credentials).toHaveLength(1);
+    expect(dec2(own, put.login.fido2Credentials[0].rpId)).toBe("gitlab.example.com");
+    expect(dec2(own, put.login.fido2Credentials[0].keyValue)).toBe("pk-material");
+    expect((put.fields as any[]).map((f) => [f.type, dec2(own, f.name), dec2(own, f.value)])).toEqual([[1, "Token", "stored-token"]]);
+  });
+
+  it("refuses a name the kept record has, and sends nothing", async () => {
+    const before = t.writes.length;
+    expect(await code(t.backend.merge({ keeper: "a", others: ["b"], takes: [{ from: "b", slot: { field: MergeField.Password }, asName: "token" }] }))).toBe("err.mergeNameTaken");
+    expect(await code(t.backend.merge({ keeper: "a", others: ["a"], takes: [] }))).toBe("err.mergeTwice");
+    expect(await code(t.backend.compareForMerge(["a", "f"]))).toBe("err.mergeOnlyLogins");
+    expect(t.writes.length).toBe(before);
   });
 });
 

@@ -1200,5 +1200,20 @@
   "desk.rel.none": "None",
   "desk.rel.openAll": "Open all",
   "desk.rel.pivot": "Make it the centre",
-  "desk.rel.toInventory": "Show in the list"
+  "desk.rel.toInventory": "Show in the list",
+  "err.mergeNothing": "Pick at least one more record to merge",
+  "err.mergeTwice": "A record is named twice in the merge",
+  "err.mergeForeignTake": "A field is taken from a record that is not being merged",
+  "err.mergeNeedName": "A field kept beside another needs a name",
+  "err.mergeNameTwice": "Two fields kept beside others have the same name",
+  "err.mergeSlotTwice": "One field is taken from two records at once",
+  "err.mergePasskeysNamed": "Passkeys are added as they are, not under a name",
+  "err.mergeOnlyLogins": "Only logins can be merged",
+  "err.mergeUnnamedField": "A custom field of the record has no name",
+  "err.mergeFieldNamedTwice": "The record has two custom fields named {name}: rename one first",
+  "err.mergeFieldGone": "The record no longer has that field: sync and look again",
+  "err.mergeNameTaken": "The kept record already has a field named {name}",
+  "err.mergeKeeperWaiting": "The merged record is waiting to reach the server: the copies stay where they are until it does",
+  "err.mergeInTrash": "A record in the trash is not merged",
+  "field.passkeys": "Passkeys"
 }

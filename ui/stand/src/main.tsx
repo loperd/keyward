@@ -4,7 +4,7 @@
 // concept; the flags below open the gate instead of the window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App, currentLang, onLang, setLang, type PlaceStore, Lang, SessionState } from "@keyward/core";
+import { App, currentLang, onLang, setLang, type Item, type PlaceStore, Lang, SessionState } from "@keyward/core";
 import { DEMO, DemoBackend, DemoWrites, DEMO_PLACES, synthetic } from "@keyward/core/demo";
 
 const PRESETS: Record<string, string> = {
@@ -69,9 +69,29 @@ if (many !== null && !/^\d+$/.test(many)) throw new Error(`?synthetic= takes a n
 // as long, in a change of their own): the loading states, to be seen.
 const slow = qs.get("slow");
 if (slow !== null && !/^\d+$/.test(slow)) throw new Error(`?slow= takes a number of milliseconds, not "${slow}"`);
+// ?copies=1 adds two copies of one Apple ID under different names, one with
+// another password, a one-time code and a passkey the other lacks: `> merge`,
+// to be seen.
+const copies = qs.get("copies") === "1";
+const appleId = (o: Partial<Item>): Item => ({
+  ...DEMO.items.find((i) => i.id === "github")!,
+  subtitle: "alex.morgan@icloud.com",
+  folderId: null,
+  orgId: null,
+  collectionIds: [],
+  reused: 0,
+  reuseGroup: null,
+  hasTotp: false,
+  passkeys: 0,
+  ...o,
+});
+const COPIES: Item[] = [
+  appleId({ id: "second-icloud", name: "second icloud", uris: [] }),
+  appleId({ id: "appleid", name: "appleid.icloud.com", uris: ["https://appleid.apple.com"], hasTotp: true, passkeys: 1 }),
+];
 const backend = new DemoBackend({
   ...(slow !== null ? { slow: Number(slow) } : {}),
-  ...(many !== null ? { catalog: synthetic({ items: Number(many), base: DEMO }) } : {}),
+  ...(many !== null ? { catalog: synthetic({ items: Number(many), base: DEMO }) } : copies ? { catalog: { ...DEMO, items: [...DEMO.items, ...COPIES] } } : {}),
   start: flag(DemoFlag.Damaged)
     ? SessionState.Damaged
     : flag(DemoFlag.Locked)

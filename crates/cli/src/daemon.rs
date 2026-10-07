@@ -1086,6 +1086,7 @@ fn plugin_event(req: &Request) -> Option<HostEvent> {
         | Request::NewItem { .. }
         | Request::SetItemCollections { .. }
         | Request::UpdateItem { .. }
+        | Request::MergeItems { .. }
         | Request::TrashItem { .. }
         | Request::RestoreItem { .. }
         | Request::PurgeItems { .. }
@@ -1834,6 +1835,27 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
                     let _ = st.reload();
                     Response::Edit { edit: e }
                 }
+                Err(e) => Response::error(e),
+            }
+        }
+
+        Request::MergeCompare { entry_ids } => {
+            let st = shared.lock().await;
+            let Some(vault) = st.active() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            match vault.compare_for_merge(&entry_ids) {
+                Ok(comparison) => Response::MergeComparison { comparison },
+                Err(e) => Response::error(e),
+            }
+        }
+
+        Request::MergeItems { plan } => {
+            let Some(vault) = shared.lock().await.active().cloned() else {
+                return Response::error(keyward_core::fault!("err.noAccount"));
+            };
+            match vault.merge_items(&plan).await {
+                Ok(()) => refreshed(&mut *shared.lock().await).await,
                 Err(e) => Response::error(e),
             }
         }

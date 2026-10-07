@@ -20,7 +20,8 @@
 // said, so the window rebases on what the server now holds.
 import { type Change, ChangeKind } from "@keyward/core/backend";
 import { type Catalog, ItemKind, OrgRole, Permission } from "@keyward/core/model/types";
-import { type DraftField, type GeneratorOptions, type Invite, type ItemDraft, type SecretInput, type Writes, GeneratorKind } from "@keyward/core/writes";
+import { type DraftField, type GeneratorOptions, type Invite, type ItemDraft, type MergeComparison, type MergePlan, type MergeRow, type MergeSlot, type SecretInput, type Writes, GeneratorKind, MergeField } from "@keyward/core/writes";
+import { planRefusal, slotKey } from "@keyward/core/edit/merge";
 import { isPathId } from "./api";
 import { constantTimeEqual, fromB64, toB64, utf8, zero, type Bytes } from "./bytes";
 import { abilitiesOf } from "./catalog";
@@ -531,6 +532,190 @@ async function cipherBody(key: SymKey, draft: ItemDraft, e: Existing | null, now
   return body;
 }
 
+// --- merging ----------------------------------------------------------------
+//
+// The copies of one login made one, here where the keys are: a value is
+// opened with its record's key only to be compared or sealed again with the
+// kept record's, and never leaves this file but as a group number or an
+// EncString.
+
+type Rec = { id: string; raw: Obj; key: SymKey };
+/// What a record holds in a slot: the opened value (a linked field's link
+/// stands for its value), its field type, and its link.
+type Held = { slot: MergeSlot; secret: boolean; value: string; type: number; linkedId: unknown };
+/// The one field of a stored passkey left in the clear.
+const PASSKEY_PLAIN = new Set(["creationDate"]);
+const BUILTIN_WIRE = { [MergeField.Username]: "username", [MergeField.Password]: "password", [MergeField.Totp]: "totp" } as const;
+
+async function opened(v: unknown, key: SymKey, where: string): Promise<string | null> {
+  const sealed = stored(v, where);
+  if (sealed === null) return null;
+  const text = await decryptString(sealed, key);
+  return text === "" ? null : text;
+}
+function loginOf(r: Rec): Obj {
+  return r.raw.type === KIND_CODE[ItemKind.Login] && isObj(r.raw.login) ? r.raw.login : fail("err.mergeOnlyLogins");
+}
+function passkeysOf(r: Rec): Obj[] {
+  const list = loginOf(r).fido2Credentials ?? [];
+  if (!Array.isArray(list)) return unreadable("cipher.login.fido2Credentials");
+  return list.map((c, i) => (isObj(c) ? c : unreadable(`cipher.login.fido2Credentials[${i}]`)));
+}
+
+/// Every slot a record holds, by its key, in the order a comparison lists
+/// them.
+async function heldOf(r: Rec): Promise<Map<string, Held>> {
+  const login = loginOf(r);
+  const out = new Map<string, Held>();
+  for (const field of [MergeField.Username, MergeField.Password, MergeField.Totp] as const) {
+    const v = await opened(login[BUILTIN_WIRE[field]], r.key, `cipher.login.${BUILTIN_WIRE[field]}`);
+    const secret = field !== MergeField.Username;
+    if (v !== null) out.set(field, { slot: { field }, secret, value: v, type: secret ? FIELD_HIDDEN : FIELD_TEXT, linkedId: null });
+  }
+  const notes = await opened(r.raw.notes, r.key, "cipher.notes");
+  if (notes !== null) out.set(MergeField.Notes, { slot: { field: MergeField.Notes }, secret: true, value: notes, type: FIELD_HIDDEN, linkedId: null });
+  for (const f of await oldFields(r)) {
+    const name = f.name ?? fail("err.mergeUnnamedField");
+    const slot: MergeSlot = { field: MergeField.Custom, name };
+    if (out.has(slotKey(slot))) fail("err.mergeFieldNamedTwice", { name });
+    const value = f.type === FIELD_LINKED ? `\0linked:${String(f.raw.linkedId)}` : ((await opened(f.raw.value, r.key, "cipher.fields.value")) ?? "");
+    out.set(slotKey(slot), { slot, secret: f.type === FIELD_HIDDEN, value, type: f.type, linkedId: f.raw.linkedId ?? null });
+  }
+  if (passkeysOf(r).length) out.set(MergeField.Passkeys, { slot: { field: MergeField.Passkeys }, secret: false, value: `\0passkeys:${r.id}`, type: FIELD_TEXT, linkedId: null });
+  return out;
+}
+
+/// The comparison of records, in the order asked: who holds what and who
+/// agrees, never a value.
+function comparisonOf(recs: { id: string; held: Map<string, Held> }[]): MergeComparison {
+  const rows = new Map<string, MergeRow & { values: string[] }>();
+  const order = (k: string) => (k === MergeField.Passkeys ? 2 : k.startsWith("custom:") ? 1 : 0);
+  for (const r of recs)
+    for (const [k, h] of r.held) {
+      let row = rows.get(k);
+      if (!row) rows.set(k, (row = { slot: h.slot, secret: h.secret, holders: [], values: [] }));
+      row.secret ||= h.secret;
+      let group = row.values.indexOf(h.value);
+      if (group < 0) group = row.values.push(h.value) - 1;
+      row.holders.push({ itemId: r.id, group });
+    }
+  const list = [...rows.entries()].sort((a, b) => order(a[0]) - order(b[0]));
+  return { rows: list.map(([, { values: _, ...row }]) => row) };
+}
+
+/// A passkey of one record sealed again for another.
+async function resealed(c: Obj, from: SymKey, into: SymKey): Promise<Obj> {
+  const out: Obj = {};
+  for (const [k, v] of Object.entries(c)) out[k] = typeof v === "string" && v !== "" && !PASSKEY_PLAIN.has(k) ? await encryptText(into, await decryptString(stored(v, `fido2Credentials.${k}`)!, from)) : v;
+  return out;
+}
+
+/// An address and the checksum the official clients check it by.
+async function sealedUri(key: SymKey, text: string): Promise<Obj> {
+  const digest = await sha256(utf8(text));
+  let sum: string;
+  try {
+    sum = toB64(digest);
+  } finally {
+    zero(digest);
+  }
+  return { uri: await encryptText(key, text), uriChecksum: await encryptText(key, sum), match: null };
+}
+
+/// The kept record's new body: its own values as the EncStrings they are,
+/// the plan's fields opened from their records and sealed for it, and every
+/// record's addresses.
+async function mergedBody(keeper: Rec, others: Map<string, Rec>, plan: MergePlan, nowIso: string): Promise<Obj> {
+  const raw = keeper.raw;
+  const login: Obj = { ...loginOf(keeper) };
+  const uris = Array.isArray(login.uris) ? login.uris.map((u, i) => (isObj(u) ? { ...u } : unreadable(`cipher.login.uris[${i}]`))) : login.uris == null ? [] : unreadable("cipher.login.uris");
+  const texts: string[] = [];
+  for (const u of uris) {
+    const t = await opened(u.uri, keeper.key, "cipher.login.uris.uri");
+    if (t !== null) texts.push(t.trim().toLowerCase());
+  }
+  for (const r of others.values()) {
+    const list = loginOf(r).uris ?? [];
+    if (!Array.isArray(list)) return unreadable("cipher.login.uris");
+    for (const u of list) {
+      const t = isObj(u) ? await opened(u.uri, r.key, "cipher.login.uris.uri") : unreadable("cipher.login.uris");
+      if (t === null || texts.includes(t.trim().toLowerCase())) continue;
+      texts.push(t.trim().toLowerCase());
+      uris.push(await sealedUri(keeper.key, t.trim()));
+    }
+  }
+  login.uris = uris;
+  const passkeys = passkeysOf(keeper).map((c) => ({ ...c }));
+  const fields = (await oldFields(keeper)).map((f) => ({ ...f, raw: { ...f.raw } }));
+  let notes = stored(raw.notes, "cipher.notes");
+  const h = raw.passwordHistory ?? [];
+  if (!Array.isArray(h)) return unreadable("cipher.passwordHistory");
+  let history = h.map((x) => (isObj(x) ? { ...x } : unreadable("cipher.passwordHistory")));
+
+  const held = new Map<string, Map<string, Held>>();
+  for (const take of plan.takes) {
+    const from = others.get(take.from) ?? fail("err.mergeForeignTake");
+    if (take.slot.field === MergeField.Passkeys) {
+      const list = passkeysOf(from);
+      if (!list.length) fail("err.mergeFieldGone");
+      for (const c of list) passkeys.push(await resealed(c, from.key, keeper.key));
+      continue;
+    }
+    let theirs = held.get(from.id);
+    if (!theirs) held.set(from.id, (theirs = await heldOf(from)));
+    const got = theirs.get(slotKey(take.slot)) ?? fail("err.mergeFieldGone");
+    const linked = got.type === FIELD_LINKED;
+    const value = linked ? null : await encryptText(keeper.key, got.value);
+    if (take.asName !== null) {
+      const name = take.asName.trim();
+      if (fields.some((f) => f.name !== null && f.name.toLowerCase() === name.toLowerCase())) fail("err.mergeNameTaken", { name });
+      fields.push({ raw: { type: got.type, name: await encryptText(keeper.key, name), value, linkedId: linked ? got.linkedId : null }, name, type: got.type });
+      continue;
+    }
+    switch (take.slot.field) {
+      case MergeField.Username:
+      case MergeField.Totp:
+        login[BUILTIN_WIRE[take.slot.field]] = value;
+        break;
+      case MergeField.Password: {
+        // The replaced password into the history as the EncString it was.
+        const was = stored(login.password, "cipher.login.password");
+        if (was !== null) history = [{ password: was, lastUsedDate: nowIso }, ...history].slice(0, HISTORY_MAX);
+        login.password = value;
+        login.passwordRevisionDate = nowIso;
+        break;
+      }
+      case MergeField.Notes:
+        notes = value;
+        break;
+      case MergeField.Custom: {
+        const name = take.slot.name;
+        const at = fields.findIndex((f) => f.name !== null && f.name.toLowerCase() === name.toLowerCase());
+        const field = { type: got.type, name: at >= 0 ? fields[at]!.raw.name : await encryptText(keeper.key, name), value, linkedId: linked ? got.linkedId : null };
+        if (at >= 0) fields[at] = { raw: field, name: fields[at]!.name, type: got.type };
+        else fields.push({ raw: field, name, type: got.type });
+        break;
+      }
+    }
+  }
+  login.fido2Credentials = passkeys;
+  const body: Obj = {
+    type: raw.type,
+    organizationId: raw.organizationId ?? null,
+    folderId: raw.folderId ?? null,
+    name: stored(raw.name, "cipher.name"),
+    notes,
+    favorite: raw.favorite === true,
+    reprompt: raw.reprompt === 1 ? 1 : 0,
+    key: stored(raw.key, "cipher.key"),
+    login,
+    fields: fields.map((f) => f.raw),
+    passwordHistory: history,
+  };
+  if (typeof raw.revisionDate === "string" && raw.revisionDate !== "") body.lastKnownRevisionDate = raw.revisionDate;
+  return body;
+}
+
 // --- the writes ---------------------------------------------------------------
 
 /// A digest of the login's password hash: it can check a password, it cannot
@@ -626,6 +811,48 @@ export class WebWrites implements Writes {
       if (changed) await this.host.authed("PUT", `ciphers/${id}/collections`, { collectionIds: after });
     }
     await this.after({ kind: ChangeKind.Item, id });
+  }
+
+  /// A record of the vault, fresh from the server, with the key its values
+  /// are sealed with; one in the trash is not merged.
+  private async record(id: string, ring: KeyRing, listed: Set<string>): Promise<Rec> {
+    pathId(id);
+    if (!listed.has(id)) fail("err.itemNotFound");
+    const raw = answer(await this.host.authed("GET", `ciphers/${id}`), "cipher");
+    if (idOf(raw, "cipher") !== id) unreadable("cipher.id");
+    if (raw.deletedDate !== undefined && raw.deletedDate !== null && raw.deletedDate !== "") fail("err.mergeInTrash");
+    const org = raw.organizationId === undefined || raw.organizationId === null || raw.organizationId === "" ? null : raw.organizationId;
+    if (org !== null && typeof org !== "string") unreadable("cipher.organizationId");
+    const base = ring.base(org as string | null);
+    const own = stored(raw.key, "cipher.key");
+    return { id, raw, key: own === null ? base : await unwrapSymKey(own, base) };
+  }
+  private async listed(): Promise<Set<string>> {
+    return new Set((await this.host.catalog()).items.filter((i) => !i.deleted).map((i) => i.id));
+  }
+
+  async compareForMerge(itemIds: string[]): Promise<MergeComparison> {
+    if (itemIds.length < 2) fail("err.mergeNothing");
+    const { ring } = this.host.open();
+    const listed = await this.listed();
+    const recs = await Promise.all(itemIds.map((id) => this.record(id, ring, listed)));
+    return comparisonOf(await Promise.all(recs.map(async (r) => ({ id: r.id, held: await heldOf(r) }))));
+  }
+
+  async merge(plan: MergePlan): Promise<void> {
+    const refused = planRefusal(plan);
+    if (refused) fail(refused);
+    const { ring } = this.host.open();
+    const listed = await this.listed();
+    const keeper = await this.record(plan.keeper, ring, listed);
+    const others = new Map<string, Rec>();
+    for (const id of plan.others) others.set(id, await this.record(id, ring, listed));
+    const body = await mergedBody(keeper, others, plan, this.nowIso());
+    this.same(ring);
+    await this.host.authed("PUT", `ciphers/${keeper.id}`, body);
+    // Only once the kept record is saved do the copies go, and to the trash.
+    for (const id of plan.others) await this.host.authed("PUT", `ciphers/${id}/delete`);
+    await this.after({ kind: ChangeKind.Catalog });
   }
 
   async generate(opts: GeneratorOptions): Promise<{ value: string; drop: () => void }> {

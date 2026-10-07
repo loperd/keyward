@@ -3,7 +3,7 @@
 // the opened item; the inspector only draws it. Pure.
 import { customValue, isCustomKind, siteHost } from "../model/fields";
 import type { Args, Key, Text } from "../i18n";
-import { reusePartners, sameService, expiryText } from "../model/reasons";
+import { duplicatesOf, partnerName, placeOf as itemPlace, reusedWith, sameService, expiryText } from "../model/reasons";
 import { orgFindings } from "../model/findings";
 import { ago } from "../model/time";
 import { isLoud, policyLevel, type Directory, type Node, NodeKind, MapKind } from "../path/directory";
@@ -586,20 +586,30 @@ function item(ctx: DocContext, n: Node): DocSpec {
   let body: Section | null = null;
   let security: Block[] = [];
   const fields = fieldBlocks(it, ctx.detail);
-  const partners = reusePartners(it, dir.catalog);
+  // A copy of the same record is told apart from a password shared with
+  // another one: the first is housekeeping, the second a risk.
+  const partners = reusedWith(it, dir.catalog);
+  const copies = duplicatesOf(it, dir.catalog);
   const links = dir.links().filter((l) => l.to === n.id && dir.has(l.from));
   if (it.deleted) {
     primary = verb("refresh", "verb.restore", "restore");
     body = sec(k("doc.contents"), fields);
   } else if (it.kind === ItemKind.Login) {
     primary = verb("copy", "doc.copyPassword", "copy password");
-    more = [verb("user2", "verb.copyUsername", "copy username"), ...(it.hasTotp ? [verb("hash", "verb.copyTotp", "copy totp")] : []), verb("refresh", "verb.rotate", "rotate"), act("ext", "doc.openSite"), relMap, verb("edit", "doc.edit", "edit")];
+    more = [...(copies.length ? [verb("merge", "verb.merge", "merge")] : []), verb("user2", "verb.copyUsername", "copy username"), ...(it.hasTotp ? [verb("hash", "verb.copyTotp", "copy totp")] : []), verb("refresh", "verb.rotate", "rotate"), act("ext", "doc.openSite"), relMap, verb("edit", "doc.edit", "edit")];
     body = sec(k("doc.signIn"), fields);
     const months = it.passwordRevised ? Math.floor((dir.now.getTime() - Date.parse(it.passwordRevised)) / (30 * 86_400_000)) : null;
     security = [
-      partners.length
-        ? { sig: Level.Critical, title: k("doc.reused"), sub: partners.length === 1 ? k("doc.sameAs", { name: partners[0]!.name }) : k("why.reused", { n: partners.length }), action: { label: k("doc.change"), act: { verb: "rotate" } } }
-        : { sig: Level.Healthy, title: k("doc.unique"), sub: k("doc.uniqueSub") },
+      // One finding for all the copies, and one way out of it: the copies
+      // themselves are among the relations.
+      ...(copies.length
+        ? [{ sig: Level.Warning, title: k("doc.duplicate"), sub: copies.length === 1 ? k("doc.duplicateSub", { place: itemPlace(copies[0]!, dir.catalog) }) : k("why.duplicates", { n: copies.length }), action: { label: k("verb.merge"), act: { verb: "merge" } } }]
+        : []),
+      ...(partners.length
+        ? [{ sig: Level.Critical, title: k("doc.reused"), sub: partners.length === 1 ? k("doc.sameAs", { name: partnerName(partners[0]!, it, dir.catalog) }) : k("why.reused", { n: partners.length }), action: { label: k("doc.change"), act: { verb: "rotate" } } }]
+        : copies.length
+          ? []
+          : [{ sig: Level.Healthy, title: k("doc.unique"), sub: k("doc.uniqueSub") }]),
       it.hasTotp ? { sig: Level.Healthy, title: k("doc.twoStep"), sub: k("doc.totpHere") } : { sig: Level.Warning, title: k("doc.noTwoStep"), sub: k("doc.noTwoStepSub") },
       ...(months !== null
         ? [months > 12 ? { sig: Level.Warning, title: k("doc.oldPassword"), sub: k("doc.changedAgo", { ago: ago(it.passwordRevised!, dir.now) }) } : { sig: Level.Healthy, title: k("doc.passwordAge"), sub: k("doc.changedAgo", { ago: ago(it.passwordRevised!, dir.now) }) }]
@@ -633,6 +643,7 @@ function item(ctx: DocContext, n: Node): DocSpec {
     });
   }
   const rel: Block[] = [];
+  for (const c of copies) rel.push({ ref: `item:${c.id}`, lead: nodeLead(`item:${c.id}`), title: { raw: c.name }, context: k("doc.copyAt", { place: itemPlace(c, dir.catalog) }), mark: mark(Level.Warning, k("short.duplicate")) });
   for (const p of partners) rel.push({ ref: `item:${p.id}`, lead: nodeLead(`item:${p.id}`), title: { raw: p.name }, context: k("map.samePassword"), mark: mark(Level.Critical, k("short.reused")) });
   for (const s of sameService(it, dir.catalog)) {
     const sn = dir.node(`item:${s.id}`);

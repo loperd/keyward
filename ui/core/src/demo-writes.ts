@@ -10,7 +10,8 @@ import { DEMO_NOW } from "./demo";
 import { detailOf, itemOf } from "./edit/draft";
 import { t } from "./i18n";
 import { type Item, type ItemDetail, type OrgRole, type Permission, type SecretRef, SecretField, MemberStatus } from "./model/types";
-import { type GeneratorOptions, type Invite, type ItemDraft, type SecretInput, type Writes, GeneratorKind } from "./writes";
+import { type GeneratorOptions, type Invite, type ItemDraft, type MergeComparison, type MergePlan, type MergeRow, type MergeSlot, type SecretInput, type Writes, GeneratorKind, MergeField } from "./writes";
+import { type Field } from "./model/types";
 
 /// A call of the writes, by name: what `failNext` names.
 export enum Call {
@@ -27,6 +28,7 @@ export enum Call {
   MemberFingerprint = "memberFingerprint",
   ConfirmMember = "confirmMember",
   RemoveMember = "removeMember",
+  Merge = "merge",
 }
 
 /// The demo's fingerprint phrase for every member: Bitwarden's own example
@@ -213,6 +215,106 @@ export class DemoWrites implements Writes {
         value = null;
       },
     };
+  }
+
+  /// What the demo holds in a slot of an item: the value typed into it, or
+  /// its made-up one — a password shared by a reuse group is one value.
+  private async slots(id: string): Promise<{ detail: ItemDetail; held: Map<string, { slot: MergeSlot; secret: boolean; value: string; field: Field | null }> }> {
+    const detail = await this.backend.item(id);
+    const it = detail.item;
+    const held = new Map<string, { slot: MergeSlot; secret: boolean; value: string; field: Field | null }>();
+    const valueOf = async (ref: SecretRef) => {
+      if (ref.field === SecretField.Password && it.reuseGroup !== null && !this.values.has(this.refKey(ref))) return `reuse-${it.reuseGroup}`;
+      const r = await this.backend.reveal(ref);
+      const v = r.value;
+      r.drop();
+      return v;
+    };
+    for (const f of detail.fields) {
+      const builtin = f.key === "username" ? MergeField.Username : f.key === "password" ? MergeField.Password : f.key === "totp" ? MergeField.Totp : null;
+      const slot: MergeSlot | null = builtin ? { field: builtin } : f.key === null ? { field: MergeField.Custom, name: f.label } : null;
+      if (!slot) continue;
+      const secret = f.value === null && !!f.secret;
+      const value = f.value ?? (f.secret ? await valueOf(f.secret) : "");
+      if (value) held.set(slot.field === MergeField.Custom ? `custom:${slot.name.toLowerCase()}` : slot.field, { slot, secret: secret && builtin !== MergeField.Username, value, field: f });
+    }
+    if (detail.notes) held.set(MergeField.Notes, { slot: { field: MergeField.Notes }, secret: true, value: await valueOf(detail.notes), field: null });
+    if (it.passkeys > 0) held.set(MergeField.Passkeys, { slot: { field: MergeField.Passkeys }, secret: false, value: `passkeys-${id}`, field: null });
+    return { detail, held };
+  }
+
+  async compareForMerge(itemIds: string[]): Promise<MergeComparison> {
+    const all = await Promise.all(itemIds.map((id) => this.slots(id)));
+    const rows = new Map<string, MergeRow & { values: string[] }>();
+    all.forEach(({ held }, n) => {
+      for (const [key, h] of held) {
+        let row = rows.get(key);
+        if (!row) rows.set(key, (row = { slot: h.slot, secret: h.secret, holders: [], values: [] }));
+        row.secret ||= h.secret;
+        let group = row.values.indexOf(h.value);
+        if (group < 0) group = row.values.push(h.value) - 1;
+        row.holders.push({ itemId: itemIds[n]!, group });
+      }
+    });
+    return { rows: [...rows.values()].map(({ values: _, ...r }) => r) };
+  }
+
+  async merge(plan: MergePlan): Promise<void> {
+    await this.call(Call.Merge, `${plan.keeper} ${plan.others.join(" ")} ${plan.takes.map((t) => `${t.slot.field}${t.asName ? `=${t.asName}` : ""}`).join(" ")}`);
+    const keeper = await this.slots(plan.keeper);
+    const others = new Map(await Promise.all(plan.others.map(async (id) => [id, await this.slots(id)] as const)));
+    const detail = structuredClone(keeper.detail);
+    const it = detail.item;
+    for (const [, o] of others) for (const u of o.detail.item.uris) if (!it.uris.some((x) => x.toLowerCase() === u.toLowerCase())) it.uris.push(u);
+    const BUILTIN: Record<Exclude<MergeField, MergeField.Custom | MergeField.Passkeys>, Exclude<SecretField, SecretField.Custom>> = {
+      [MergeField.Username]: SecretField.Username,
+      [MergeField.Password]: SecretField.Password,
+      [MergeField.Totp]: SecretField.Totp,
+      [MergeField.Notes]: SecretField.Notes,
+    };
+    const ref = (slot: MergeSlot): SecretRef => {
+      if (slot.field === MergeField.Custom) return { itemId: it.id, field: SecretField.Custom, name: slot.name };
+      if (slot.field === MergeField.Passkeys) throw new Error("passkeys are not a secret field");
+      return { itemId: it.id, field: BUILTIN[slot.field] };
+    };
+    for (const take of plan.takes) {
+      const from = others.get(take.from);
+      if (!from) throw new Error(`a take from "${take.from}", which is not merged`);
+      if (take.slot.field === MergeField.Passkeys) {
+        it.passkeys += from.detail.item.passkeys;
+        continue;
+      }
+      const key = take.slot.field === MergeField.Custom ? `custom:${take.slot.name.toLowerCase()}` : take.slot.field;
+      const h = from.held.get(key);
+      if (!h) throw new Error(t("err.mergeFieldGone"));
+      if (take.asName) {
+        const r: SecretRef = { itemId: it.id, field: SecretField.Custom, name: take.asName };
+        this.values.set(this.refKey(r), h.value);
+        detail.fields.push({ key: null, label: take.asName, value: h.secret ? null : h.value, secret: r, mono: true });
+        continue;
+      }
+      const r = ref(take.slot);
+      this.values.set(this.refKey(r), h.value);
+      if (take.slot.field === MergeField.Notes) {
+        detail.notes = r;
+        continue;
+      }
+      const at = detail.fields.findIndex((f) => (take.slot.field === MergeField.Custom ? f.key === null && f.label.toLowerCase() === take.slot.name.toLowerCase() : f.key === take.slot.field));
+      const field: Field = { key: take.slot.field === MergeField.Custom ? null : take.slot.field, label: take.slot.field === MergeField.Custom ? take.slot.name : take.slot.field, value: h.secret ? null : h.value, secret: r, mono: true };
+      if (at < 0) detail.fields.push(field);
+      else detail.fields[at] = field;
+      if (take.slot.field === MergeField.Username) it.subtitle = h.value;
+      if (take.slot.field === MergeField.Totp) it.hasTotp = true;
+      if (take.slot.field === MergeField.Password) Object.assign(it, { passwordRevised: DEMO_NOW.toISOString(), reuseGroup: from.detail.item.reuseGroup });
+    }
+    it.revised = DEMO_NOW.toISOString();
+    this.details.set(it.id, detail);
+    this.backend.mutate((data) => {
+      const at = data.items.findIndex((i) => i.id === it.id);
+      if (at < 0) throw new Error(`no item "${it.id}"`);
+      data.items[at] = it;
+    });
+    await this.backend.trash(plan.others);
   }
 
   async createFolder(name: string): Promise<string> {

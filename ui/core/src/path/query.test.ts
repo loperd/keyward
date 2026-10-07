@@ -64,7 +64,7 @@ describe("the graph", () => {
   });
   it("says why an item stands where it does, naming the other half of a reuse", () => {
     const d = dir();
-    expect(d.node("item:aws").why).toEqual({ key: "why.reusedWith", args: { name: "GitLab — platform" } });
+    expect(d.node("item:aws").why).toEqual({ key: "why.reusedWith", args: { name: { raw: "GitLab — platform" } } });
     expect(d.node("item:stripe").level).toBe("action");
     expect(d.node("item:travel").level).toBe("critical");
   });
