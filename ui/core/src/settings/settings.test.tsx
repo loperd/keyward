@@ -11,8 +11,8 @@ import { App } from "../ui/App";
 import { DemoBackend, DEMO_SETTINGS } from "../demo-backend";
 import { DEMO } from "../demo";
 import { allTexts, Lang, setLang, currentLang, text } from "../i18n";
-import { PIN_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb } from "../verbs/account";
-import { SecretAskKind, PreviewKind } from "../verbs/spec";
+import { PIN_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb, exportFormatOf } from "../verbs/account";
+import { SecretAskKind, PreviewKind, ExportFormat } from "../verbs/spec";
 import type { UnlockState } from "./types";
 
 const UNLOCKS: UnlockState[] = [
@@ -49,6 +49,9 @@ describe("the settings' rows", () => {
           expect(text(row.hint(u)).length).toBeGreaterThan(0);
           for (const v of row.verbs(u)) expect(allTexts(v.label).every((w) => w.length > 0)).toBe(true);
         }
+      } else if (row.kind === RowKind.Action) {
+        expect(allTexts(row.hint).every((w) => w.length > 0)).toBe(true);
+        for (const v of row.verbs) expect(allTexts(v.label).every((w) => w.length > 0)).toBe(true);
       } else if (row.hint) expect(allTexts(row.hint(DEMO_SETTINGS)).every((w) => w.length > 0)).toBe(true);
     }
   });
@@ -334,5 +337,49 @@ describe("the browsers", () => {
     await flush();
     expect(dialog()?.textContent).toContain("Слова истекли");
     expect(inDialog("Сопрячь")?.disabled).toBe(true);
+  });
+});
+
+describe("the export", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+    setLang(Lang.Ru);
+  });
+
+  it("reads its format from the line, JSON by default, and refuses another", () => {
+    expect(exportFormatOf("")).toBe(ExportFormat.Json);
+    expect(exportFormatOf("CSV")).toBe(ExportFormat.Csv);
+    expect(exportFormatOf("xml")).toBeNull();
+  });
+
+  it("asks for the master password, writes the chosen format and says where", async () => {
+    const b = new DemoBackend();
+    const lines: string[] = [];
+    act(() => root.render(<App backend={b} line="settings › settings-security > export csv" onLine={(l) => lines.push(l)} autoBiometric={false} />));
+    await flush();
+    await flush();
+    const go = host.querySelector<HTMLButtonElement>("button[data-confirm]")!;
+    expect(go.disabled).toBe(true);
+    const field = host.querySelector<HTMLInputElement>('input[aria-label="Мастер-пароль"]')!;
+    await act(async () => {
+      field.value = "correct horse";
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => go.click());
+    await flush();
+    await flush();
+    expect(document.body.textContent).toContain("Экспорт сохранён: ~/Downloads/keyward-export.csv");
+    expect(lines.join("\n")).not.toContain("correct horse");
+    expect(field.value).toBe("");
   });
 });

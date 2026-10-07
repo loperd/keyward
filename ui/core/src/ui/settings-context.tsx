@@ -7,7 +7,7 @@ import { createContext, useContext, useState } from "react";
 import "./edit.css";
 import "./settings.css";
 import { t, text } from "../i18n";
-import { ROWS, RowKind, type SettingKey, type SettingRow } from "../settings/rows";
+import { type MethodVerb, ROWS, RowKind, type SettingKey, type SettingRow } from "../settings/rows";
 import type { AppSettings, SettingsPatch, UnlockState } from "../settings/types";
 import { useCore, BtnIcon } from "./marks";
 import { Phase } from "./feedback";
@@ -61,10 +61,38 @@ function Words({ title, hint }: { title: string; hint: string | null }) {
 export function SettingRowView({ setting, report }: { setting: SettingKey; report: (e: unknown) => void }) {
   const row = ROWS[setting];
   if (row.kind === RowKind.Method) return <MethodRow row={row} />;
+  if (row.kind === RowKind.Action) return <ActionRow row={row} />;
   return <ValueRow row={row} report={report} />;
 }
 
-function ValueRow({ row, report }: { row: Exclude<SettingRow, { kind: RowKind.Method }>; report: (e: unknown) => void }) {
+function VerbButtons({ verbs }: { verbs: MethodVerb[] }) {
+  const { store } = useCore();
+  return (
+    <>
+      {verbs.map((v) => (
+        <button key={v.verb} type="button" className={`kw-btn${v.quiet ? " kw-quiet" : " kw-solid"}`} onClick={() => store.verb(v.verb)}>
+          <BtnIcon icon={v.icon} phase={Phase.Idle} />
+          {t(v.label)}
+        </button>
+      ))}
+    </>
+  );
+}
+
+/// Something done from the settings (an export): its words, and the verb
+/// that opens its preview.
+function ActionRow({ row }: { row: Extract<SettingRow, { kind: RowKind.Action }> }) {
+  return (
+    <div className="kw-set">
+      <Words title={t(row.title)} hint={t(row.hint)} />
+      <span className="kw-set-acts">
+        <VerbButtons verbs={row.verbs} />
+      </span>
+    </div>
+  );
+}
+
+function ValueRow({ row, report }: { row: Extract<SettingRow, { kind: RowKind.Toggle | RowKind.Choice }>; report: (e: unknown) => void }) {
   const hold = useSettingsHold();
   const [busy, setBusy] = useState(false);
   const s = hold.settings;
@@ -105,7 +133,6 @@ function ValueRow({ row, report }: { row: Exclude<SettingRow, { kind: RowKind.Me
 /// opens its preview on the line, where what it needs is typed.
 function MethodRow({ row }: { row: Extract<SettingRow, { kind: RowKind.Method }> }) {
   const hold = useSettingsHold();
-  const { store } = useCore();
   const u = hold.unlock;
   const title = t(row.title);
   if (!u) return <Waiting title={title} failed={null} />;
@@ -115,13 +142,7 @@ function MethodRow({ row }: { row: Extract<SettingRow, { kind: RowKind.Method }>
       <Words title={title} hint={text(row.hint(u))} />
       <span className="kw-set-acts">
         <span className={`kw-set-state${on ? " kw-on" : ""}`}>{t(on ? "set.on" : "set.off")}</span>
-        {row.available(u) &&
-          row.verbs(u).map((v) => (
-            <button key={v.verb} type="button" className={`kw-btn${v.quiet ? " kw-quiet" : " kw-solid"}`} onClick={() => store.verb(v.verb)}>
-              <BtnIcon icon={v.icon} phase={Phase.Idle} />
-              {t(v.label)}
-            </button>
-          ))}
+        {row.available(u) && <VerbButtons verbs={row.verbs(u)} />}
       </span>
     </div>
   );

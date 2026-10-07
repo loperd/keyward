@@ -20,11 +20,20 @@ export enum AccountOp {
   ForgetBiometric = "forgetBiometric",
   SetPin = "setPin",
   ClearPin = "clearPin",
+  Export = "export",
+}
+
+/// What an export is written as.
+export enum ExportFormat {
+  Json = "json",
+  Csv = "csv",
 }
 /// `secrets`: what the person typed into the preview's secret fields, by the
 /// field's id — `null` in the preview, put in by the window at ↵ from fields
 /// that are emptied as they are read (`withSecrets`). Never kept anywhere.
-export type AccountWrite = { op: AccountOp; secrets: Readonly<Record<string, string>> | null };
+export type AccountWrite =
+  | { op: Exclude<AccountOp, AccountOp.Export>; secrets: Readonly<Record<string, string>> | null }
+  | { op: AccountOp.Export; format: ExportFormat; secrets: Readonly<Record<string, string>> | null };
 
 /// What a secret field of a preview is for: a field the line never carries
 /// (a master password, a PIN), typed into the sheet and read once at ↵.

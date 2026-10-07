@@ -8,7 +8,7 @@ import type { Contribution } from "./path/directory";
 import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
 import type { AppSettings, BrowserExtensions, SettingsPatch, UnlockState } from "./settings/types";
-import type { AccountOp } from "./verbs/spec";
+import type { AccountWrite } from "./verbs/spec";
 
 /// What a session is doing: the state of the app's session, and of each of
 /// its accounts.
@@ -184,9 +184,11 @@ export interface Backend {
   /// How the account opens here besides the master password; present where
   /// it can open otherwise (`unlockBiometric`, `unlockPin`).
   unlockState?(): Promise<UnlockState>;
-  /// Changes that: `secrets` are what the person typed for it (the master
-  /// password, the PIN), by the preview's field ids, for this one call.
-  account?(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void>;
+  /// Changes that, or writes the vault out: `secrets` are what the person
+  /// typed for it (the master password, the PIN), by the preview's field
+  /// ids, for this one call. An export answers with where it was saved, or
+  /// `null` when the person closed the save dialogue; the rest with `null`.
+  account?(w: AccountWrite & { secrets: Readonly<Record<string, string>> }): Promise<string | null>;
 
   /// The browser extensions paired with the app, and those asking to be;
   /// present where the app takes passkey requests from a browser.

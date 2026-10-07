@@ -23,6 +23,7 @@ export enum SettingKey {
   Language = "language",
   Biometric = "biometric",
   Pin = "pin",
+  Export = "export",
 }
 
 export enum RowKind {
@@ -31,6 +32,8 @@ export enum RowKind {
   /// A way to open the vault: whether it is on, and the verbs that turn it
   /// on, change or off.
   Method = "method",
+  /// Something done rather than set: a verb's button, no state of its own.
+  Action = "action",
 }
 
 export type SettingChoice = { label: Text; on: boolean; patch: SettingsPatch };
@@ -38,7 +41,8 @@ export type SettingChoice = { label: Text; on: boolean; patch: SettingsPatch };
 export type SettingRow =
   | { kind: RowKind.Toggle; title: Key; hint?: (s: AppSettings) => Key; on: (s: AppSettings) => boolean; patch: (on: boolean) => SettingsPatch }
   | { kind: RowKind.Choice; title: Key; hint?: (s: AppSettings) => Key; choices: (s: AppSettings) => SettingChoice[] }
-  | { kind: RowKind.Method; title: Key; hint: (u: UnlockState) => Text; on: (u: UnlockState) => boolean; available: (u: UnlockState) => boolean; verbs: (u: UnlockState) => MethodVerb[] };
+  | { kind: RowKind.Method; title: Key; hint: (u: UnlockState) => Text; on: (u: UnlockState) => boolean; available: (u: UnlockState) => boolean; verbs: (u: UnlockState) => MethodVerb[] }
+  | { kind: RowKind.Action; title: Key; hint: Key; verbs: MethodVerb[] };
 
 /// A button of a method's row: the verb it opens.
 export type MethodVerb = { label: Key; icon: string; verb: AccountVerb; quiet?: boolean };
@@ -149,6 +153,7 @@ export const ROWS: Record<SettingKey, SettingRow> = {
           ]
         : [{ label: "set.turnOn", icon: "hash", verb: AccountVerb.Pin }],
   },
+  [SettingKey.Export]: { kind: RowKind.Action, title: "set.export", hint: "set.exportHint", verbs: [{ label: "set.exportGo", icon: "ext", verb: AccountVerb.Export }] },
   [SettingKey.Language]: {
     kind: RowKind.Choice,
     title: "set.language",

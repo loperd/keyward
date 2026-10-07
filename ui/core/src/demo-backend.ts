@@ -5,7 +5,7 @@
 // and a topology, and Kubernetes clusters, as nodes of the graph with pages in
 // the core's vocabulary and words of their own.
 import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions } from "./settings/types";
-import { AccountOp } from "./verbs/spec";
+import { AccountOp, type AccountWrite } from "./verbs/spec";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
 import { registerWords, t, type Text, type Words, Lang } from "./i18n";
@@ -690,7 +690,8 @@ export class DemoBackend implements Backend {
     await this.wait();
     return { ...this.unlocks, pin: this.unlocks.pin || !!this.opts.pin };
   }
-  async account(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void> {
+  async account(w: AccountWrite & { secrets: Readonly<Record<string, string>> }): Promise<string | null> {
+    const { op, secrets } = w;
     if (this.failNext) {
       const why = this.failNext;
       this.failNext = null;
@@ -705,6 +706,11 @@ export class DemoBackend implements Backend {
       this.unlocks = { ...this.unlocks, pin: false };
       this.opts = { ...this.opts, pin: false };
     }
+    if (w.op === AccountOp.Export) {
+      if (secrets.password === DEMO_WRONG) throw new Error("err.badPassword");
+      return `~/Downloads/keyward-export.${w.format}`;
+    }
+    return null;
   }
 
   /// The demo's browsers: one paired, and one asking while `?pair=1` says so.

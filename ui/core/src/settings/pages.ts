@@ -39,7 +39,7 @@ export const pageSub = (p: SettingsPage): Key => PAGE_SUB[p];
 const rows = (title: Key, keys: SettingKey[]): Section => ({ title: { key: title }, blocks: keys.map((setting) => ({ setting })) });
 
 const SECTIONS: Record<SettingsPage, Section[]> = {
-  [SettingsPage.Security]: [rows("set.sec.timeout", [SettingKey.LockTimeout, SettingKey.LockAction]), rows("set.sec.clipboard", [SettingKey.Clipboard])],
+  [SettingsPage.Security]: [rows("set.sec.timeout", [SettingKey.LockTimeout, SettingKey.LockAction]), rows("set.sec.clipboard", [SettingKey.Clipboard]), rows("set.sec.export", [SettingKey.Export])],
   [SettingsPage.Unlock]: [rows("set.sec.touchId", [SettingKey.Biometric, SettingKey.TouchIdOnLaunch, SettingKey.TouchIdForSecrets, SettingKey.Grace]), rows("set.sec.pin", [SettingKey.Pin])],
   [SettingsPage.Browsers]: [{ title: { key: "set.sec.extensions" }, blocks: [{ live: LiveBlock.Extensions }] }],
   [SettingsPage.App]: [

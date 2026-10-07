@@ -41,6 +41,7 @@ import {
   parseThemeChoice,
   type UnlockState,
   AccountOp,
+  type AccountWrite,
   type BrowserExtension,
   type BrowserExtensions,
 } from "@keyward/core";
@@ -620,20 +621,25 @@ export class DaemonBackend implements Backend {
   }
 
   /// The master password and the PIN go to the daemon for this one call.
-  async account(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void> {
-    switch (op) {
+  async account(w: AccountWrite & { secrets: Readonly<Record<string, string>> }): Promise<string | null> {
+    const { secrets } = w;
+    switch (w.op) {
       case AccountOp.RememberBiometric:
         await invoke("biometric_remember", { password: typed(secrets, "password") });
-        return;
+        return null;
       case AccountOp.ForgetBiometric:
         await invoke("biometric_forget");
-        return;
+        return null;
       case AccountOp.SetPin:
         await invoke("pin_set", { pin: typed(secrets, "pin"), masterPassword: typed(secrets, "password") });
-        return;
+        return null;
       case AccountOp.ClearPin:
         await invoke("pin_clear");
-        return;
+        return null;
+      // The daemon writes the export; the window's Rust half asks where to
+      // save it and writes a file only its owner can read.
+      case AccountOp.Export:
+        return await invoke<string | null>("export_vault", { masterPassword: typed(secrets, "password"), format: w.format });
     }
   }
 

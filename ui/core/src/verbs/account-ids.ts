@@ -5,4 +5,5 @@ export enum AccountVerb {
   TouchIdOff = "touch id off",
   Pin = "pin",
   PinOff = "pin off",
+  Export = "export",
 }

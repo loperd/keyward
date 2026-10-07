@@ -250,7 +250,8 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       if ("account" in e) {
         if (!calls.account) throw new Error("this app cannot change how the account opens");
         if (!e.account.secrets) throw new Error("an account's change ran without what was typed for it");
-        await calls.account(e.account.op, e.account.secrets);
+        const saved = await calls.account({ ...e.account, secrets: e.account.secrets });
+        if (saved !== null) toasts.push(ToastKind.Ok, t("verb.acct.export.saved", { path: saved }));
         readUnlock();
         return true;
       }

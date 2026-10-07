@@ -59,7 +59,7 @@ removed once every blocker below is in the new one. Tick a line when it is in
 - [ ] **Account security:** change the master password, email and KDF;
       2FA (authenticator QR, email, recovery code, turn off)
       (old: Settings.tsx:579-993).
-- [ ] **Export** of the vault, CSV and JSON (old: Settings.tsx:1146).
+- [x] **Export** of the vault, CSV and JSON (old: Settings.tsx:1146).
 - [x] **Touch ID:** turn on and off, on launch, for secrets, grace time; **PIN:**
       set and clear (old: Settings.tsx:1320-1476).
 - [x] **Browser extensions:** list, pair, unpair, and the pairing prompt that
