@@ -16,6 +16,7 @@ import { BlockSkeleton } from "./Loading";
 import { SettingRowView } from "./settings-context";
 import { ExtensionsList } from "./Extensions";
 import { ProfileView } from "./Profile";
+import { TwoFactorPanel } from "./TwoFactor";
 import { useSettingsMaybe } from "./settings-context";
 
 const say = (x: Text) => text(x);
@@ -279,7 +280,7 @@ function BlockView({ b }: { b: Block }) {
   const { report } = useCore();
   const profileTick = useSettingsMaybe()?.accountTick ?? 0;
   if ("setting" in b) return <SettingRowView setting={b.setting} report={report} />;
-  if ("live" in b) return b.live === LiveBlock.Extensions ? <ExtensionsList /> : <ProfileView version={profileTick} />;
+  if ("live" in b) return b.live === LiveBlock.Extensions ? <ExtensionsList /> : b.live === LiveBlock.TwoFactor ? <TwoFactorPanel /> : <ProfileView version={profileTick} />;
   if ("secret" in b) return <SecretField b={b} />;
   if ("totp" in b)
     return (

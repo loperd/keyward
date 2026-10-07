@@ -439,3 +439,70 @@ describe("the profile", () => {
     expect(host.textContent).toContain("lantern");
   });
 });
+
+describe("two-step login", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+  });
+  const btn = (words: string) => [...host.querySelectorAll<HTMLButtonElement>(".kw-insp button")].find((b) => b.textContent?.trim() === words || b.textContent?.endsWith(words));
+  const type = (label: string, value: string) => {
+    const el = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+    el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  async function open(b: DemoBackend) {
+    act(() => root.render(<App backend={b} line="settings › settings-account" autoBiometric={false} />));
+    await flush();
+    await flush();
+  }
+
+  it("turns email codes on: the password, a code sent to the account's address, the code", async () => {
+    const b = new DemoBackend();
+    await open(b);
+    const emailRow = [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Код на почту"))!;
+    await act(async () => [...emailRow.querySelectorAll("button")].find((x) => x.textContent?.includes("Настроить"))!.click());
+    await act(async () => type("Мастер-пароль", "correct horse"));
+    await act(async () => btn("Прислать код")!.click());
+    await flush();
+    expect(b.calls).toContain("tf:send:alex.morgan@acme.example");
+    await act(async () => type("Код из письма", "123456"));
+    await act(async () => btn("Включить")!.click());
+    await flush();
+    expect(b.calls).toContain("tf:email");
+    for (const el of host.querySelectorAll('input[type="password"]')) expect((el as HTMLInputElement).value).toBe("");
+    expect([...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Код на почту"))?.textContent).toContain("Включено");
+  });
+
+  it("shows the recovery code once, and lets it go when done", async () => {
+    const b = new DemoBackend();
+    await open(b);
+    await act(async () => btn("Показать")!.click());
+    await act(async () => type("Мастер-пароль", "correct horse"));
+    await act(async () => btn("Показать")!.click());
+    await flush();
+    expect(host.textContent).toContain("DEMO-RECO-VERY-CODE");
+    await act(async () => btn("Готово")!.click());
+    expect(host.textContent).not.toContain("DEMO-RECO-VERY-CODE");
+  });
+
+  it("turns the authenticator off with the master password", async () => {
+    const b = new DemoBackend();
+    await open(b);
+    const authRow = [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Приложение-аутентификатор"))!;
+    await act(async () => [...authRow.querySelectorAll("button")].find((x) => x.textContent?.includes("Выключить"))!.click());
+    await act(async () => type("Мастер-пароль", "correct horse"));
+    await act(async () => btn("Выключить")!.click());
+    await flush();
+    expect(b.calls).toContain("tf:off:0");
+  });
+});

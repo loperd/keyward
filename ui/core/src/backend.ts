@@ -7,7 +7,7 @@ import type { Catalog, ItemDetail, SecretRef, Totp } from "./model/types";
 import type { Contribution } from "./path/directory";
 import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
-import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, UnlockState } from "./settings/types";
+import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, TwoFactorStatus, UnlockState } from "./settings/types";
 import type { AccountWrite } from "./verbs/spec";
 
 /// What a session is doing: the state of the app's session, and of each of
@@ -193,6 +193,21 @@ export interface Backend {
   /// What the server knows about the person; present where the account can
   /// be managed from the app.
   profile?(): Promise<AccountProfile>;
+
+  /// Two-step login: what is on, and the steps that turn a method on or off.
+  /// The master password goes with each call, for that call.
+  twoFactorStatus?(): Promise<TwoFactorStatus>;
+  /// The authenticator's new secret, to be shown as a QR code and a key; the
+  /// window drops both when it closes the step.
+  authenticatorSetup?(password: string): Promise<{ key: Revealed; otpauth: Revealed }>;
+  authenticatorEnable?(password: string, key: string, code: string): Promise<TwoFactorStatus>;
+  /// The address the server would send codes to, and sending one there.
+  emailTwoFactorSetup?(password: string): Promise<{ email: string }>;
+  emailTwoFactorSend?(password: string, email: string): Promise<void>;
+  emailTwoFactorEnable?(password: string, email: string, code: string): Promise<TwoFactorStatus>;
+  twoFactorDisable?(password: string, provider: number): Promise<TwoFactorStatus>;
+  /// The recovery code, shown once.
+  recoveryCode?(password: string): Promise<Revealed>;
 
   /// The browser extensions paired with the app, and those asking to be;
   /// present where the app takes passkey requests from a browser.

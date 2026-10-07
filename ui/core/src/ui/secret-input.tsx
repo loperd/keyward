@@ -10,6 +10,10 @@ import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 export type SecretInputHandle = {
   /// The typed value, and the field emptied at once.
   take(): string;
+  /// The typed value, the field left as it is: for a flow of several steps
+  /// that sends it at each (two-step login's setup) and `take`s it at the
+  /// last. Never kept by the caller.
+  read(): string;
   /// Empties the field without reading it.
   clear(): void;
   /// Puts a value in (a generated password): into the field's `.value`
@@ -51,6 +55,11 @@ export function SecretInput({ ref, onFilled, shown = false, multiline = false, r
         input.value = "";
         filled.current?.(false);
         return v;
+      },
+      read() {
+        const input = el.current;
+        if (!input) throw new Error("a secret field was read after it was gone");
+        return input.value;
       },
       clear() {
         if (el.current) el.current.value = "";

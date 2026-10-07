@@ -22,3 +22,12 @@
 /* a row of the danger zone: its button in the danger's colour, quiet until pointed at */
 .kw-btn.kw-danger-q { color: var(--rose); }
 .kw-btn.kw-danger-q:hover { background: color-mix(in srgb, var(--rose) 12%, transparent); }
+
+/* ---------- two-step login ---------- */
+.kw-tf-lede { margin: 0 0 var(--u); }
+.kw-tf-step { display: grid; gap: var(--u); }
+.kw-tf-title { margin: 0; font-weight: var(--w-name); font-size: var(--fs-m); line-height: var(--lh-m); }
+.kw-tf-qr { display: flex; align-items: center; gap: var(--u2); flex-wrap: wrap; }
+.kw-tf-qr img { border-radius: var(--r-ctl); background: #fff; padding: var(--u); }
+.kw-tf-key { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
+.kw-tf-key code { font: var(--w-text) var(--fs-m)/var(--lh-m) var(--mono); color: var(--text); word-break: break-all; -webkit-user-select: text; user-select: text; }

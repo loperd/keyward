@@ -45,6 +45,8 @@ import {
   type BrowserExtension,
   type BrowserExtensions,
   type AccountProfile,
+  type TwoFactorStatus as CoreTwoFactorStatus,
+  type Revealed,
   type Kdf,
   KdfKind,
   parseKdfKind,
@@ -54,6 +56,9 @@ import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
 import type {
   AccountList,
+  AuthenticatorSetup as DaemonAuthenticator,
+  EmailTwoFactorSetup as DaemonEmailSetup,
+  TwoFactorStatus as DaemonTwoFactor,
   AccountProfile as DaemonProfile,
   KdfInfo as DaemonKdf,
   AppSettings as DaemonSettings,
@@ -201,6 +206,26 @@ function profileOf(w: DaemonProfile): AccountProfile {
     kdf: kdfOf(w.kdf),
     fingerprint: [...w.fingerprint],
     twoFactor: bool(w.two_factor_enabled, "two_factor_enabled"),
+  };
+}
+
+/// boundary: the daemon's two-step login as the core's.
+function twoFactorOf(w: DaemonTwoFactor): CoreTwoFactorStatus {
+  if (!Array.isArray(w.others) || !w.others.every((o) => Number.isInteger(o.provider) && typeof o.name === "string")) throw new Error("the daemon's two-step login does not read");
+  return { authenticator: bool(w.authenticator, "authenticator"), email: bool(w.email, "email"), others: w.others.map((o) => ({ provider: o.provider, name: o.name })) };
+}
+
+/// A value shown for a moment: dropped, it is let go of.
+function held(value: string): Revealed {
+  let v: string | null = value;
+  return {
+    get value() {
+      if (v === null) throw new Error("a shown value was read after it was dropped");
+      return v;
+    },
+    drop() {
+      v = null;
+    },
   };
 }
 
@@ -710,6 +735,36 @@ export class DaemonBackend implements Backend {
   private async afterRelogin(reply: LoginReply) {
     if (step(reply).step !== LoginStepKind.Done) await this.logout();
     else this.emit({ kind: ChangeKind.Session });
+  }
+
+  async twoFactorStatus(): Promise<CoreTwoFactorStatus> {
+    return twoFactorOf(await invoke<DaemonTwoFactor>("two_factor_status"));
+  }
+  async authenticatorSetup(password: string): Promise<{ key: Revealed; otpauth: Revealed }> {
+    const s = await invoke<DaemonAuthenticator>("two_factor_authenticator_setup", { masterPassword: password });
+    if (typeof s.key !== "string" || typeof s.otpauth !== "string" || !s.otpauth.startsWith("otpauth://")) throw new Error("the daemon's authenticator secret does not read");
+    return { key: held(s.key), otpauth: held(s.otpauth) };
+  }
+  async authenticatorEnable(password: string, key: string, code: string): Promise<CoreTwoFactorStatus> {
+    return twoFactorOf(await invoke<DaemonTwoFactor>("two_factor_authenticator_enable", { masterPassword: password, key, token: code }));
+  }
+  async emailTwoFactorSetup(password: string): Promise<{ email: string }> {
+    const s = await invoke<DaemonEmailSetup>("two_factor_email_setup", { masterPassword: password });
+    if (typeof s.email !== "string") throw new Error("the daemon's email for codes does not read");
+    return { email: s.email };
+  }
+  async emailTwoFactorSend(password: string, email: string): Promise<void> {
+    await invoke("two_factor_email_send", { masterPassword: password, email });
+  }
+  async emailTwoFactorEnable(password: string, email: string, code: string): Promise<CoreTwoFactorStatus> {
+    return twoFactorOf(await invoke<DaemonTwoFactor>("two_factor_email_enable", { masterPassword: password, email, token: code }));
+  }
+  async twoFactorDisable(password: string, provider: number): Promise<CoreTwoFactorStatus> {
+    return twoFactorOf(await invoke<DaemonTwoFactor>("two_factor_disable", { masterPassword: password, provider }));
+  }
+  /// Sealed on its way from the daemon, as every secret the window shows.
+  async recoveryCode(password: string): Promise<Revealed> {
+    return held(await invokeSecret("two_factor_recovery_code", { masterPassword: password }));
   }
 
   async profile(): Promise<AccountProfile> {

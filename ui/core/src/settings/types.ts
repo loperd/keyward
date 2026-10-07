@@ -68,6 +68,14 @@ export type UnlockState = { biometric: boolean; biometricProblem: string | null;
 export type BrowserExtension = { key: string; words: string[]; at: number; expires: number };
 export type BrowserExtensions = { paired: BrowserExtension[]; pending: BrowserExtension[] };
 
+/// Two-step login as the server has it: the two methods the app sets up,
+/// and the others turned on elsewhere (only turned off here), by Bitwarden's
+/// provider number.
+export type TwoFactorStatus = { authenticator: boolean; email: boolean; others: { provider: number; name: string }[] };
+/// Bitwarden's numbers of the two methods the app sets up.
+export const AUTHENTICATOR_PROVIDER = 0;
+export const EMAIL_PROVIDER = 1;
+
 /// How the master password is stretched into the key.
 export enum KdfKind {
   Pbkdf2 = "pbkdf2",

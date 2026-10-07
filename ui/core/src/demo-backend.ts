@@ -4,7 +4,7 @@
 // like a real password. It also brings what a plugin would: SSH hosts, keys
 // and a topology, and Kubernetes clusters, as nodes of the graph with pages in
 // the core's vocabulary and words of their own.
-import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions, type AccountProfile, KdfKind } from "./settings/types";
+import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions, type AccountProfile, KdfKind, type TwoFactorStatus } from "./settings/types";
 import { AccountOp, type AccountWrite } from "./verbs/spec";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
@@ -737,6 +737,53 @@ export class DemoBackend implements Backend {
   async profile(): Promise<AccountProfile> {
     await this.wait();
     return structuredClone(this.demoProfile);
+  }
+
+  /// The demo's two-step login: the authenticator on, email codes off.
+  private tf: TwoFactorStatus = { authenticator: true, email: false, others: [] };
+  private tfCheck(password: string) {
+    if (password === DEMO_WRONG) throw new Error("err.badPassword");
+  }
+  async twoFactorStatus(): Promise<TwoFactorStatus> {
+    await this.wait();
+    return structuredClone(this.tf);
+  }
+  async authenticatorSetup(password: string) {
+    this.tfCheck(password);
+    const shown = (v: string) => ({ value: v, drop: () => undefined });
+    return { key: shown("JBSWY3DPEHPK3PXP"), otpauth: shown("otpauth://totp/keyward:alex.morgan@acme.example?secret=JBSWY3DPEHPK3PXP&issuer=keyward") };
+  }
+  async authenticatorEnable(password: string, _key: string, code: string): Promise<TwoFactorStatus> {
+    this.tfCheck(password);
+    if (code === DEMO_WRONG) throw new Error("err.badTwoFactor");
+    this.calls.push("tf:authenticator");
+    this.tf = { ...this.tf, authenticator: true };
+    return structuredClone(this.tf);
+  }
+  async emailTwoFactorSetup(password: string) {
+    this.tfCheck(password);
+    return { email: this.demoProfile.email };
+  }
+  async emailTwoFactorSend(password: string, email: string): Promise<void> {
+    this.tfCheck(password);
+    this.calls.push(`tf:send:${email}`);
+  }
+  async emailTwoFactorEnable(password: string, _email: string, code: string): Promise<TwoFactorStatus> {
+    this.tfCheck(password);
+    if (code === DEMO_WRONG) throw new Error("err.badTwoFactor");
+    this.calls.push("tf:email");
+    this.tf = { ...this.tf, email: true };
+    return structuredClone(this.tf);
+  }
+  async twoFactorDisable(password: string, provider: number): Promise<TwoFactorStatus> {
+    this.tfCheck(password);
+    this.calls.push(`tf:off:${provider}`);
+    this.tf = { authenticator: provider === 0 ? false : this.tf.authenticator, email: provider === 1 ? false : this.tf.email, others: this.tf.others.filter((o) => o.provider !== provider) };
+    return structuredClone(this.tf);
+  }
+  async recoveryCode(password: string) {
+    this.tfCheck(password);
+    return { value: "DEMO-RECO-VERY-CODE", drop: () => undefined };
   }
 
   /// The demo's browsers: one paired, and one asking while `?pair=1` says so.

@@ -46,6 +46,7 @@ const SECTIONS: Record<SettingsPage, Section[]> = {
   [SettingsPage.Account]: [
     { title: { key: "set.sec.profile" }, blocks: [{ live: LiveBlock.Profile }] },
     rows("set.sec.signIn", [SettingKey.Password, SettingKey.Kdf]),
+    { title: { key: "set.sec.twoFactor" }, blocks: [{ live: LiveBlock.TwoFactor }] },
     rows("set.sec.danger", [SettingKey.SignOutEverywhere, SettingKey.Purge, SettingKey.DeleteAccount]),
   ],
   [SettingsPage.Security]: [rows("set.sec.timeout", [SettingKey.LockTimeout, SettingKey.LockAction]), rows("set.sec.clipboard", [SettingKey.Clipboard]), rows("set.sec.export", [SettingKey.Export])],

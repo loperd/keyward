@@ -15,6 +15,8 @@ export enum LiveBlock {
   Extensions = "extensions",
   /// The account's profile: email, name, the derivation, the fingerprint.
   Profile = "profile",
+  /// Two-step login: its methods, and the steps that turn them on or off.
+  TwoFactor = "twoFactor",
 }
 
 /// What a skeleton block stands for while its content is on its way.
