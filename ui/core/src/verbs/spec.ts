@@ -1,6 +1,7 @@
 // A verb's preview, described: what will happen, step by step, what changes
 // and what stays — before anything happens. Nothing runs until ↵; the effect
 // names what the backend is asked to do then.
+import type { FillMode } from "./fill";
 import type { Kdf } from "../settings/types";
 import type { Key, Text } from "../i18n";
 import type { Lead, MarkSpec } from "../doc/spec";
@@ -13,7 +14,7 @@ export type Line = { level: Level; title: Text; sub?: Text };
 
 /// What ↵ asks of the backend. `none` is a verb the backend cannot do yet:
 /// the preview still shows, and the window says that nothing was changed.
-export type Effect = { copy: SecretRef } | { lock: true } | { trash: string[] } | { restore: string[] } | { sync: true } | { org: OrgWrite } | { folder: FolderWrite } | { plugin: PluginCall } | { account: AccountWrite } | { none: true };
+export type Effect = { copy: SecretRef } | { lock: true } | { trash: string[] } | { restore: string[] } | { sync: true } | { org: OrgWrite } | { folder: FolderWrite } | { plugin: PluginCall } | { account: AccountWrite } | { fill: { itemId: string; mode: FillMode } } | { none: true };
 
 /// A change to how this account opens on this computer.
 export enum AccountOp {

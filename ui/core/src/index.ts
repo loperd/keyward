@@ -22,6 +22,7 @@ export * from "./map/model";
 export * from "./map/layout";
 export * from "./verbs/spec";
 export * from "./verbs/core";
+export * from "./verbs/fill";
 export * from "./plugin/declared";
 // The demo lives at `@keyward/core/demo` (src/demo-entry.ts), never here:
 // what this entry exports reaches production bundles.

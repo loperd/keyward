@@ -13,6 +13,7 @@ import { DEMO } from "../demo";
 import { allTexts, Lang, setLang, currentLang, text } from "../i18n";
 import { PIN_MIN, PASSWORD_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb, exportFormatOf, kdfOf } from "../verbs/account";
 import { SecretAskKind, PreviewKind, ExportFormat } from "../verbs/spec";
+import { fillVerb } from "../verbs/fill";
 import { type UnlockState, KdfKind } from "./types";
 
 const UNLOCKS: UnlockState[] = [
@@ -548,5 +549,57 @@ describe("a change of email", () => {
     await flush();
     expect(b.calls).toContain("email:alex@new.example");
     expect(document.body.textContent).toContain("Email сменён на alex@new.example");
+  });
+});
+
+describe("autofill", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+  });
+  const go = () => host.querySelector<HTMLButtonElement>("button[data-confirm]");
+
+  it("offers > fill only after ⌘⇧L, and types the login and the password into what was in front", async () => {
+    const b = new DemoBackend();
+    act(() => root.render(<App backend={b} line="personal › work › aws-production > fill" autoBiometric={false} />));
+    await flush();
+    await flush();
+    expect(go()).toBeNull();
+    await act(async () => b.pressAutofill({ app: "Arc", domain: null, loginPair: true }));
+    await flush();
+    expect(host.textContent).toContain("«Arc»");
+    await act(async () => go()!.click());
+    await flush();
+    expect(b.calls.some((c) => c.startsWith("fill:") && c.endsWith(":both"))).toBe(true);
+  });
+
+  it("asks the system for access and says so when it may not type", async () => {
+    const b = new DemoBackend();
+    b.fillGranted = false;
+    act(() => root.render(<App backend={b} line="personal › work › aws-production > fill password" autoBiometric={false} />));
+    await flush();
+    await flush();
+    await act(async () => b.pressAutofill({ app: "Arc", domain: null, loginPair: false }));
+    await flush();
+    await act(async () => go()!.click());
+    await flush();
+    expect(b.calls).toContain("fill:ask");
+    expect(b.calls.some((c) => c.startsWith("fill:aws"))).toBe(false);
+    expect(host.textContent).toContain("Универсальному доступу");
+  });
+
+  it("will not type both where the field is not in a sign-in form", () => {
+    const dir = new Directory(DEMO, []);
+    const p = fillVerb({ app: "Notes", domain: null, loginPair: false }).preview!(dir, "item:aws", "");
+    expect(p.kind === PreviewKind.Ready && p.blocked).toBeTruthy();
   });
 });

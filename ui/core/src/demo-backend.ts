@@ -6,6 +6,7 @@
 // the core's vocabulary and words of their own.
 import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions, type AccountProfile, KdfKind, type TwoFactorStatus } from "./settings/types";
 import { AccountOp, type AccountWrite } from "./verbs/spec";
+import type { FillContext, FillMode } from "./verbs/fill";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
 import { registerWords, t, type Text, type Words, Lang } from "./i18n";
@@ -748,6 +749,27 @@ export class DemoBackend implements Backend {
     if (code === DEMO_WRONG) throw new Error("err.badTwoFactor");
     this.calls.push(`email:${email}`);
     this.demoProfile = { ...this.demoProfile, email };
+  }
+
+  /// ⌘⇧L, as the stand or a test presses it: `pressAutofill` tells the window.
+  private fillWatchers = new Set<(c: FillContext) => void>();
+  /// Whether the demo may type into other apps.
+  fillGranted = true;
+  onAutofill(cb: (c: FillContext) => void): () => void {
+    this.fillWatchers.add(cb);
+    return () => void this.fillWatchers.delete(cb);
+  }
+  pressAutofill(ctx: FillContext) {
+    for (const w of this.fillWatchers) w(ctx);
+  }
+  async fill(itemId: string, mode: FillMode): Promise<void> {
+    this.calls.push(`fill:${itemId}:${mode}`);
+  }
+  async fillAccess(): Promise<boolean> {
+    return this.fillGranted;
+  }
+  async requestFillAccess(): Promise<void> {
+    this.calls.push("fill:ask");
   }
 
   /// The demo's two-step login: the authenticator on, email codes off.

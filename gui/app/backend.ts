@@ -4,6 +4,7 @@
 // A copy never touches the page at all — the daemon puts it on the clipboard
 // and clears it there.
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   type Account,
   type Backend,
@@ -47,6 +48,8 @@ import {
   type AccountProfile,
   type TwoFactorStatus as CoreTwoFactorStatus,
   type Revealed,
+  type FillContext,
+  FillMode,
   type Kdf,
   KdfKind,
   parseKdfKind,
@@ -228,6 +231,16 @@ function held(value: string): Revealed {
     },
   };
 }
+
+/// boundary: what the window's Rust half saw in front at ⌘⇧L.
+function fillContextOf(w: unknown): FillContext {
+  const o = w as { app?: unknown; domain?: unknown; field?: { login?: unknown } | null } | null;
+  if (!o || typeof o.app !== "string" || (o.domain !== null && o.domain !== undefined && typeof o.domain !== "string")) throw new Error("what was in front at ⌘⇧L does not read");
+  return { app: o.app, domain: typeof o.domain === "string" && o.domain !== "" ? o.domain : null, loginPair: !!o.field?.login };
+}
+
+/// boundary: a fill's mode in the words of the window's Rust half.
+const FILL_WIRE: Record<FillMode, string> = { [FillMode.Both]: "both", [FillMode.Username]: "username", [FillMode.Password]: "password", [FillMode.Totp]: "totp", [FillMode.Card]: "card" };
 
 /// Bitwarden's provider numbers, as the daemon speaks them.
 const PROVIDER_ID: Record<TwoFactorProvider, number> = { [TwoFactorProvider.Authenticator]: 0, [TwoFactorProvider.Email]: 1, [TwoFactorProvider.Duo]: 2, [TwoFactorProvider.Yubikey]: 3, [TwoFactorProvider.WebAuthn]: 7, [TwoFactorProvider.Recovery]: 8 };
@@ -735,6 +748,34 @@ export class DaemonBackend implements Backend {
   private async afterRelogin(reply: LoginReply) {
     if (step(reply).step !== LoginStepKind.Done) await this.logout();
     else this.emit({ kind: ChangeKind.Session });
+  }
+
+  onAutofill(cb: (ctx: FillContext) => void): () => void {
+    let off: (() => void) | null = null;
+    let gone = false;
+    void listen<unknown>("autofill", (e) => {
+      try {
+        cb(fillContextOf(e.payload));
+      } catch (err) {
+        console.error(err);
+      }
+    }).then((un) => {
+      if (gone) un();
+      else off = un;
+    }, console.error);
+    return () => {
+      gone = true;
+      off?.();
+    };
+  }
+  async fill(itemId: string, mode: FillMode): Promise<void> {
+    await invoke("autofill_fill", { entryId: itemId, mode: { kind: FILL_WIRE[mode] }, submit: false });
+  }
+  async fillAccess(): Promise<boolean> {
+    return await invoke<boolean>("autofill_trusted");
+  }
+  async requestFillAccess(): Promise<void> {
+    await invoke<boolean>("autofill_request_access");
   }
 
   async emailChangeCode(password: string, email: string): Promise<void> {

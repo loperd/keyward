@@ -43,6 +43,7 @@ import { SettingsContext, type SettingsHold } from "./settings-context";
 import { SettingsPage, SETTINGS_ID } from "../settings/pages";
 import type { AppSettings, SettingsPatch, UnlockState } from "../settings/types";
 import { ACCOUNT_VERBS } from "../verbs/account";
+import { type FillContext, fillVerb } from "../verbs/fill";
 import { applyLook } from "../settings/apply";
 
 export type AppProps = {
@@ -136,6 +137,8 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
   // vault is open, and again after each change of it.
   const [unlock, setUnlock] = useState<UnlockState | null>(null);
   const [accountTick, setAccountTick] = useState(0);
+  // What was in front at ⌘⇧L: `> fill` types into it.
+  const [fillCtx, setFillCtx] = useState<FillContext | null>(null);
   const readUnlock = useCallback(() => {
     if (!backend.unlockState) return;
     backend.unlockState().then(setUnlock, report);
@@ -214,7 +217,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     const catalog: Catalog = overlay.size ? { ...loaded.catalog, items: loaded.catalog.items.map((i) => (overlay.has(i.id) ? { ...i, deleted: overlay.get(i.id)! } : i)) } : loaded.catalog;
     return new Directory(catalog, loaded.contributions, { places, settings: pages });
   }, [loaded, overlay, places, hold, pages]);
-  const query = useMemo(() => (dir && loaded ? new Query(dir, [...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS), ...(backend.account && dir.has(SETTINGS_ID) ? ACCOUNT_VERBS : []), ...loaded.contributions.flatMap((c) => c.verbs ?? [])]) : null), [dir, loaded, writes, backend]);
+  const query = useMemo(() => (dir && loaded ? new Query(dir, [...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS), ...(backend.account && dir.has(SETTINGS_ID) ? ACCOUNT_VERBS : []), ...(backend.fill ? [fillVerb(fillCtx)] : []), ...loaded.contributions.flatMap((c) => c.verbs ?? [])]) : null), [dir, loaded, writes, backend, fillCtx]);
 
   // The path lives in the hold, and goes with the session. A new graph is
   // read before anything draws from it: a step that vanished must drop out
@@ -246,6 +249,18 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       }
       if ("sync" in e) {
         await calls.sync();
+        return true;
+      }
+      if ("fill" in e) {
+        if (!calls.fill || !calls.fillAccess || !calls.requestFillAccess) throw new Error("this app cannot type into other apps");
+        // Without Accessibility nothing can be typed: the system is asked,
+        // and the person is told where to switch it on.
+        if (!(await calls.fillAccess())) {
+          await calls.requestFillAccess();
+          throw new Error(t("fill.noAccess"));
+        }
+        await calls.fill(e.fill.itemId, e.fill.mode);
+        setFillCtx(null);
         return true;
       }
       if ("account" in e) {
@@ -282,6 +297,18 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     },
     [calls, store, report, hold, toasts, readUnlock],
   );
+
+  // ⌘⇧L: the window comes up on the items for the site in front.
+  useEffect(() => {
+    if (!backend.onAutofill || !store) return;
+    return backend.onAutofill((ctx) => {
+      setFillCtx(ctx);
+      // The site's items, where a browser named the site; otherwise the
+      // window stays where the person left it.
+      if (ctx.domain) store.commit(ctx.domain);
+      toasts.push(ToastKind.Info, t("fill.from", { app: ctx.app }));
+    });
+  }, [backend, store, toasts]);
 
   const savePlace = useCallback(() => {
     if (!query || !store) return;

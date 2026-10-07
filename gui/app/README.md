@@ -64,7 +64,7 @@ removed once every blocker below is in the new one. Tick a line when it is in
       set and clear (old: Settings.tsx:1320-1476).
 - [x] **Browser extensions:** list, pair, unpair, and the pairing prompt that
       polls `extensions` (old: `src/screens/Extensions.tsx`, `src/PairPrompt.tsx`).
-- [ ] **Autofill:** the `autofill` event, ⌘⇧L, `autofill_fill`, the
+- [x] **Autofill:** the `autofill` event, ⌘⇧L, `autofill_fill`, the
       Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).
 - [ ] **Plugin management:** catalogue, install from file, enable, remove,
       trust, sources (old: `src/plugins/Plugins.tsx`).

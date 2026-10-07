@@ -9,6 +9,7 @@ import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
 import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, TwoFactorStatus, UnlockState } from "./settings/types";
 import type { AccountWrite } from "./verbs/spec";
+import type { FillContext, FillMode } from "./verbs/fill";
 
 /// What a session is doing: the state of the app's session, and of each of
 /// its accounts.
@@ -213,6 +214,16 @@ export interface Backend {
   twoFactorDisable?(password: string, provider: number): Promise<TwoFactorStatus>;
   /// The recovery code, shown once.
   recoveryCode?(password: string): Promise<Revealed>;
+
+  /// ⌘⇧L in another app: told what was in front; returns the unsubscribe.
+  /// Present where the app types into other apps.
+  onAutofill?(cb: (ctx: FillContext) => void): () => void;
+  /// Types an item's values into the field that was active at ⌘⇧L.
+  fill?(itemId: string, mode: FillMode): Promise<void>;
+  /// Whether the app may type into others (macOS's Accessibility), and
+  /// asking the system for it: the answer comes when the person grants it.
+  fillAccess?(): Promise<boolean>;
+  requestFillAccess?(): Promise<void>;
 
   /// The browser extensions paired with the app, and those asking to be;
   /// present where the app takes passkey requests from a browser.
