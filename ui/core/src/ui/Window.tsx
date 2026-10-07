@@ -22,6 +22,7 @@ import type { LineHandle } from "./PathLine";
 import { useBusy, type Activity } from "./activity";
 import { t, text } from "../i18n";
 import { ToastKind } from "./toasts";
+import { ScreenOverlays, useScreenView } from "./screen/Sheet";
 
 /// The thin bar under the strip while a call a person set going is in
 /// flight. It is always there, so its coming and going fade.
@@ -93,6 +94,11 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
   const used = open.reduce((s, o) => s + (o ? W.col : W.spine), 0);
   const focus = Math.min(snap.focus, Math.max(0, n - 1));
   const obj = store.object();
+  // A plugin's screen, drawer or dialogue over the page that is shown; those
+  // over another page go when the window steps away from it.
+  const docId = answer.kind === AnswerKind.Document ? (answer.id ?? "root") : null;
+  const screenView = useScreenView(core.screens, docId);
+  useEffect(() => core.screens.only(docId), [core.screens, docId]);
 
   const secretForm = useRef<SecretFormHandle>(null);
   const confirm = useCallback((): boolean => {
@@ -168,7 +174,14 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
         return;
       }
       const active = document.activeElement;
-      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+      // Escape in a field of a plugin's drawer or dialogue closes it — but
+      // never in a terminal, whose shell has its own use for the key.
+      if (e.key === "Escape" && docId && active instanceof HTMLElement && active.closest(".kw-dialog, .kw-drawer") && !active.closest(".kw-term")) {
+        e.preventDefault();
+        core.screens.closeTop(docId);
+        return;
+      }
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return;
       if (menu) {
         if (e.key === "Escape") setMenu(false);
         return;
@@ -176,6 +189,12 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
       const s = store.get().state;
       if (e.key === "Escape") {
         if (lens) return setLens(false);
+        // A plugin's dialogue, drawer and screen close first, the topmost
+        // first.
+        if (docId && core.screens.closeTop(docId)) {
+          e.preventDefault();
+          return;
+        }
         if (s.verb !== null) return store.verb(null);
         if (s.map) return store.closeMap();
         // Nothing left to close: Escape goes back, as the strip's arrow does.
@@ -185,6 +204,8 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
         }
         return;
       }
+      // A dialogue is modal: the path does not move under it.
+      if (docId && core.screens.get(docId)?.dialog) return;
       if (e.key === "Enter" && s.verb !== null) {
         e.preventDefault();
         confirm();
@@ -242,7 +263,7 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [core, store, query, menu, lens, confirm, answer.kind, lsel, obj]);
+  }, [core, store, query, menu, lens, confirm, answer.kind, lsel, obj, docId]);
 
   // A look at nothing closes.
   useEffect(() => {
@@ -257,6 +278,8 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
         <Columns cols={cols as Column[]} open={open} widths={W} focus={focus} lit={mapHover} onHover={onRowHover} />
         <Inspector answer={answer} run={runState} onRun={() => confirm()} lsel={lsel} mapHover={mapHover} onMapHover={onMapHover} version={version} secretForm={secretForm} />
         {lens && obj && <QuickLook id={obj} left={used} onClose={() => setLens(false)} />}
+        {docId && screenView && (screenView.drawer || screenView.dialog) && <ScreenOverlays node={docId} view={screenView} />}
+
       </main>
     </div>
   );

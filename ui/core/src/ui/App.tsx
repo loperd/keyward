@@ -45,6 +45,9 @@ import type { AppSettings, SettingsPatch, UnlockState } from "../settings/types"
 import { ACCOUNT_VERBS } from "../verbs/account";
 import { type FillContext, fillVerb } from "../verbs/fill";
 import { applyLook } from "../settings/apply";
+import { screenReader } from "../plugin/screen";
+import { ScreenStore } from "./screen/store";
+import { applyReply } from "./screen/context";
 
 export type AppProps = {
   backend: Backend;
@@ -82,6 +85,9 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
   const activity = useMemo(() => new Activity(), []);
   const toasts = useMemo(() => new Toasts(), []);
   useEffect(() => () => toasts.clear(), [toasts]);
+  // What is open of plugins' screens: it goes with the session.
+  const screens = useMemo(() => new ScreenStore(), []);
+  useEffect(() => () => screens.clear(), [screens]);
   const calls = useMemo(() => tracked(backend, activity), [backend, activity]);
   const changes = useMemo(() => (writes ? tracked(writes, activity) : null), [writes, activity]);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -160,6 +166,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     if (session.state !== SessionState.Unlocked) {
       up.current = false;
       hold.close();
+      screens.clear();
       setClosed(session);
       setLoaded(null);
       setMine([]);
@@ -195,7 +202,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       for (const [id, del] of o) if (catalog.items.find((i) => i.id === id)?.deleted === del) next.delete(id);
       return next.size === o.size ? o : next;
     });
-  }, [backend, hold, readUnlock]);
+  }, [backend, hold, readUnlock, screens]);
   const boot = useCallback(() => {
     load().catch((e: unknown) => setFailure(e instanceof Error ? e.message : String(e)));
   }, [load]);
@@ -243,8 +250,15 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
         return true;
       }
       if ("plugin" in e) {
-        if (!calls.pluginAct) throw new Error(`this app cannot carry out the plugin "${e.plugin.plugin}"'s actions`);
-        await calls.pluginAct(e.plugin);
+        const call = e.plugin;
+        if (!calls.pluginAct) throw new Error(`this app cannot carry out the plugin "${call.plugin}"'s actions`);
+        const raw = await calls.pluginAct(call);
+        // What the verb answered is done over the node it ran on: a dialogue
+        // to fill, a drawer, a screen to go to, a toast.
+        const c = coreRef.current;
+        if (!c) throw new Error("a plugin's verb answered after the window was gone");
+        const words = c.dir.contributions.find((x) => x.id === call.plugin)?.words;
+        applyReply(c, call.at, call.plugin, screenReader(call.plugin, { words, icons: ICONS }).reply(raw, call.op));
         return true;
       }
       if ("sync" in e) {
@@ -335,10 +349,14 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
             reprompt: hold.reprompt,
             activity,
             toast: (kind, text) => void toasts.push(kind, text),
+            screens,
           }
         : null,
-    [dir, query, store, loaded, calls, places, savePlace, report, revealTick, hold, activity, toasts],
+    [dir, query, store, loaded, calls, places, savePlace, report, revealTick, hold, activity, toasts, screens],
   );
+  // A verb's answer is done with the window that stands when it comes.
+  const coreRef = useRef<Core | null>(null);
+  coreRef.current = core;
 
   // The gate that opened the vault fades out over the window that came: its
   // last drawing ("Opening the vault…") is kept a moment over the window.

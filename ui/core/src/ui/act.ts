@@ -33,13 +33,14 @@ export function copiedWords(ref: SecretRef, c: Copied): string {
 }
 
 export function useAct(): (a: Act) => Promise<Outcome> {
-  const { store, backend, report, revealAll, reprompt, toast } = useCore();
+  const { store, backend, report, revealAll, reprompt, toast, screens } = useCore();
   return useCallback(
     async (a: Act): Promise<Outcome> => {
       if ("verb" in a) store.verb(a.verb);
       else if ("map" in a) store.openMap(a.map);
       else if ("go" in a) store.go(a.go);
       else if ("run" in a) store.commit(a.run);
+      else if ("screen" in a) screens.open(a.screen.node, a.screen.plugin, a.screen.route);
       else if ("copy" in a) {
         const ref = a.copy;
         try {
@@ -65,6 +66,6 @@ export function useAct(): (a: Act) => Promise<Outcome> {
       // no call for yet.
       return Outcome.None;
     },
-    [store, backend, report, revealAll, reprompt, toast],
+    [store, backend, report, revealAll, reprompt, toast, screens],
   );
 }

@@ -10,6 +10,7 @@ import { enumParser } from "./model/enum";
 import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, TwoFactorStatus, UnlockState } from "./settings/types";
 import type { AccountWrite } from "./verbs/spec";
 import type { FillContext, FillMode } from "./verbs/fill";
+import type { PluginLane } from "./plugin/screen";
 
 /// What a session is doing: the state of the app's session, and of each of
 /// its accounts.
@@ -173,8 +174,18 @@ export interface Backend {
 
   /// Carries out one of a plugin's actions (a verb a plugin declared);
   /// present only where `caps.plugins`. What it changed comes back as a
-  /// change of the catalogue.
-  pluginAct?(call: PluginCall): Promise<void>;
+  /// change of the catalogue; the answer is the plugin's reply as it rides
+  /// the wire (keyward-ui's `Reply`: a dialogue, a toast), which the core
+  /// reads (`screenReader`).
+  pluginAct?(call: PluginCall): Promise<unknown>;
+  /// A plugin's declared screen by its route (keyward-ui's `view`), as it
+  /// rides the wire; the core reads it. Present only where `caps.plugins`.
+  pluginView?(plugin: string, route: string): Promise<unknown>;
+  /// One of a plugin's operations on its screens, with what a form held
+  /// (`null` for none); the reply as it rides the wire. Everything rides the
+  /// plugin's sealed link: a form may hold a secret, a reply a log. `lane`:
+  /// a long poll (a terminal's output) rides the output lane.
+  pluginRun?(plugin: string, op: { op: string; payload: unknown; form: Readonly<Record<string, string>> | null }, lane: PluginLane): Promise<unknown>;
 
   /// The app's settings; present only where the app keeps any (the desktop
   /// app). Without them there is no Settings on the path.

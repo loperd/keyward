@@ -13,6 +13,7 @@ import type { Place } from "../path/places";
 import type { Reprompt } from "./reprompt";
 import type { Activity } from "./activity";
 import type { ToastKind } from "./toasts";
+import type { ScreenStore } from "./screen/store";
 import { Icon } from "./Icons";
 import { Phase } from "./feedback";
 import { initials } from "../map/model";
@@ -48,6 +49,8 @@ export type Core = {
   activity: Activity;
   /// Say that something happened: done, copied, or a word to note.
   toast: (kind: ToastKind, text: string) => void;
+  /// What is open of plugins' declared screens, node by node.
+  screens: ScreenStore;
 };
 export const CoreContext = createContext<Core | null>(null);
 export function useCore(): Core {

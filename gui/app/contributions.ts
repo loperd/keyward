@@ -77,12 +77,10 @@ export async function pluginPlaces(): Promise<PluginPlaces> {
   return { contributions, refreshMs };
 }
 
-/// Carries out one of a plugin's actions. What the window cannot do with the
-/// answer yet — a screen to go to, a drawer, a dialogue — is said, not
-/// dropped.
-export async function pluginAct(call: PluginCall): Promise<void> {
-  const r = await act(call.plugin, call.op, call.payload);
-  if (r.go !== undefined || r.drawer || r.dialog) throw new Error(`the plugin "${call.plugin}" answered "${call.op}" with a screen, which the new window does not show yet`);
+/// Carries out one of a plugin's actions; the reply as it came, for the core
+/// to read (a screen to go to, a drawer, a dialogue, a toast).
+export async function pluginAct(call: PluginCall): Promise<unknown> {
+  return act(call.plugin, call.op, call.payload);
 }
 
 const reasonOf = (e: unknown) => (e instanceof Error ? e.message : String(e));

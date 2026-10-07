@@ -264,6 +264,13 @@ pub struct Place {
     pub map: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page: Option<Doc>,
+    /// The route of the plugin's declared screen (`view`) this place opens:
+    /// its page offers to open it, and the window draws the screen in the
+    /// page's stead until it is closed. Asked for only then — opening a
+    /// cluster may sign in with a key. A reply's `go` to this route steps to
+    /// this place. Unique among the plugin's places.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub screen: Option<String>,
 }
 
 impl Place {
@@ -298,6 +305,7 @@ impl Place {
             find: None,
             map: false,
             page: None,
+            screen: None,
         }
     }
 }
@@ -441,7 +449,12 @@ impl Places {
             Target::Place(id) if !known(id) => Err(anyhow::anyhow!("{what} names the place \"{id}\", which is not declared")),
             _ => Ok(()),
         };
+        let mut screens = BTreeSet::new();
         for p in std::iter::once(r).chain(&self.places) {
+            if let Some(route) = &p.screen {
+                anyhow::ensure!(!p.map, "the place \"{}\" is a map row and opens a screen", p.id);
+                anyhow::ensure!(screens.insert(route), "the screen \"{route}\" is opened by two places");
+            }
             for k in &p.kids {
                 if let Kid::Place { id, .. } = k {
                     place(&Target::Place(id.clone()), &format!("a row of \"{}\"", p.id))?;
@@ -525,6 +538,7 @@ mod tests {
         let mut db = Place::under(Some("hosts"), "host/db-1", "server", Text::raw("db-1"), Level::Critical);
         db.find = Some(Find { group: FindGroup::Hosts, kind: "host".into(), words: "db-1 root".into() });
         db.page = Some(Doc { primary: Some("check".into()), map: true, ..Doc::default() });
+        db.screen = Some("host/db-1".into());
         let mut map = Place::under(None, "map", "map", Text::key("p.map"), Level::Critical);
         map.map = true;
         let mut p = Places::new(root);
@@ -571,6 +585,8 @@ mod tests {
         assert_eq!(v["verbs"][0]["uses"][0]["on"], json!({ "place": "" }));
         assert_eq!(v["topology"]["edges"][0]["kind"], "refused");
         assert_eq!(v["lines"][0]["level"], "critical");
+        assert_eq!(v["places"][1]["screen"], "host/db-1");
+        assert!(v["places"][0].get("screen").is_none(), "a place without a screen says nothing of one");
         let mut ks = BTreeSet::new();
         keys(&v, &mut ks);
         assert!(ks.contains("p.lede") && ks.contains("p.title") && !ks.contains("prod"));
@@ -591,6 +607,8 @@ mod tests {
             ("applies twice", Box::new(|p| { let u = p.verbs[0].uses[0].clone(); p.verbs[0].uses.push(u) })),
             ("has an id or a parent", Box::new(|p| p.root.id = "root".into())),
             ("a line comes from", Box::new(|p| p.lines[0].from = "ghost".into())),
+            ("opened by two places", Box::new(|p| p.places[0].screen = Some("host/db-1".into()))),
+            ("opens a screen", Box::new(|p| p.places[2].screen = Some("map".into()))),
         ];
         for (want, spoil) in cases {
             let mut p = sample();

@@ -1,0 +1,167 @@
+/* A plugin's declared screen, in the window's own kit: the same grid, marks,
+   buttons and fields as every page; the drawer and the dialogue over the
+   stage. Tokens only. */
+
+/* tones: what a row, a note or a tag is said in */
+.kw-t-ok { --tone: var(--m-ok); } .kw-t-warn { --tone: var(--m-warn); } .kw-t-bad { --tone: var(--m-crit); } .kw-t-accent { --tone: var(--sky); }
+.kw-tag { display: inline-flex; align-items: center; gap: var(--half); height: var(--chip); padding: 0 var(--u); border-radius: var(--r-in);
+  color: var(--tone, var(--dim)); background: color-mix(in srgb, var(--tone, var(--dim)) 12%, transparent); white-space: nowrap; flex: none; }
+.kw-tag .kw-icon { width: var(--u3); height: var(--u3); padding: var(--half); margin-left: calc(var(--half) * -1); }
+.kw-btn.kw-bad:hover:not(:disabled) { color: var(--m-crit); }
+.kw-btn.kw-quiet.kw-bad { color: var(--m-crit); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-crit) 40%, transparent); }
+.kw-when { color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* the head of a screen: the place's tile and the screen's title */
+.kw-shero .kw-acts { flex-wrap: wrap; }
+.kw-sbody > :first-child { margin-top: var(--sec-gap); }
+.kw-sbody > .kw-stabs:first-child { margin-top: var(--u3); }
+.kw-srefused { margin-top: var(--u3); }
+
+/* a section of a screen: an icon in its tone before the heading */
+.kw-ssec > .kw-sec-h .kw-icon { color: var(--tone, var(--faint)); }
+.kw-ssec-hint { color: var(--faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+details.kw-ssec > summary { list-style: none; cursor: default; border-radius: var(--r-ctl); padding: 0 var(--pad); margin-left: calc(var(--pad) * -1); margin-right: calc(var(--pad) * -1); }
+details.kw-ssec > summary::-webkit-details-marker { display: none; }
+details.kw-ssec > summary:hover { background: var(--hover); }
+details.kw-ssec > summary .kw-fold { transition: transform var(--dur-fast) var(--ease-out); }
+details.kw-ssec[open] > summary .kw-fold { transform: rotate(90deg); }
+
+/* rows: the lead in its tone, two lines, what it has to say, its actions */
+.kw-srows { display: flex; flex-direction: column; }
+.kw-srow, .kw-scard { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) auto auto; column-gap: var(--lead-gap); align-items: center;
+  min-height: var(--row-2); padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1); border-radius: var(--r-ctl); cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out); }
+.kw-srow:hover, .kw-srow:focus-visible { background: var(--hover); }
+.kw-srow-ic { position: relative; }
+.kw-tile.kw-plain.kw-srow-ic { color: var(--tone, var(--dim)); }
+.kw-srow-ic .kw-dot { position: absolute; right: var(--half); bottom: var(--half); width: var(--u); height: var(--u); border-radius: 50%;
+  background: var(--tone, var(--faint)); box-shadow: 0 0 0 2px var(--tier-hi); }
+.kw-dot.kw-pulse { animation: kw-pulse var(--dur-loop) var(--ease-in-out) infinite; }
+@keyframes kw-pulse { 50% { opacity: 0.35; } }
+.kw-srow-t { display: flex; flex-direction: column; min-width: 0; }
+.kw-srow-t b { font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-srow-t span { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-srow-s { display: flex; align-items: center; gap: var(--u); min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+.kw-srow-note { color: var(--tone, var(--dim)); }
+.kw-srow-code { color: var(--dim); overflow-wrap: anywhere; }
+.kw-srow-a { display: flex; align-items: center; gap: var(--half); justify-content: flex-end; }
+.kw-srow-a .kw-when { margin-right: var(--u); }
+
+/* cards: the same rows as tiles in a grid, a whole card opens it */
+.kw-scards { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 30), 1fr)); gap: var(--u); }
+.kw-scard { margin: 0; grid-template-columns: var(--tile) minmax(0, 1fr) auto; grid-template-rows: auto auto; row-gap: var(--u); padding: var(--u2);
+  box-shadow: inset 0 0 0 1px var(--edge-soft); transition: box-shadow var(--dur) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.kw-scard .kw-srow-s { grid-column: 2 / -1; grid-row: 2; justify-content: flex-start; }
+.kw-scard .kw-srow-a { grid-column: 3; grid-row: 1; }
+.kw-scard.kw-opens:hover, .kw-scard:focus-visible { box-shadow: inset 0 0 0 1px var(--edge); background: var(--hover); }
+
+/* tables: the facets in one row over it, sortable heads, the actions at the end */
+.kw-stable { display: flex; flex-direction: column; gap: var(--u); }
+.kw-sfilters { display: flex; align-items: center; gap: var(--u); flex-wrap: wrap; }
+.kw-ssel { position: relative; display: inline-flex; align-items: center; gap: var(--u); height: var(--ctl); padding: 0 var(--u); border-radius: var(--r-ctl);
+  background: var(--line-bg); color: var(--dim); box-shadow: inset 0 0 0 1px var(--line-edge); }
+.kw-ssel.kw-on { color: var(--text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 40%, transparent); }
+.kw-ssel select, .kw-ssel-in select { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; height: 100%; outline: none; min-width: 0; cursor: default; padding-right: var(--u); }
+.kw-ssel select option, .kw-ssel-in select option { background: var(--raise); color: var(--text); }
+.kw-sshown { color: var(--faint); font-variant-numeric: tabular-nums; margin-left: auto; }
+.kw-stable-wrap { overflow-x: auto; margin: 0 calc(var(--pad) * -1); scrollbar-width: thin; }
+.kw-stable table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: auto; }
+.kw-stable th { height: var(--ctl); text-align: left; font-weight: var(--w-text); color: var(--faint); padding: 0 var(--pad); white-space: nowrap; }
+.kw-stable td { height: var(--row-1); padding: 0 var(--pad); white-space: nowrap; max-width: calc(var(--u) * 40); overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
+.kw-stable td.kw-sfirst { color: var(--text); font-weight: var(--w-name); }
+.kw-stable tr td:first-child { border-radius: var(--r-ctl) 0 0 var(--r-ctl); }
+.kw-stable tr td:last-child { border-radius: 0 var(--r-ctl) var(--r-ctl) 0; }
+.kw-stable tbody tr { transition: background-color var(--dur-fast) var(--ease-out); cursor: default; }
+.kw-stable tbody tr:hover td, .kw-stable tbody tr:focus-visible td { background: var(--hover); }
+.kw-stable tbody tr:focus-visible { outline: none; }
+.kw-ssort { border: 0; background: transparent; color: inherit; font: inherit; display: inline-flex; align-items: center; gap: var(--half); padding: 0; cursor: default; }
+.kw-ssort .kw-icon { transform: rotate(90deg); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.kw-ssort:hover { color: var(--text); }
+.kw-ssort.kw-on { color: var(--text); }
+.kw-ssort.kw-on .kw-icon { opacity: 1; }
+.kw-ssort.kw-on.kw-desc .kw-icon { transform: rotate(-90deg); }
+.kw-stable td.kw-sacts { width: 1%; overflow: visible; }
+.kw-stable td.kw-sacts > span { display: flex; justify-content: flex-end; gap: var(--half); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.kw-stable tr:hover td.kw-sacts > span, .kw-stable tr:focus-within td.kw-sacts > span, .kw-stable td.kw-sacts > span:has([aria-busy="true"]) { opacity: 1; }
+.kw-sempty { display: flex; align-items: center; gap: var(--u); color: var(--dim); min-height: var(--row-1); }
+.kw-sempty .kw-icon { color: var(--faint); }
+.kw-sempty.kw-big { flex-direction: column; align-items: flex-start; gap: var(--half); padding: var(--u2) 0; }
+.kw-sempty.kw-big b { color: var(--text); font-weight: var(--w-name); }
+
+/* tabs: the window's segmented control, icons with their words in tooltips */
+.kw-stabs { display: flex; flex-direction: column; gap: var(--u2); }
+.kw-stabs + .kw-stabs, .kw-stabs .kw-stabs { margin-top: 0; }
+.kw-fseg.kw-stabbar { align-self: flex-start; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.kw-fseg.kw-stabbar button { flex: none; display: inline-flex; align-items: center; gap: var(--u); padding: 0 var(--u); }
+.kw-fseg.kw-stabbar.kw-icons button { width: calc(var(--ctl) + var(--u)); justify-content: center; position: relative; overflow: visible; }
+.kw-fseg.kw-stabbar.kw-icons { overflow: visible; }
+
+/* forms: the preview's rows — a label column, one control, its hint below */
+.kw-sform { display: flex; flex-direction: column; gap: var(--u); }
+.kw-sform .kw-frow { align-items: start; }
+.kw-sform .kw-frow .kw-fl { min-height: var(--ctl); }
+.kw-sctl { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
+.kw-shint { color: var(--faint); }
+.kw-fin-ic { color: var(--faint); margin-right: var(--u); }
+.kw-fin-ic.kw-down { transform: rotate(90deg); pointer-events: none; }
+.kw-ssel-in { position: relative; }
+.kw-ssel-in select { flex: 1; padding: 0 var(--u); }
+.kw-fin input[type="number"] { font-family: var(--mono); }
+.kw-sarea { width: 100%; min-height: calc(var(--u) * 16); resize: vertical; border: 0; border-radius: var(--r-ctl); padding: var(--u);
+  background: var(--line-bg); color: var(--text); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); outline: none; box-shadow: inset 0 0 0 1px var(--line-edge);
+  transition: box-shadow var(--dur) var(--ease-out); }
+.kw-sarea:focus { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
+.kw-sarea.kw-tall { min-height: calc(var(--u) * 40); }
+.kw-sfoot { display: flex; justify-content: flex-end; gap: var(--u); margin-top: var(--u); }
+
+/* the checked editor: the text, what would change, apply */
+.kw-seditor { display: flex; flex-direction: column; gap: var(--u2); }
+.kw-sdiff pre, .kw-spre { margin: 0; padding: var(--u2); border-radius: var(--r-ctl); background: var(--tier-lo); color: var(--dim);
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); overflow: auto; max-height: calc(var(--u) * 60); white-space: pre; -webkit-user-select: text; user-select: text; }
+.kw-sdiff .kw-add { color: var(--m-ok); background: color-mix(in srgb, var(--m-ok) 10%, transparent); }
+.kw-sdiff .kw-del { color: var(--m-crit); background: color-mix(in srgb, var(--m-crit) 10%, transparent); }
+
+/* the danger zone: last on the screen, the consequence beside the button */
+.kw-sdanger .kw-sec-h .kw-h2 { color: var(--m-crit); }
+.kw-sdanger-row { display: flex; flex-direction: column; gap: var(--u2);
+  padding: var(--u2); border-radius: var(--r-ctl); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-crit) 30%, transparent); }
+.kw-sdanger-a { display: flex; gap: var(--u); justify-content: flex-end; }
+.kw-sdanger-a .kw-fin { flex: 1; min-width: 0; }
+.kw-sdanger-t { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
+.kw-sdanger-t b { font-weight: var(--w-name); }
+.kw-sdanger-t span { color: var(--dim); }
+
+.kw-sbusy { display: flex; align-items: center; gap: var(--u); color: var(--dim); min-height: var(--row-1); }
+.kw-schips, .kw-sactions { display: flex; flex-wrap: wrap; gap: var(--u); align-items: center; }
+.kw-salert { display: flex; align-items: center; gap: var(--u2); min-height: var(--row-1); padding: 0 var(--u2); border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--tone, var(--faint)) 10%, transparent); }
+.kw-salert .kw-mk { white-space: normal; flex: 1; min-width: 0; }
+.kw-salert + .kw-salert, .kw-salert + * { margin-top: var(--u); }
+
+/* the terminal: the shell's own ground, the state over it */
+.kw-term { position: relative; height: calc(var(--u) * 50); border-radius: var(--r-ctl); background: var(--tier-lo); padding: var(--u); overflow: hidden; }
+.kw-term-host { width: 100%; height: 100%; }
+.kw-term-over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: var(--u); color: var(--dim); }
+.kw-term-end { position: absolute; left: var(--u); right: var(--u); bottom: var(--u); display: flex; align-items: center; gap: var(--u); padding: var(--u);
+  border-radius: var(--r-ctl); background: var(--raise); box-shadow: var(--sh-pop); }
+.kw-term-why { flex: 1; min-width: 0; color: var(--dim); overflow-wrap: anywhere; }
+
+/* the drawer: on the right, the whole height, over the sheet */
+.kw-drawer { position: absolute; top: 0; right: 0; bottom: 0; z-index: 20; width: min(calc(var(--u) * 72), 70%); display: flex; flex-direction: column;
+  background: var(--tier-hi); box-shadow: var(--sh-win), inset 1px 0 0 var(--sheet-lit); animation: kw-drawer-in var(--dur-slow) var(--ease-out); }
+@keyframes kw-drawer-in { from { transform: translateX(var(--u4)); opacity: 0; } }
+.kw-obody { flex: 1; min-height: 0; overflow-y: auto; padding: var(--u2) var(--u3) var(--u4); display: flex; flex-direction: column; gap: var(--u2); scrollbar-width: thin; }
+.kw-obody > .kw-sec { margin-top: var(--u); }
+.kw-ohead { display: flex; align-items: center; gap: var(--u); min-height: calc(var(--u) * 7); padding: var(--u) var(--u2) var(--u) var(--u3); }
+.kw-ohead-ic { color: var(--dim); }
+.kw-ohead-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.kw-ohead-t b { font-size: var(--fs-m); line-height: var(--lh-m); font-weight: var(--w-head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-ohead-t span { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kw-ohead-a { display: flex; align-items: center; gap: var(--half); }
+
+/* the dialogue: over the whole stage, a veil under it */
+.kw-dveil { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: var(--u4);
+  background: color-mix(in srgb, var(--shade) 32%, transparent); animation: kw-veil var(--dur) var(--ease-out); }
+.kw-dialog { width: min(calc(var(--u) * 80), 100%); max-height: 100%; display: flex; flex-direction: column; border-radius: var(--r-win);
+  background: var(--tier-hi); box-shadow: var(--sh-win), inset 0 0 0 1px var(--pill-edge); animation: kw-lens-in var(--dur-slow) var(--ease-out); overflow: hidden; }
+.kw-dialog .kw-ohead { padding-top: var(--u2); }

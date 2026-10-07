@@ -161,6 +161,7 @@
   "kube.notes": "Kubeconfig",
   "kube.viaSsh": "Over SSH",
   "kube.add": "Add a cluster",
+  "kube.again": "Open again",
   "kube.addTitle": "Add a cluster",
   "kube.addName": "Name",
   "kube.addYaml": "Kubeconfig",

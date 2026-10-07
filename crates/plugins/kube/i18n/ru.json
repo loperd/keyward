@@ -161,6 +161,7 @@
   "kube.notes": "Kubeconfig",
   "kube.viaSsh": "Через SSH",
   "kube.add": "Добавить кластер",
+  "kube.again": "Открыть снова",
   "kube.addTitle": "Добавление кластера",
   "kube.addName": "Имя",
   "kube.addYaml": "Kubeconfig",

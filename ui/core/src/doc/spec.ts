@@ -62,11 +62,17 @@ export type Lead =
   /// The lead a node has in a column: its item tile, avatar or icon.
   | { tile: LeadTile.Node; id: string };
 
+/// A plugin's declared screen a place opens: drawn in the place's page's
+/// stead until it is closed.
+export type ScreenRef = { node: string; plugin: string; route: string };
+
 /// What a button does. A verb opens its preview; a map opens the map; `go`
-/// steps to a node; `run` commits a line. `none` is a button the demo draws
-/// and nothing answers yet.
+/// steps to a node; `run` commits a line; `screen` opens a plugin's screen
+/// over its place's page. `none` is a button the demo draws and nothing
+/// answers yet.
 export type Act =
   | { verb: string }
+  | { screen: ScreenRef }
   | { map: MapRef }
   | { go: string }
   | { run: string }

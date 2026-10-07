@@ -24,6 +24,7 @@ export * from "./verbs/spec";
 export * from "./verbs/core";
 export * from "./verbs/fill";
 export * from "./plugin/declared";
+export * from "./plugin/screen";
 // The demo lives at `@keyward/core/demo` (src/demo-entry.ts), never here:
 // what this entry exports reaches production bundles.
 export { App, type AppProps } from "./ui/App";

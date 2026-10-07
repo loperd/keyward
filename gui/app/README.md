@@ -68,10 +68,14 @@ removed once every blocker below is in the new one. Tick a line when it is in
       Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).
 - [ ] **Plugin management:** catalogue, install from file, enable, remove,
       trust, sources (old: `src/plugins/Plugins.tsx`).
-- [ ] **Plugin screens in `ui/core`, declarative only** (no plugin TS/CSS in
-      the window): the core renderer learns pages, drawers, dialogs and the
-      terminal (`pluginAct` go/drawer/dialog now throw,
-      `app/contributions.ts:84-87`).
+- [x] **Plugin screens in `ui/core`, declarative only** (no plugin TS/CSS in
+      the window): a place that declares `screen` offers it on its page, and
+      the core draws the plugin's page in the page's stead (`ui/screen/*`):
+      sections, rows, cards, tables with facets, tabs, forms (secrets read
+      once from uncontrolled fields), the checked editor, the danger zone,
+      the terminal over the plugin's sealed link; a reply's `go`, drawer,
+      dialogue, toast and refresh, a verb's too. Kube opens its catalogue and
+      its clusters this way.
 - [ ] **Plugins moved to Rust pages:** ssh, hashicorp and vaultwarden go from
       `crates/plugins/*/ui` to pages declared in Rust, like kube; their
       settings sections too.

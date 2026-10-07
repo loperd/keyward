@@ -18,6 +18,8 @@ import { type DocSpec, type Block, type MarkSpec, LeadTile, Hue } from "./doc/sp
 import { type MapEdge, type MapModel, type MapNode, type Link, EdgeKind } from "./map/types";
 import { itemPoint, pluginPoint, placeText } from "./map/model";
 import { type Preview, PreviewKind } from "./verbs/spec";
+import { PluginLane } from "./plugin/screen";
+import { SCREEN_WORDS, demoAct, demoView } from "./demo-screens";
 
 const W = (ru: string, en: string) => ({ ru, en });
 const P = (ru: [string, string, string], en: [string, string]) => ({
@@ -109,7 +111,6 @@ const WORDS_SRC: Record<string, Entry> = {
   clusters: W("Кластеры", "Clusters"),
   cluster: W("Кластер · {ver}", "Cluster · {ver}"),
   clusterSec: W("Кластер", "Cluster"),
-  openKubectl: W("Открыть kubectl", "Open kubectl"),
   contextsField: W("Контексты", "Contexts"),
   namespaces: W("Пространства имён", "Namespaces"),
   credentials: W("Учётные данные", "Credentials"),
@@ -136,6 +137,7 @@ const WORDS_SRC: Record<string, Entry> = {
   nothingSigned: W("Ничего не подписывается, ничего не меняется", "Nothing is signed, nothing changes"),
   placeProd: W("Серверы prod", "Prod servers"),
   placeDana: W("Доступ Dana", "Dana's access"),
+  ...Object.fromEntries(Object.entries(SCREEN_WORDS).map(([key, w]) => [key, W(w.ru, w.en)])),
 };
 export const DEMO_WORDS: Words = {
   [Lang.Ru]: Object.fromEntries(Object.entries(WORDS_SRC).map(([k, v]) => [k, v.ru])),
@@ -275,7 +277,7 @@ function clusterDoc(c: Cluster, dir: Directory): DocSpec {
       place: ["plugin:k8s"],
       what: d("cluster", { ver: c.version }),
       state: mk(c.level, c.why),
-      primary: { icon: "terminal", label: d("openKubectl"), act: { none: true } },
+      primary: { icon: "window", label: { key: "plugin.openScreen" }, act: { screen: { node: c.id, plugin: "demo", route: `cluster/${c.slug}` } } },
       more: [
         { icon: "refresh", label: d("check"), act: { none: true } },
         { icon: "map", label: d("topology"), act: { map: { kind: MapKind.Topology, anchor: "plugin:ssh" } } },
@@ -465,6 +467,7 @@ export function demoContributions(): Contribution[] {
     links,
     topology,
     verbs: DEMO_VERBS,
+    words: DEMO_WORDS,
   };
   const k8s: Contribution = {
     id: "demo",
@@ -486,6 +489,10 @@ export function demoContributions(): Contribution[] {
       }),
     ),
     homes: Object.fromEntries(CLUSTERS.map((c) => [c.id, ["plugin:k8s", c.id]])),
+    // Its clusters open declared screens (demo-screens.ts), read with its
+    // words as a plugin's are.
+    words: DEMO_WORDS,
+    screens: Object.fromEntries(CLUSTERS.map((c) => [`cluster/${c.slug}`, c.id])),
   };
   return [ssh, k8s];
 }
@@ -907,6 +914,20 @@ export class DemoBackend implements Backend {
     await this.wait();
     return demoContributions();
   }
+  /// The demo's declared screens, as a plugin would answer them.
+  async pluginView(plugin: string, route: string): Promise<unknown> {
+    this.calls.push(`pluginView:${route}`);
+    await this.wait();
+    if (plugin !== "demo") throw new Error(`the demo has no plugin "${plugin}"`);
+    return demoView(route);
+  }
+  async pluginRun(plugin: string, op: { op: string; payload: unknown; form: Readonly<Record<string, string>> | null }, lane: PluginLane): Promise<unknown> {
+    // A form's values are never noted: only which fields came.
+    this.calls.push(`pluginRun:${op.op}${op.form ? `:${Object.keys(op.form).sort().join(",")}` : ""}${lane === PluginLane.Output ? ":out" : ""}`);
+    if (plugin !== "demo") throw new Error(`the demo has no plugin "${plugin}"`);
+    return demoAct(op.op, op.payload, op.form);
+  }
+
   async item(id: string): Promise<ItemDetail> {
     await this.wait();
     const it = this.data.items.find((i) => i.id === id);

@@ -56,8 +56,9 @@ export enum SecretAskKind {
 export type SecretAsk = { id: string; label: Text; kind: SecretAskKind; same?: string; differs?: string; min?: number; short?: Key };
 
 /// One of a plugin's actions, asked of the backend as the plugin declared it:
-/// the core does not read into `op` or `payload`.
-export type PluginCall = { plugin: string; op: string; payload: unknown };
+/// the core does not read into `op` or `payload`. `at` is the node it ran
+/// on: where a dialogue or a drawer the plugin answers with opens.
+export type PluginCall = { plugin: string; op: string; payload: unknown; at: string };
 
 /// A change to the vault's folders: one call of `Writes` each.
 export enum FolderOp {

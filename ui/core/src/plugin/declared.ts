@@ -4,8 +4,9 @@
 // items and a map. Pure: the backend fetches the declaration, this reads it.
 // A plugin ships no code for any of it; whatever does not hold together is
 // refused here, by the plugin's name, rather than drawn half.
-import type { Arg, Args, Text, Words } from "../i18n";
+import type { Text, Words } from "../i18n";
 import { type Action, type Block, type DocSpec, Hue, type MarkSpec, type Section, LeadTile } from "../doc/spec";
+import { type DeclaredText, wordReader } from "./words";
 import { type Link, type MapModel, EdgeKind } from "../map/types";
 import { pointOf } from "../map/model";
 import { Level, type LoudLevel } from "../model/types";
@@ -15,8 +16,7 @@ import { slugify, type Contribution, type Directory, type Entry, type Node, Resu
 import type { Verb } from "../path/query";
 import { type Input, type Preview, PreviewKind } from "../verbs/spec";
 
-/// A word: a key of the plugin's dictionary, with arguments, or a value.
-export type DeclaredText = { key: string; args?: Record<string, unknown> | null } | { raw: string };
+export type { DeclaredText } from "./words";
 export type DeclaredTarget = { place: string } | { item: string };
 export type DeclaredMark = { level: Level; text: DeclaredText };
 /// What a declared row is. The declaration rides the wire as JSON; a row of
@@ -69,6 +69,8 @@ export type DeclaredPlace = {
   find?: { group: ResultGroup.Hosts | ResultGroup.Clusters; kind: string; words: string };
   map?: boolean;
   page?: DeclaredDoc;
+  /// The route of the plugin's declared screen the place opens.
+  screen?: string;
 };
 export type DeclaredAction = { op: string; payload?: unknown; confirm?: string; twice?: boolean };
 export type DeclaredVerb = {
@@ -125,31 +127,7 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
   };
   const rootId = pluginRootId(plugin);
   const words = opts.words;
-
-  const text = (t: DeclaredText | undefined | null, where: string): Text => {
-    if (!t || typeof t !== "object") return fail(`no words for ${where}`);
-    if ("raw" in t) {
-      if (typeof t.raw !== "string") return fail(`a value that is not text in ${where}`);
-      return { raw: t.raw };
-    }
-    if (typeof t.key !== "string") return fail(`a text with no key in ${where}`);
-    if (!words) return fail(`the word "${t.key}" in ${where} and brings no dictionary`);
-    for (const l of Object.keys(words) as (keyof Words)[]) if (!(t.key in words[l])) fail(`the word "${t.key}" in ${where}, which its ${l} dictionary lacks`);
-    const ext = `${plugin}.${t.key}`;
-    return t.args ? { ext, args: args(t.args, where) } : { ext };
-  };
-  const args = (a: Record<string, unknown>, where: string): Args => {
-    const out: Args = {};
-    for (const [k, v] of Object.entries(a)) out[k] = arg(v, `${where} (${k})`);
-    return out;
-  };
-  const arg = (v: unknown, where: string): Arg => {
-    if (typeof v === "string" || typeof v === "number") return v;
-    if (Array.isArray(v)) return { list: v.map((x) => (typeof x === "string" ? x : text(x as DeclaredText, where))) };
-    if (v && typeof v === "object") return text(v as DeclaredText, where);
-    return fail(`an argument that is neither text nor a number in ${where}`);
-  };
-  const opt = (t: DeclaredText | undefined, where: string): Text | undefined => (t === undefined || t === null ? undefined : text(t, where));
+  const { text, opt } = wordReader(plugin, words, fail);
   // boundary: the declaration's words become members here, or the plugin is refused.
   const level = (l: unknown, where: string): Level => (isEnumValue(Level, l) ? l : fail(`the level "${String(l)}" for ${where}`));
   const icon = (i: unknown, where: string): string => {
@@ -258,7 +236,7 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
           ...(form ? { form } : {}),
           ...(use.confirm && arg !== use.confirm ? { blocked: { key: "plugin.typeToConfirm", args: { word: use.confirm } } } : {}),
           ...(pv.danger || use.confirm ? { danger: true } : {}),
-          effect: { plugin: { plugin, op: use.op, payload: use.payload } },
+          effect: { plugin: { plugin, op: use.op, payload: use.payload, at: obj } },
         };
       },
     });
@@ -268,12 +246,21 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
   const mapAct = topo ? { map: { kind: MapKind.Topology, anchor: rootId } } : null;
   const topoTitle = topo ? text(topo.title, "its map") : null;
 
+  // The screens its places open, by route.
+  const screens = new Map<string, string>();
+
   // The nodes.
   const nodes: Omit<Node, "home">[] = [];
   let root: Omit<Node, "home"> | null = null;
   for (const [id, p] of declared) {
     const where = id === "" ? "its root" : `the place "${id}"`;
     const nid = nodeId(id);
+    if (p.screen !== undefined) {
+      if (typeof p.screen !== "string") fail(`a screen for ${where} that is not a route`);
+      if (p.map) fail(`${where} as a map row that opens a screen`);
+      if (screens.has(p.screen)) fail(`the screen "${p.screen}" opened by two places`);
+      screens.set(p.screen, nid);
+    }
     const home = homes.get(id)!;
     const kids: Entry[] | null = p.map
       ? null
@@ -332,8 +319,15 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
       if (!usesOf.get(id)!.has(node.id)) fail(`${where} offering the verb "${id}", which does not apply there`);
       return { icon: v.icon ?? "verb", label: v.name, act: { verb: id } };
     };
-    const primary = pg?.primary ? verbAction(pg.primary) : undefined;
-    const more = [...(pg?.more ?? []).map(verbAction), ...(pg?.map ? [mapAct && topoTitle ? { icon: "map", label: topoTitle, act: mapAct } : fail(`${where} offering a map and no map`)] : [])];
+    // A place that opens a screen offers it: as the main action where the
+    // page names none, else first beside it.
+    const open: Action | undefined = p.screen === undefined ? undefined : { icon: "window", label: { key: "plugin.openScreen" }, act: { screen: { node: node.id, plugin, route: p.screen } } };
+    const primary = pg?.primary ? verbAction(pg.primary) : open;
+    const more = [
+      ...(pg?.primary && open ? [open] : []),
+      ...(pg?.more ?? []).map(verbAction),
+      ...(pg?.map ? [mapAct && topoTitle ? { icon: "map", label: topoTitle, act: mapAct } : fail(`${where} offering a map and no map`)] : []),
+    ];
     const what = opt(pg?.what, where) ?? node.sub;
     const state = mark(pg?.state, where) ?? (node.why ? { level: node.level, text: node.why } : undefined);
     const note = opt(pg?.note, where);
@@ -450,6 +444,7 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
     ...(topology ? { topology } : {}),
     ...(verbs.size ? { verbs: [...verbs.values()] } : {}),
     ...(words ? { words } : {}),
+    ...(screens.size ? { screens: Object.fromEntries(screens) } : {}),
   };
 }
 

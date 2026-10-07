@@ -58,6 +58,24 @@ const PATHS = {
   trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5c0 .6.4 1 1 1h3.8c.6 0 1-.4 1-1l.6-8.5"/>',
   merge: '<path d="M3.5 2.5v2c0 2.2 2 3.5 4.5 4.5 2.5-1 4.5-2.3 4.5-4.5v-2M8 9v4.5M6 11.5l2 2 2-2"/>',
   state: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.5"/><path d="M8 11h0"/>',
+  // The plugins' declared screens name these (keyward-ui's vocabulary).
+  bolt: '<path d="M9 1.8 3.6 9h4l-1 5.2L12.4 7h-4L9 1.8Z"/>',
+  chevron: '<path d="M6 4l4 4-4 4"/>',
+  cluster: '<circle cx="8" cy="8" r="1.8"/><circle cx="8" cy="2.9" r="1.3"/><circle cx="12.4" cy="10.6" r="1.3"/><circle cx="3.6" cy="10.6" r="1.3"/><path d="M8 4.2v2M9.6 8.9l1.7 1M6.4 8.9l-1.7 1"/>',
+  code: '<path d="M6 4.4 2.6 8 6 11.6M10 4.4 13.4 8 10 11.6"/>',
+  desktop: '<rect x="2.2" y="3" width="11.6" height="7.6" rx="1.4"/><path d="M5.6 13.2h4.8M8 10.6v2.6"/>',
+  grid: '<rect x="2.6" y="2.6" width="4.4" height="4.4" rx="1"/><rect x="9" y="2.6" width="4.4" height="4.4" rx="1"/><rect x="2.6" y="9" width="4.4" height="4.4" rx="1"/><rect x="9" y="9" width="4.4" height="4.4" rx="1"/>',
+  layers: '<path d="M8 2.4 14 5.4 8 8.4 2 5.4 8 2.4Z"/><path d="M2 8.4l6 3 6-3M2 11.2l6 3 6-3"/>',
+  logs: '<path d="M3 4h10M3 6.8h7M3 9.6h10M3 12.4h5"/>',
+  "shield-check": '<path d="M8 1.7 13.3 3.7v4.1c0 3.1-2.1 5.7-5.3 6.9C4.8 13.5 2.7 10.9 2.7 7.8V3.7L8 1.7Z"/><path d="M5.8 8l1.6 1.6 3-3.2"/>',
+  sync: '<path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13.4 2.8v2.8h-2.8"/>',
+  pod: '<path d="M8 2.2 13.4 5v6L8 13.8 2.6 11V5L8 2.2Z"/><path d="M2.6 5 8 7.8 13.4 5M8 7.8v6"/>',
+  database: '<ellipse cx="8" cy="4" rx="4.8" ry="1.8"/><path d="M3.2 4v8c0 1 2.1 1.8 4.8 1.8s4.8-.8 4.8-1.8V4M3.2 8c0 1 2.1 1.8 4.8 1.8s4.8-.8 4.8-1.8"/>',
+  plug: '<path d="M6 2.4v3M10 2.4v3M4.4 5.4h7.2v2.4a3.6 3.6 0 0 1-7.2 0V5.4ZM8 11.4v2.2"/>',
+  globe: '<circle cx="8" cy="8" r="5.6"/><path d="M2.4 8h11.2M8 2.4c-2 2-2 9.2 0 11.2M8 2.4c2 2 2 9.2 0 11.2"/>',
+  sliders: '<path d="M2.6 4.4h3M8.4 4.4h5M2.6 8h6.4M11.8 8h1.6M2.6 11.6h1.2M6.6 11.6h6.8"/><circle cx="7" cy="4.4" r="1.4"/><circle cx="10.4" cy="8" r="1.4"/><circle cx="5.2" cy="11.6" r="1.4"/>',
+  link: '<path d="M6.6 9.4 9.4 6.6"/><path d="M7.4 4.6l1-1a2.4 2.4 0 0 1 3.4 3.4l-1 1M8.6 11.4l-1 1a2.4 2.4 0 0 1-3.4-3.4l1-1"/>',
+  warn: '<path d="M8 2.6 14 13H2L8 2.6Z"/><path d="M8 6.6v3M8 11.2v.2"/>',
 } as const;
 export type IconName = keyof typeof PATHS;
 export const ICONS: ReadonlySet<string> = new Set(Object.keys(PATHS));

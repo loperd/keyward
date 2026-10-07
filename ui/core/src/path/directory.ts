@@ -115,6 +115,9 @@ export type Contribution = {
   verbs?: Verb[];
   /// Its words, registered under its id.
   words?: Words;
+  /// The routes of its declared screens its places open, each to its node:
+  /// where a screen's "go" steps to.
+  screens?: Record<string, string>;
 };
 
 export const isStep = (e: Entry): e is Step => "id" in e;

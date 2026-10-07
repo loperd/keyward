@@ -54,9 +54,10 @@ import {
   KdfKind,
   parseKdfKind,
 } from "@keyward/core";
-import type { PluginCall } from "@keyward/core";
+import { PluginLane, type PluginCall } from "@keyward/core";
 import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
+import { act, actOut, view } from "./declared/channel";
 import type {
   AccountList,
   AuthenticatorSetup as DaemonAuthenticator,
@@ -619,9 +620,26 @@ export class DaemonBackend implements Backend {
 
   /// A plugin's verb: its action, then the places again.
   async pluginAct(call: PluginCall) {
-    await pluginAct(call);
+    const r = await pluginAct(call);
     this.emit({ kind: ChangeKind.Catalog });
+    return r;
   }
+
+  /// A plugin's declared screen, on its sealed road.
+  async pluginView(plugin: string, route: string) {
+    return view(plugin, route);
+  }
+
+  /// An operation of a plugin's screen, on its sealed road: the form goes
+  /// sealed with it. An answer that asks for the screen again may have
+  /// changed the plugin's places too (a cluster added): they are read again.
+  async pluginRun(plugin: string, op: { op: string; payload: unknown; form: Readonly<Record<string, string>> | null }, lane: PluginLane) {
+    if (lane === PluginLane.Output) return actOut(plugin, op.op, op.payload);
+    const r = await act(plugin, op.op, op.payload, op.form ? { ...op.form } : undefined);
+    if (r.refresh) this.emit({ kind: ChangeKind.Catalog });
+    return r;
+  }
+
 
   async item(id: string): Promise<ItemDetail> {
     const [d, c] = await Promise.all([invoke<DaemonDetail>("item_detail", { entryId: id }), invoke<DaemonCatalog>("vault_items")]);

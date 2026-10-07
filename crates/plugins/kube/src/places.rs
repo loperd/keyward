@@ -75,26 +75,13 @@ fn server_state(s: &ServerRow) -> (Level, Text) {
         },
         "attention" => (Level::Warning, k("kube.status.hostUnknown")),
         "broken" => match &s.look {
-            Some(Look::Failed { error, .. }) => (Level::Warning, said(error)),
+            Some(Look::Failed { error, .. }) => (Level::Warning, error_text(error)),
             _ => (Level::Warning, k("kube.status.failed")),
         },
         _ => match &s.look {
             Some(Look::CommandOnly { .. }) => (Level::Healthy, k("kube.status.commandOnly")),
             _ => (Level::Healthy, k("kube.status.none")),
         },
-    }
-}
-
-/// A failure's code the dictionary knows, in words; any other text as it is.
-fn said(error: &str) -> Text {
-    static KEYS: std::sync::OnceLock<std::collections::BTreeSet<String>> = std::sync::OnceLock::new();
-    let keys = KEYS.get_or_init(|| {
-        let words: std::collections::BTreeMap<String, serde_json::Value> = serde_json::from_str(include_str!("../i18n/en.json")).expect("the plugin's dictionary is JSON");
-        words.into_keys().collect()
-    });
-    match error_text(error) {
-        Text::Key { key, .. } if !keys.contains(&key) => Text::raw(error),
-        t => t,
     }
 }
 
@@ -119,6 +106,8 @@ pub(crate) fn declare(o: &Overview) -> Places {
         p.subtitle = Some(k("kube.kind.kubeconfig"));
         p.find = Some(Find { group: FindGroup::Clusters, kind: "cluster".into(), words: n.name.clone() });
         p.page = Some(Doc { what: Some(k("kube.kind.kubeconfig")), sections: vec![Section { title: k("kube.context"), count: None, blocks: vec![Block::Para { text: k("kube.source.note") }] }], ..Doc::default() });
+        // A cluster's id is its screen's route: `cluster/<id>`.
+        p.screen = Some(id.clone());
         places.push(p);
         clusters.push((id, Level::Healthy));
     }
@@ -173,6 +162,7 @@ pub(crate) fn declare(o: &Overview) -> Places {
                     }],
                     ..Doc::default()
                 });
+                c.screen = Some(cid.clone());
                 places.push(c);
                 clusters.push((cid.clone(), lvl));
                 found_here.push(Block::Ref { to: Target::Place(cid.clone()), title: None, context: Some(distro_word(f.kind)), mark: Some(Mark { level: lvl, text: access_word(f.access) }), mono: true });
@@ -223,6 +213,8 @@ pub(crate) fn declare(o: &Overview) -> Places {
 
     let overall = Level::worst_of(clusters.iter().map(|(_, l)| *l).chain(server_levels.iter().copied()));
     let mut root = Place::root("cube", Text::raw("Kubernetes"), overall);
+    // The catalogue: the clusters as cards, adding one, the servers to mind.
+    root.screen = Some(String::new());
     root.hue = Some("sky".into());
     root.wide = true;
     root.subtitle = Some(Text::key_with("kube.status.found", json!({ "n": clusters.len() })));
@@ -350,6 +342,9 @@ mod tests {
         assert_eq!(t.points.iter().filter(|x| x.lane == 1).count(), 4);
         assert_eq!(t.points.iter().filter(|x| x.lane == 2).count(), 2);
         assert_eq!(p.refresh_ms, None, "nothing is being looked at: no need to ask again");
+        // A cluster opens its screen by its own id; the root opens the catalogue.
+        assert_eq!(denied.screen.as_deref(), Some("cluster/ssh|key-1|k3s.example|22|kubeadm"));
+        assert_eq!(p.root.screen.as_deref(), Some(""));
         let look = p.verbs[0].uses.iter().find(|u| u.on == Target::Place("server/key-1|idle.example|22".into())).unwrap();
         assert_eq!(look.action.op, "look");
     }

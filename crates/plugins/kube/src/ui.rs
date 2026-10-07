@@ -188,14 +188,21 @@ fn access_id(a: Access) -> &'static str {
     }
 }
 
-/// An error as it travels (`err.key {"args"}`), as a declared text.
+/// An error as it travels (`err.key {"args"}`), as a declared text. A code
+/// the plugin's dictionary does not know (the daemon's, a library's) is said
+/// as it came: a screen never names a word the window has no text for.
 pub(crate) fn error_text(e: &str) -> Text {
+    static KEYS: std::sync::OnceLock<std::collections::BTreeSet<String>> = std::sync::OnceLock::new();
+    let keys = KEYS.get_or_init(|| {
+        let words: std::collections::BTreeMap<String, Value> = serde_json::from_str(include_str!("../i18n/en.json")).expect("the plugin's dictionary is JSON");
+        words.into_keys().collect()
+    });
     match e.split_once(' ') {
-        Some((key, args)) if key.starts_with("err.") => match serde_json::from_str::<Value>(args) {
+        Some((key, args)) if key.starts_with("err.") && keys.contains(key) => match serde_json::from_str::<Value>(args) {
             Ok(args) => Text::key_with(key, args),
             Err(_) => Text::raw(e),
         },
-        None if e.starts_with("err.") => k(e),
+        None if e.starts_with("err.") && keys.contains(e) => k(e),
         _ => Text::raw(e),
     }
 }
@@ -333,7 +340,7 @@ pub(crate) fn cluster_page(id: &str, label: Label, state: &Value, switcher: Swit
                 switcher: switcher.clone(),
                 body: vec![
                     Node::Alert { text: error_text(state.get("error").and_then(Value::as_str).unwrap_or("")), tone: Tone::Bad },
-                    Node::Actions { buttons: vec![Button::labelled(k("dv.again"), Action::with("reopen", json!({ "cluster": id }))).with_icon("sync")] },
+                    Node::Actions { buttons: vec![Button::labelled(k("kube.again"), Action::with("reopen", json!({ "cluster": id }))).with_icon("sync")] },
                 ],
                 ..Page::default()
             },
@@ -433,7 +440,18 @@ pub(crate) fn table(cluster: &str, kind: Kind, rows: &[Row]) -> Node {
         }
         facets.push(Facet { id: "age".into(), title: k("kube.facet.age"), icon: "clock".into() });
 
-        let table_rows = rows.iter().map(|r| table_row(cluster, kind, r)).collect();
+        // A row says only what its table has a column for: a status is a
+        // facet of every kind that has one, a cell of those that show it.
+        let shown: std::collections::BTreeSet<String> = columns.iter().map(|c| c.id.clone()).collect();
+        let table_rows = rows
+            .iter()
+            .map(|r| {
+                let mut row = table_row(cluster, kind, r);
+                row.cells.retain(|id, _| shown.contains(id));
+                row.sort.retain(|id, _| shown.contains(id));
+                row
+            })
+            .collect();
         Node::Table { id: format!("{cluster}|{}", kind_id(kind)), columns, facets, rows: table_rows, empty: Some(k("kube.emptyTable")) }
 }
 

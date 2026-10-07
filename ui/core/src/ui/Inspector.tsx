@@ -18,6 +18,7 @@ import { EditDocument, NewDocument } from "./Editor";
 import { MergeDocument } from "./MergeDocument";
 import { useWrites } from "./writes-context";
 import { detailOf, kindOfVerb } from "../edit/draft";
+import { ScreenSheet, useScreenView } from "./screen/Sheet";
 
 /// The opened item, asked for when its page is shown and again when the
 /// backend says it changed. While it is asked for again the page keeps what
@@ -67,6 +68,9 @@ export function Inspector({
   const docId = answer.kind === AnswerKind.Document ? (answer.id ?? "root") : null;
   const itemId = docId && dir.has(docId) ? (dir.node(docId).item?.id ?? null) : null;
   const detail = useDetail(itemId, version);
+  // A place's declared screen, where one is open, stands in its page's stead.
+  const view = useScreenView(core.screens, docId);
+  const screen = answer.kind === AnswerKind.Document && docId && view && view.route !== null ? { node: docId, view: { ...view, route: view.route } } : null;
   const ref = useRef<HTMLElement>(null);
   // A verb that makes an item opens the new item's document, not a preview;
   // its kind can change without the sheet being drawn anew.
@@ -87,9 +91,11 @@ export function Inspector({
         ? `verb:${st.verb}:${obj}`
         : answer.kind === AnswerKind.List
           ? `list:${columnKey(answer.column)}`
-          : // A form and its document cross-fade: an edit started, saved, or
-            // taken back after a refusal is seen to turn.
-            `${editing ? "edit" : "doc"}:${docId}`;
+          : screen
+            ? `screen:${docId}:${screen.view.route}`
+            : // A form and its document cross-fade: an edit started, saved, or
+              // taken back after a refusal is seen to turn.
+              `${editing ? "edit" : "doc"}:${docId}`;
   // A new answer cross-fades with the old one: the sheet that was drawn stays
   // a moment over the new one, fading, where it stood, and the new one fades
   // in from the top.
@@ -115,7 +121,11 @@ export function Inspector({
   else if (answer.kind === AnswerKind.Verb) {
     cls += " kw-act";
     body = <VerbPreview run={run} onRun={onRun} secretForm={secretForm} />;
+  } else if (screen) {
+    cls += " kw-wide";
+    body = <ScreenSheet node={screen.node} view={screen.view} />;
   } else if (answer.kind === AnswerKind.List) {
+
     cls += " kw-flat";
     body = <CalmList column={answer.column as Extract<Column, { type: ColumnType.Results }>} lsel={lsel} />;
   } else {
