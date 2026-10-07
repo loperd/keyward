@@ -11,6 +11,7 @@ import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, Two
 import type { AccountWrite } from "./verbs/spec";
 import type { FillContext, FillMode } from "./verbs/fill";
 import type { PluginLane } from "./plugin/screen";
+import type { InstalledPlugin, PluginAdminWrite, PluginOffer } from "./plugin/admin";
 
 /// What a session is doing: the state of the app's session, and of each of
 /// its accounts.
@@ -186,6 +187,20 @@ export interface Backend {
   /// plugin's sealed link: a form may hold a secret, a reply a log. `lane`:
   /// a long poll (a terminal's output) rides the output lane.
   pluginRun?(plugin: string, op: { op: string; payload: unknown; form: Readonly<Record<string, string>> | null }, lane: PluginLane): Promise<unknown>;
+
+  /// The plugins installed here, on or off; present where plugins are
+  /// managed from the window (the desktop app). With it, Settings has a
+  /// Plugins page.
+  pluginList?(): Promise<InstalledPlugin[]>;
+  /// What the catalogue offers; `refresh` goes to the network, else the
+  /// daemon may answer from its cache (`stale`).
+  pluginCatalog?(refresh: boolean): Promise<{ offers: PluginOffer[]; stale: boolean }>;
+  /// The catalogue's sources as they stand.
+  pluginSources?(): Promise<string[]>;
+  /// Changes what is installed, on, trusted or read from; answers with the
+  /// id of a plugin it installed (switched off, for its consent), or `null`
+  /// — a package picker closed without a choice installs nothing.
+  pluginAdmin?(w: PluginAdminWrite): Promise<string | null>;
 
   /// The app's settings; present only where the app keeps any (the desktop
   /// app). Without them there is no Settings on the path.

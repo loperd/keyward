@@ -11,7 +11,9 @@ import type { Link, MapModel } from "../map/types";
 import type { Place } from "./places";
 import type { Verb } from "./query";
 import { enumParser } from "../model/enum";
-import { PAGE_ICON, PAGE_NAME, pageDoc, pageId, pageSub, SETTINGS_ID, type SettingsPage, settingsDoc } from "../settings/pages";
+import { PAGE_ICON, PAGE_NAME, pageDoc, pageId, pageSub, SETTINGS_ID, SettingsPage, settingsDoc } from "../settings/pages";
+import type { InstalledPlugin, PluginAdmin, PluginOffer } from "../plugin/admin";
+import { PLUGINS_PAGE, installedDoc, installedId, offerDoc, offerId, offerState, offered, pluginState, pluginsDoc, pluginsKids } from "../settings/plugins";
 
 export enum NodeKind {
   Root = "root",
@@ -27,6 +29,10 @@ export enum NodeKind {
   Plugin = "plugin",
   Settings = "settings",
   SettingsPage = "settingsPage",
+  /// A plugin installed here, under Settings › Plugins.
+  InstalledPlugin = "installedPlugin",
+  /// A plugin a catalogue offers.
+  PluginOffer = "pluginOffer",
 }
 export enum MapKind {
   Relations = "relations",
@@ -91,6 +97,9 @@ export type Node = {
   policy?: Policy;
   /// The organisation it lives in: what a verb asks of `can` there.
   org?: Org;
+  /// The plugin installed here it is, or the catalogue's offer.
+  plugin?: InstalledPlugin;
+  offer?: PluginOffer;
   /// A wide column: its rows carry a second line worth reading.
   wide?: boolean;
   /// Its name (and its second line) is a machine's word: a host, a cluster.
@@ -167,7 +176,8 @@ export function policyLevel(p: Policy): Level {
 
 /// `settings`: the settings' pages the app offers, in their order; none, no
 /// Settings on the path (the web app).
-export type DirectoryOptions = { places?: Place[]; now?: Date; settings?: SettingsPage[] };
+/// `plugins`: what the window knows of plugins, for the Plugins page.
+export type DirectoryOptions = { places?: Place[]; now?: Date; settings?: SettingsPage[]; plugins?: PluginAdmin };
 
 export class Directory {
   private readonly nodes = new Map<string, Node>();
@@ -190,6 +200,7 @@ export class Directory {
   readonly now: Date;
   readonly places: Place[];
   readonly settings: SettingsPage[];
+  readonly plugins: PluginAdmin | null;
 
   constructor(
     readonly catalog: Catalog,
@@ -199,6 +210,8 @@ export class Directory {
     this.now = opts.now ?? new Date();
     this.places = opts.places ?? [];
     this.settings = opts.settings ?? [];
+    this.plugins = opts.plugins ?? null;
+    if (this.settings.includes(SettingsPage.Plugins) && !this.plugins) throw new Error("the Plugins page with nothing known of plugins");
     for (const p of this.places) {
       if (this.placeMap.has(p.id)) throw new Error(`duplicate place "${p.id}"`);
       this.placeMap.set(p.id, p);
@@ -305,7 +318,23 @@ export class Directory {
       .map((c) => ({ collection: c.id, perm: m.accessAll ? Permission.Manage : (m.access[c.id] ?? null) }));
   }
 
+  /// The Plugins page, a step for each plugin installed here and for each
+  /// the catalogue offers beyond them.
+  private addPlugins(a: PluginAdmin) {
+    const home = [SETTINGS_ID, PLUGINS_PAGE];
+    this.add({ id: PLUGINS_PAGE, kind: NodeKind.SettingsPage, slug: `${SETTINGS_ID}-${SettingsPage.Plugins}`, name: { key: PAGE_NAME[SettingsPage.Plugins] }, icon: PAGE_ICON[SettingsPage.Plugins], level: Level.Unknown, home, wide: true, kids: () => pluginsKids(a), doc: () => pluginsDoc(a) });
+    for (const p of a.installed) {
+      const st = pluginState(p);
+      this.add({ id: installedId(p.id), kind: NodeKind.InstalledPlugin, slug: this.freeSlug(`plugin-${p.id}`), name: { raw: p.title }, icon: p.icon, sub: { raw: p.version }, level: st.level, why: st.text, short: st.text, home: [...home, installedId(p.id)], plugin: p, doc: () => installedDoc(p) });
+    }
+    for (const o of offered(a)) {
+      const st = offerState(o);
+      this.add({ id: offerId(o), kind: NodeKind.PluginOffer, slug: this.freeSlug(`offer-${o.id}`), name: { raw: o.title }, icon: o.icon, sub: { raw: o.version }, level: st.level, why: st.text, short: st.text, home: [...home, offerId(o)], offer: o, doc: () => offerDoc(o) });
+    }
+  }
+
   private add(n: Node) {
+
     if (this.nodes.has(n.id)) throw new Error(`duplicate node "${n.id}"`);
     if (n.id !== "root") {
       const was = this.bySlug.get(n.slug);
@@ -420,7 +449,12 @@ export class Directory {
     if (this.settings.length) {
       const pages = this.settings;
       this.add({ id: SETTINGS_ID, kind: NodeKind.Settings, slug: SETTINGS_ID, name: key("set.title"), icon: "settings", level: Level.Unknown, home: [SETTINGS_ID], kids: () => pages.map((p) => ({ id: pageId(p), sub: key(pageSub(p)) })), doc: () => settingsDoc(pages) });
-      for (const p of pages) this.add({ id: pageId(p), kind: NodeKind.SettingsPage, slug: `${SETTINGS_ID}-${p}`, name: key(PAGE_NAME[p]), icon: PAGE_ICON[p], level: Level.Unknown, home: [SETTINGS_ID, pageId(p)], doc: () => pageDoc(p) });
+      for (const p of pages) {
+        if (p === SettingsPage.Plugins) continue;
+        this.add({ id: pageId(p), kind: NodeKind.SettingsPage, slug: `${SETTINGS_ID}-${p}`, name: key(PAGE_NAME[p]), icon: PAGE_ICON[p], level: Level.Unknown, home: [SETTINGS_ID, pageId(p)], doc: () => pageDoc(p) });
+      }
+      if (pages.includes(SettingsPage.Plugins)) this.addPlugins(this.plugins!);
+
     }
     const personal = live.filter((i) => !i.orgId);
     const inFolder = groupBy(personal, (i) => i.folderId);

@@ -66,8 +66,11 @@ removed once every blocker below is in the new one. Tick a line when it is in
       polls `extensions` (old: `src/screens/Extensions.tsx`, `src/PairPrompt.tsx`).
 - [x] **Autofill:** the `autofill` event, ⌘⇧L, `autofill_fill`, the
       Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).
-- [ ] **Plugin management:** catalogue, install from file, enable, remove,
-      trust, sources (old: `src/plugins/Plugins.tsx`).
+- [x] **Plugin management:** catalogue, install from file, enable, remove,
+      trust, sources (old: `src/plugins/Plugins.tsx`): Settings › Plugins,
+      each plugin and each offer a step; enable (the consent), disable,
+      uninstall, install, trust, install file, install address, add and
+      remove source, refresh catalogue are verbs with previews.
 - [x] **Plugin screens in `ui/core`, declarative only** (no plugin TS/CSS in
       the window): a place that declares `screen` offers it on its page, and
       the core draws the plugin's page in the page's stead (`ui/screen/*`):

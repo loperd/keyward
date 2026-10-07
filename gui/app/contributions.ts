@@ -17,22 +17,10 @@ import {
   type Contribution,
   type DeclaredPlaces,
   type PluginCall,
-  type Words,
 } from "@keyward/core";
 import { act, places } from "./declared/channel";
 import type { Manifest } from "./plugins/types";
-
-/// The built-in plugins' dictionaries, where they live: with the plugin.
-const DICTIONARIES = import.meta.glob<Record<string, string>>("../../crates/plugins/*/i18n/*.json", { eager: true, import: "default" });
-
-/// A plugin's words in both languages; `undefined` for one that has none.
-function wordsOf(plugin: string): Words | undefined {
-  const ru = DICTIONARIES[`../../crates/plugins/${plugin}/i18n/ru.json`];
-  const en = DICTIONARIES[`../../crates/plugins/${plugin}/i18n/en.json`];
-  if (!ru && !en) return undefined;
-  if (!ru || !en) throw new Error(`the plugin "${plugin}" has a dictionary in one language only`);
-  return { ru, en };
-}
+import { wordsOf } from "./plugins/admin";
 
 export type PluginPlaces = {
   contributions: Contribution[];

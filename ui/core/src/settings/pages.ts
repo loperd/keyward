@@ -12,6 +12,8 @@ export enum SettingsPage {
   Unlock = "unlock",
   Browsers = "browsers",
   App = "app",
+  /// The plugins: installed, on offer, their sources (settings/plugins.ts).
+  Plugins = "plugins",
 }
 
 export const SETTINGS_ID = "settings";
@@ -23,6 +25,7 @@ export const PAGE_ICON: Record<SettingsPage, string> = {
   [SettingsPage.Unlock]: "finger",
   [SettingsPage.Browsers]: "login",
   [SettingsPage.App]: "window",
+  [SettingsPage.Plugins]: "grid",
 };
 export const PAGE_NAME: Record<SettingsPage, Key> = {
   [SettingsPage.Account]: "set.page.account",
@@ -30,6 +33,7 @@ export const PAGE_NAME: Record<SettingsPage, Key> = {
   [SettingsPage.Unlock]: "set.page.unlock",
   [SettingsPage.Browsers]: "set.page.browsers",
   [SettingsPage.App]: "set.page.app",
+  [SettingsPage.Plugins]: "set.page.plugins",
 };
 const PAGE_SUB: Record<SettingsPage, Key> = {
   [SettingsPage.Account]: "set.page.accountSub",
@@ -37,6 +41,7 @@ const PAGE_SUB: Record<SettingsPage, Key> = {
   [SettingsPage.Unlock]: "set.page.unlockSub",
   [SettingsPage.Browsers]: "set.page.browsersSub",
   [SettingsPage.App]: "set.page.appSub",
+  [SettingsPage.Plugins]: "set.page.pluginsSub",
 };
 export const pageSub = (p: SettingsPage): Key => PAGE_SUB[p];
 
@@ -56,6 +61,8 @@ const SECTIONS: Record<SettingsPage, Section[]> = {
     rows("set.sec.window", [SettingKey.HideOnCopy, SettingKey.KeepInDock, SettingKey.KeepInTray, SettingKey.StartOnLogin, SettingKey.ScreenCapture]),
     rows("set.sec.look", [SettingKey.Theme, SettingKey.Language, SettingKey.Icons]),
   ],
+  // Its document is built from what the window knows of plugins.
+  [SettingsPage.Plugins]: [],
 };
 
 /// A settings page's document.

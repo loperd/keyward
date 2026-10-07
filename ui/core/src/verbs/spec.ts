@@ -7,6 +7,7 @@ import type { Key, Text } from "../i18n";
 import type { Lead, MarkSpec } from "../doc/spec";
 import type { Level, OrgRole, Permission, SecretRef } from "../model/types";
 import type { Invite } from "../writes";
+import type { PluginAdminWrite } from "../plugin/admin";
 
 export type DeltaSide = MarkSpec | { faint: Text };
 export type Delta = { lead: Lead; name: Text; mono?: boolean; from: DeltaSide; to: DeltaSide };
@@ -14,7 +15,7 @@ export type Line = { level: Level; title: Text; sub?: Text };
 
 /// What ↵ asks of the backend. `none` is a verb the backend cannot do yet:
 /// the preview still shows, and the window says that nothing was changed.
-export type Effect = { copy: SecretRef } | { lock: true } | { trash: string[] } | { restore: string[] } | { sync: true } | { org: OrgWrite } | { folder: FolderWrite } | { plugin: PluginCall } | { account: AccountWrite } | { fill: { itemId: string; mode: FillMode } } | { none: true };
+export type Effect = { copy: SecretRef } | { lock: true } | { trash: string[] } | { restore: string[] } | { sync: true } | { org: OrgWrite } | { folder: FolderWrite } | { plugin: PluginCall } | { account: AccountWrite } | { fill: { itemId: string; mode: FillMode } } | { plugins: PluginAdminWrite } | { none: true };
 
 /// A change to how this account opens on this computer.
 export enum AccountOp {

@@ -74,6 +74,8 @@ export function buildDoc(ctx: DocContext, id: string): DocSpec {
       throw new Error(`plugin node "${id}" brings no page of its own`);
     case NodeKind.Settings:
     case NodeKind.SettingsPage:
+    case NodeKind.InstalledPlugin:
+    case NodeKind.PluginOffer:
       throw new Error(`settings node "${id}" lost its page`);
   }
 }

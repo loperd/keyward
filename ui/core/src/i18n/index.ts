@@ -14,11 +14,13 @@ import ruReprompt from "./reprompt.ru.json";
 import enReprompt from "./reprompt.en.json";
 import ruSettings from "./settings.ru.json";
 import enSettings from "./settings.en.json";
+import ruPlugins from "./plugins.ru.json";
+import enPlugins from "./plugins.en.json";
 
 // The dictionaries are kept in files by area (the map's words apart, the
-// re-prompt's apart, the settings' apart), and read as one.
-const ru = { ...ruCore, ...ruMap, ...ruReprompt, ...ruSettings };
-const en = { ...enCore, ...enMap, ...enReprompt, ...enSettings };
+// re-prompt's apart, the settings' apart, the plugins' apart), and read as one.
+const ru = { ...ruCore, ...ruMap, ...ruReprompt, ...ruSettings, ...ruPlugins };
+const en = { ...enCore, ...enMap, ...enReprompt, ...enSettings, ...enPlugins };
 
 export enum Lang {
   Ru = "ru",

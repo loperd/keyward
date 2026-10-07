@@ -20,6 +20,8 @@ import { itemPoint, pluginPoint, placeText } from "./map/model";
 import { type Preview, PreviewKind } from "./verbs/spec";
 import { PluginLane } from "./plugin/screen";
 import { SCREEN_WORDS, demoAct, demoView } from "./demo-screens";
+import { DemoPlugins, PLUGIN_WORDS } from "./demo-plugins";
+import type { InstalledPlugin, PluginAdminWrite, PluginOffer } from "./plugin/admin";
 
 const W = (ru: string, en: string) => ({ ru, en });
 const P = (ru: [string, string, string], en: [string, string]) => ({
@@ -138,6 +140,7 @@ const WORDS_SRC: Record<string, Entry> = {
   placeProd: W("Серверы prod", "Prod servers"),
   placeDana: W("Доступ Dana", "Dana's access"),
   ...Object.fromEntries(Object.entries(SCREEN_WORDS).map(([key, w]) => [key, W(w.ru, w.en)])),
+  ...Object.fromEntries(Object.entries(PLUGIN_WORDS).map(([key, w]) => [key, W(w.ru, w.en)])),
 };
 export const DEMO_WORDS: Words = {
   [Lang.Ru]: Object.fromEntries(Object.entries(WORDS_SRC).map(([k, v]) => [k, v.ru])),
@@ -914,7 +917,34 @@ export class DemoBackend implements Backend {
     await this.wait();
     return demoContributions();
   }
+  /// The demo's plugins as Settings › Plugins manages them.
+  private plugins = new DemoPlugins();
+  async pluginList(): Promise<InstalledPlugin[]> {
+    await this.wait();
+    return this.plugins.list();
+  }
+  async pluginCatalog(refresh: boolean): Promise<{ offers: PluginOffer[]; stale: boolean }> {
+    this.calls.push(`pluginCatalog:${refresh}`);
+    await this.wait();
+    return this.plugins.catalog();
+  }
+  async pluginSources(): Promise<string[]> {
+    return this.plugins.listSources();
+  }
+  async pluginAdmin(w: PluginAdminWrite): Promise<string | null> {
+    if (this.failNext) {
+      const why = this.failNext;
+      this.failNext = null;
+      throw new Error(why);
+    }
+    this.calls.push(`pluginAdmin:${w.op}`);
+    const id = this.plugins.change(w);
+    this.emit({ kind: ChangeKind.Catalog });
+    return id;
+  }
+
   /// The demo's declared screens, as a plugin would answer them.
+
   async pluginView(plugin: string, route: string): Promise<unknown> {
     this.calls.push(`pluginView:${route}`);
     await this.wait();

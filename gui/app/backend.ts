@@ -54,7 +54,8 @@ import {
   KdfKind,
   parseKdfKind,
 } from "@keyward/core";
-import { PluginLane, type PluginCall } from "@keyward/core";
+import { PluginLane, type PluginAdminWrite, type PluginCall } from "@keyward/core";
+import { pluginAdmin, pluginCatalog, pluginList, pluginSources } from "./plugins/admin";
 import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
 import { act, actOut, view } from "./declared/channel";
@@ -625,7 +626,25 @@ export class DaemonBackend implements Backend {
     return r;
   }
 
+  /// The plugins installed here, the catalogue and its sources.
+  async pluginList() {
+    return pluginList();
+  }
+  async pluginCatalog(refresh: boolean) {
+    return pluginCatalog(refresh);
+  }
+  async pluginSources() {
+    return pluginSources();
+  }
+  /// A change of plugins; the places are read again after it.
+  async pluginAdmin(w: PluginAdminWrite) {
+    const id = await pluginAdmin(w);
+    this.emit({ kind: ChangeKind.Catalog });
+    return id;
+  }
+
   /// A plugin's declared screen, on its sealed road.
+
   async pluginView(plugin: string, route: string) {
     return view(plugin, route);
   }

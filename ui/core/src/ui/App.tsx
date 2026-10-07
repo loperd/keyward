@@ -48,6 +48,10 @@ import { applyLook } from "../settings/apply";
 import { screenReader } from "../plugin/screen";
 import { ScreenStore } from "./screen/store";
 import { applyReply } from "./screen/context";
+import { type InstalledPlugin, type PluginOffer, PluginAdminOp } from "../plugin/admin";
+import { PLUGINS_PAGE, PluginVerb, installedId } from "../settings/plugins";
+import { PLUGIN_VERBS } from "../verbs/plugins";
+
 
 export type AppProps = {
   backend: Backend;
@@ -74,7 +78,8 @@ export type AppProps = {
 
 type Unlocked = Extract<Session, { state: SessionState.Unlocked }>;
 type Closed = Exclude<Session, { state: SessionState.Unlocked }>;
-type Loaded = { session: Unlocked; catalog: Catalog; contributions: Contribution[]; at: number };
+/// `installed`: the plugins installed here, where the app manages them.
+type Loaded = { session: Unlocked; catalog: Catalog; contributions: Contribution[]; installed: InstalledPlugin[] | null; at: number };
 
 export function App({ backend, line = "", onLine, places: extra = [], placeStore, startTyping, autoBiometric = true, writes }: AppProps) {
   useLang();
@@ -150,7 +155,23 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     backend.unlockState().then(setUnlock, report);
   }, [backend, report]);
   const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings, unlock, accountTick }), [settings, settingsFailed, patchSettings, unlock, accountTick]);
-  const pages = useMemo(() => (backend.settings ? [...(backend.profile ? [SettingsPage.Account] : []), SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), ...(backend.extensions ? [SettingsPage.Browsers] : []), SettingsPage.App] : []), [backend]);
+  const pages = useMemo(
+    () => (backend.settings ? [...(backend.profile ? [SettingsPage.Account] : []), SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), ...(backend.extensions ? [SettingsPage.Browsers] : []), SettingsPage.App, ...(backend.pluginList ? [SettingsPage.Plugins] : [])] : []),
+    [backend],
+  );
+  // What the catalogue offers and its sources: read once the vault is open
+  // (the catalogue from the daemon's cache), again after each change of
+  // plugins, and from the network when asked.
+  const [offers, setOffers] = useState<{ offers: PluginOffer[]; stale: boolean } | null>(null);
+  const [sources, setSources] = useState<string[] | null>(null);
+  const readCatalog = useCallback(async (refresh: boolean) => {
+    if (backend.pluginCatalog) setOffers(await backend.pluginCatalog(refresh));
+  }, [backend]);
+  const readSources = useCallback(async () => {
+    if (backend.pluginSources) setSources(await backend.pluginSources());
+  }, [backend]);
+  // A plugin just installed, whose consent opens once the graph has it.
+  const [consentFor, setConsentFor] = useState<string | null>(null);
 
   // A person's places: read when the vault opens, dropped when it closes.
   const [mine, setMine] = useState<Place[]>([]);
@@ -172,6 +193,9 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       setMine([]);
       setRevealTick(0);
       setOverlay((o) => (o.size ? new Map() : o));
+      setOffers(null);
+      setSources(null);
+      setConsentFor(null);
       return;
     }
     // Reading the vault again after a sync or a write is shown like the call
@@ -182,7 +206,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     // Once the catalogue is in, what is left is the plugins' places. A
     // refusal is not handled here: Promise.all below carries it.
     if (!up.current) reading.then(() => n === seq.current && !up.current && setPhase(LoadPhase.Places), () => undefined);
-    const [catalog, contributions] = await Promise.all([reading, backend.contributions()]).finally(end);
+    const [catalog, contributions, installed] = await Promise.all([reading, backend.contributions(), backend.pluginList ? backend.pluginList() : null]).finally(end);
     if (n !== seq.current) return;
     const opened = hold.opened(catalog, ICONS);
     if (opened) {
@@ -191,9 +215,13 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       setMine(opened.places);
     }
     setClosed(null);
-    if (!up.current) readUnlock();
+    if (!up.current) {
+      readUnlock();
+      readCatalog(false).catch(report);
+      readSources().catch(report);
+    }
     up.current = true;
-    setLoaded({ session, catalog, contributions, at: Date.now() });
+    setLoaded({ session, catalog, contributions, installed, at: Date.now() });
     setVersion((v) => v + 1);
     // What the backend now says is what stands: the overlay only covers
     // changes it has not answered yet.
@@ -202,7 +230,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       for (const [id, del] of o) if (catalog.items.find((i) => i.id === id)?.deleted === del) next.delete(id);
       return next.size === o.size ? o : next;
     });
-  }, [backend, hold, readUnlock, screens]);
+  }, [backend, hold, readUnlock, screens, readCatalog, readSources, report]);
   const boot = useCallback(() => {
     load().catch((e: unknown) => setFailure(e instanceof Error ? e.message : String(e)));
   }, [load]);
@@ -221,10 +249,24 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
   const dir = useMemo(() => {
     if (!loaded) return null;
     for (const c of loaded.contributions) if (c.words) hold.registerWords(c.id, c.words);
+    for (const p of loaded.installed ?? []) if (p.words) hold.registerWords(p.id, p.words);
     const catalog: Catalog = overlay.size ? { ...loaded.catalog, items: loaded.catalog.items.map((i) => (overlay.has(i.id) ? { ...i, deleted: overlay.get(i.id)! } : i)) } : loaded.catalog;
-    return new Directory(catalog, loaded.contributions, { places, settings: pages });
-  }, [loaded, overlay, places, hold, pages]);
-  const query = useMemo(() => (dir && loaded ? new Query(dir, [...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS), ...(backend.account && dir.has(SETTINGS_ID) ? ACCOUNT_VERBS : []), ...(backend.fill ? [fillVerb(fillCtx)] : []), ...loaded.contributions.flatMap((c) => c.verbs ?? [])]) : null), [dir, loaded, writes, backend, fillCtx]);
+    const plugins = loaded.installed ? { installed: loaded.installed, offers: offers?.offers ?? null, stale: offers?.stale ?? false, sources } : undefined;
+    return new Directory(catalog, loaded.contributions, { places, settings: pages, ...(plugins ? { plugins } : {}) });
+  }, [loaded, overlay, places, hold, pages, offers, sources]);
+  const query = useMemo(
+    () =>
+      dir && loaded
+        ? new Query(dir, [
+            ...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS),
+            ...(backend.account && dir.has(SETTINGS_ID) ? ACCOUNT_VERBS : []),
+            ...(backend.pluginAdmin && dir.has(PLUGINS_PAGE) ? PLUGIN_VERBS : []),
+            ...(backend.fill ? [fillVerb(fillCtx)] : []),
+            ...loaded.contributions.flatMap((c) => c.verbs ?? []),
+          ])
+        : null,
+    [dir, loaded, writes, backend, fillCtx],
+  );
 
   // The path lives in the hold, and goes with the session. A new graph is
   // read before anything draws from it: a step that vanished must drop out
@@ -236,9 +278,28 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     return store.subscribe(() => onLine(store.get().line));
   }, [store, onLine, query]);
 
+  // A plugin installed switched off: its page, with its consent open.
+  useEffect(() => {
+    if (!consentFor || !store || !dir?.has(installedId(consentFor))) return;
+    setConsentFor(null);
+    store.go(installedId(consentFor));
+    store.verb(PluginVerb.Enable);
+  }, [consentFor, store, dir]);
+
   const perform = useCallback(
     async (e: Effect): Promise<boolean> => {
       if (!store) throw new Error("a verb ran before the window was up");
+      if ("plugins" in e) {
+        const w = e.plugins;
+        if (!calls.pluginAdmin) throw new Error("this app does not manage plugins");
+        const id = await calls.pluginAdmin(w);
+        // What the daemon now holds is what stands: the plugins, their
+        // places, the catalogue and its sources are read again.
+        await Promise.all([load(), readCatalog(w.op === PluginAdminOp.Refresh || w.op === PluginAdminOp.Sources), w.op === PluginAdminOp.Sources ? readSources() : null]);
+        if (id !== null) setConsentFor(id);
+        // A picker closed without a choice installed nothing.
+        return id !== null || w.op !== PluginAdminOp.InstallFile;
+      }
       if ("copy" in e) {
         // An item that asks for the master password again copies nothing
         // before it is given; giving up is no failure.
@@ -309,7 +370,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       }
       return false;
     },
-    [calls, store, report, hold, toasts, readUnlock],
+    [calls, store, report, hold, toasts, readUnlock, load, readCatalog, readSources],
   );
 
   // ⌘⇧L: the window comes up on the items for the site in front.
