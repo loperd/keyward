@@ -56,7 +56,7 @@ removed once every blocker below is in the new one. Tick a line when it is in
       account menu), pages Security, Unlocking and Application whose rows are
       live controls saved at once; secret and dangerous changes go through
       verbs with a preview.
-- [ ] **Account security:** change the master password, email and KDF;
+- [x] **Account security:** change the master password, email and KDF;
       2FA (authenticator QR, email, recovery code, turn off)
       (old: Settings.tsx:579-993).
 - [x] **Export** of the vault, CSV and JSON (old: Settings.tsx:1146).
@@ -77,8 +77,8 @@ removed once every blocker below is in the new one. Tick a line when it is in
       settings sections too.
 
 ### Phase 2 — important
-- [ ] Account profile (name, avatar colour, fingerprint); devices,
-      deauthorise, purge, delete the account.
+- [x] Account profile (name, fingerprint), deauthorise, purge, delete the
+      account. Still to come: editing the name and avatar colour, devices.
 - [x] Lock timeout and lock-or-log-out; clipboard clear time, hide on copy,
       website icons, Dock/tray, start at login, screen capture.
 - [x] Theme and language saved to `settings.json`, not just locally (the

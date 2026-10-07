@@ -45,7 +45,7 @@ const rows = (title: Key, keys: SettingKey[]): Section => ({ title: { key: title
 const SECTIONS: Record<SettingsPage, Section[]> = {
   [SettingsPage.Account]: [
     { title: { key: "set.sec.profile" }, blocks: [{ live: LiveBlock.Profile }] },
-    rows("set.sec.signIn", [SettingKey.Password, SettingKey.Kdf]),
+    { title: { key: "set.sec.signIn" }, blocks: [{ live: LiveBlock.Email }, { setting: SettingKey.Password }, { setting: SettingKey.Kdf }] },
     { title: { key: "set.sec.twoFactor" }, blocks: [{ live: LiveBlock.TwoFactor }] },
     rows("set.sec.danger", [SettingKey.SignOutEverywhere, SettingKey.Purge, SettingKey.DeleteAccount]),
   ],

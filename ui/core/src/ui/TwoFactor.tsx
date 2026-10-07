@@ -356,3 +356,111 @@ export function TwoFactorPanel() {
     </section>
   );
 }
+
+/// Where a change of email stands.
+enum EmailStep {
+  Idle = "idle",
+  Ask = "ask",
+  Code = "code",
+}
+
+/// The account's email in the Sign-in section: changing it takes the master
+/// password and the new address, a code sent there, and signs in again.
+export function EmailChange() {
+  const core = useCore();
+  const b = core.backend;
+  const [step, setStep] = useState(EmailStep.Idle);
+  const [address, setAddress] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filled, setFilled] = useState({ password: false, code: false });
+  const password = useRef<SecretInputHandle>(null);
+  const code = useRef<SecretInputHandle>(null);
+  if (!b.emailChangeCode || !b.emailChange) return null;
+  const close = () => {
+    password.current?.clear();
+    code.current?.clear();
+    setStep(EmailStep.Idle);
+    setError(null);
+    setFilled({ password: false, code: false });
+  };
+  const run = (work: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    work()
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setBusy(false));
+  };
+  if (step === EmailStep.Idle)
+    return (
+      <Row title={t("em.title")} hint={t("em.hint")}>
+        <button type="button" className="kw-btn kw-quiet" onClick={() => setStep(EmailStep.Ask)}>
+          <Icon name="mail" />
+          {t("set.change")}
+        </button>
+      </Row>
+    );
+  const to = address.trim();
+  return (
+    <section className="kw-form kw-tf-step" aria-busy={busy || undefined}>
+      <h3 className="kw-tf-title">{t("em.title")}</h3>
+      <SecretRow label={t("tf.password")} handle={password} onFilled={(f) => setFilled((x) => ({ ...x, password: f }))} autoFocus />
+      <div className="kw-frow">
+        <span className="kw-fl">
+          <span>{t("em.new")}</span>
+        </span>
+        <label className="kw-fin">
+          <input type="email" value={address} onChange={(e) => setAddress(e.target.value)} spellCheck={false} autoComplete="email" aria-label={t("em.new")} disabled={step === EmailStep.Code} />
+        </label>
+      </div>
+      {step === EmailStep.Code && (
+        <>
+          <p className="kw-set-h">{t("tf.sent", { email: to })}</p>
+          <SecretRow label={t("tf.emailCode")} handle={code} onFilled={(f) => setFilled((x) => ({ ...x, code: f }))} numeric autoFocus />
+          <p className="kw-set-h">{t("em.relogin")}</p>
+        </>
+      )}
+      {error && (
+        <div role="alert">
+          <Mark level={Level.Critical} words={error} />
+        </div>
+      )}
+      <div className="kw-vbar">
+        {step === EmailStep.Ask ? (
+          <button
+            type="button"
+            className="kw-btn kw-solid"
+            disabled={busy || !filled.password || !/^[^@\s]+@[^@\s]+$/.test(to)}
+            onClick={() =>
+              run(async () => {
+                await b.emailChangeCode!(password.current!.read(), to);
+                setStep(EmailStep.Code);
+              })
+            }
+          >
+            {t("tf.send")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="kw-btn kw-solid"
+            disabled={busy || !filled.password || !filled.code}
+            onClick={() =>
+              run(async () => {
+                await b.emailChange!(password.current!.read(), to, code.current!.take());
+                password.current?.take();
+                core.toast(ToastKind.Ok, t("em.changed", { email: to }));
+                close();
+              })
+            }
+          >
+            {t("em.go")}
+          </button>
+        )}
+        <button type="button" className="kw-btn kw-quiet" onClick={close} disabled={busy}>
+          {t("tf.cancel")}
+        </button>
+      </div>
+    </section>
+  );
+}

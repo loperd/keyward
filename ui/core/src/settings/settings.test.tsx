@@ -506,3 +506,47 @@ describe("two-step login", () => {
     expect(b.calls).toContain("tf:off:0");
   });
 });
+
+describe("a change of email", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+  });
+
+  it("sends a code to the new address, then changes it with the code", async () => {
+    const b = new DemoBackend();
+    act(() => root.render(<App backend={b} line="settings › settings-account" autoBiometric={false} />));
+    await flush();
+    await flush();
+    const row = [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Email аккаунта"))!;
+    await act(async () => row.querySelector("button")!.click());
+    const set = (label: string, v: string) => {
+      const el = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
+      const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!;
+      proto.set!.call(el, v);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    await act(async () => {
+      set("Мастер-пароль", "correct horse");
+      set("Новый email", "alex@new.example");
+    });
+    const step = () => host.querySelector(".kw-tf-step")!;
+    await act(async () => [...step().querySelectorAll("button")].find((x) => x.textContent === "Прислать код")!.click());
+    await flush();
+    expect(b.calls).toContain("email:code:alex@new.example");
+    await act(async () => set("Код из письма", "123456"));
+    await act(async () => [...step().querySelectorAll("button")].find((x) => x.textContent === "Сменить email")!.click());
+    await flush();
+    expect(b.calls).toContain("email:alex@new.example");
+    expect(document.body.textContent).toContain("Email сменён на alex@new.example");
+  });
+});

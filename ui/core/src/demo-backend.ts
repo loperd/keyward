@@ -739,6 +739,17 @@ export class DemoBackend implements Backend {
     return structuredClone(this.demoProfile);
   }
 
+  async emailChangeCode(password: string, email: string): Promise<void> {
+    this.tfCheck(password);
+    this.calls.push(`email:code:${email}`);
+  }
+  async emailChange(password: string, email: string, code: string): Promise<void> {
+    this.tfCheck(password);
+    if (code === DEMO_WRONG) throw new Error("err.badTwoFactor");
+    this.calls.push(`email:${email}`);
+    this.demoProfile = { ...this.demoProfile, email };
+  }
+
   /// The demo's two-step login: the authenticator on, email codes off.
   private tf: TwoFactorStatus = { authenticator: true, email: false, others: [] };
   private tfCheck(password: string) {

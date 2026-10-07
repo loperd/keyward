@@ -194,6 +194,11 @@ export interface Backend {
   /// be managed from the app.
   profile?(): Promise<AccountProfile>;
 
+  /// A new email for the account: a code is sent to the new address, and
+  /// the change is made with it; the app signs in again after it.
+  emailChangeCode?(password: string, email: string): Promise<void>;
+  emailChange?(password: string, email: string, code: string): Promise<void>;
+
   /// Two-step login: what is on, and the steps that turn a method on or off.
   /// The master password goes with each call, for that call.
   twoFactorStatus?(): Promise<TwoFactorStatus>;

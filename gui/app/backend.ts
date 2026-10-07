@@ -737,6 +737,13 @@ export class DaemonBackend implements Backend {
     else this.emit({ kind: ChangeKind.Session });
   }
 
+  async emailChangeCode(password: string, email: string): Promise<void> {
+    await invoke("account_email_token", { masterPassword: password, newEmail: email });
+  }
+  async emailChange(password: string, email: string, code: string): Promise<void> {
+    await this.afterRelogin(await invoke<LoginReply>("account_change_email", { masterPassword: password, newEmail: email, token: code }));
+  }
+
   async twoFactorStatus(): Promise<CoreTwoFactorStatus> {
     return twoFactorOf(await invoke<DaemonTwoFactor>("two_factor_status"));
   }

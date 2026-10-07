@@ -269,5 +269,11 @@
   "tf.disableBody": "“{name}” will be turned off. If it is the only method, sign-in falls back to the password alone.",
   "tf.failed": "Two-step login could not be read: {reason}",
   "tf.enabled": "Two-step login is on",
-  "tf.disabled": "The method is off"
+  "tf.disabled": "The method is off",
+  "em.title": "The account's email",
+  "em.hint": "It signs in and receives codes; changing it takes a code sent to the new address.",
+  "em.new": "New email",
+  "em.go": "Change the email",
+  "em.relogin": "After the change you sign in again on every device.",
+  "em.changed": "The email is now {email}"
 }
