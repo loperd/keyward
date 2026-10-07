@@ -7,6 +7,7 @@ import { type DocSpec, Hue, LeadTile, LiveBlock, type Section } from "../doc/spe
 import { SettingKey } from "./rows";
 
 export enum SettingsPage {
+  Account = "account",
   Security = "security",
   Unlock = "unlock",
   Browsers = "browsers",
@@ -17,18 +18,21 @@ export const SETTINGS_ID = "settings";
 export const pageId = (p: SettingsPage) => `${SETTINGS_ID}/${p}`;
 
 export const PAGE_ICON: Record<SettingsPage, string> = {
+  [SettingsPage.Account]: "person",
   [SettingsPage.Security]: "shield",
   [SettingsPage.Unlock]: "finger",
   [SettingsPage.Browsers]: "login",
   [SettingsPage.App]: "window",
 };
 export const PAGE_NAME: Record<SettingsPage, Key> = {
+  [SettingsPage.Account]: "set.page.account",
   [SettingsPage.Security]: "set.page.security",
   [SettingsPage.Unlock]: "set.page.unlock",
   [SettingsPage.Browsers]: "set.page.browsers",
   [SettingsPage.App]: "set.page.app",
 };
 const PAGE_SUB: Record<SettingsPage, Key> = {
+  [SettingsPage.Account]: "set.page.accountSub",
   [SettingsPage.Security]: "set.page.securitySub",
   [SettingsPage.Unlock]: "set.page.unlockSub",
   [SettingsPage.Browsers]: "set.page.browsersSub",
@@ -39,6 +43,11 @@ export const pageSub = (p: SettingsPage): Key => PAGE_SUB[p];
 const rows = (title: Key, keys: SettingKey[]): Section => ({ title: { key: title }, blocks: keys.map((setting) => ({ setting })) });
 
 const SECTIONS: Record<SettingsPage, Section[]> = {
+  [SettingsPage.Account]: [
+    { title: { key: "set.sec.profile" }, blocks: [{ live: LiveBlock.Profile }] },
+    rows("set.sec.signIn", [SettingKey.Password, SettingKey.Kdf]),
+    rows("set.sec.danger", [SettingKey.SignOutEverywhere, SettingKey.Purge, SettingKey.DeleteAccount]),
+  ],
   [SettingsPage.Security]: [rows("set.sec.timeout", [SettingKey.LockTimeout, SettingKey.LockAction]), rows("set.sec.clipboard", [SettingKey.Clipboard]), rows("set.sec.export", [SettingKey.Export])],
   [SettingsPage.Unlock]: [rows("set.sec.touchId", [SettingKey.Biometric, SettingKey.TouchIdOnLaunch, SettingKey.TouchIdForSecrets, SettingKey.Grace]), rows("set.sec.pin", [SettingKey.Pin])],
   [SettingsPage.Browsers]: [{ title: { key: "set.sec.extensions" }, blocks: [{ live: LiveBlock.Extensions }] }],

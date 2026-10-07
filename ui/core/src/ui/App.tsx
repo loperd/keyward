@@ -135,12 +135,13 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
   // How the account opens here besides the master password: read once the
   // vault is open, and again after each change of it.
   const [unlock, setUnlock] = useState<UnlockState | null>(null);
+  const [accountTick, setAccountTick] = useState(0);
   const readUnlock = useCallback(() => {
     if (!backend.unlockState) return;
     backend.unlockState().then(setUnlock, report);
   }, [backend, report]);
-  const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings, unlock }), [settings, settingsFailed, patchSettings, unlock]);
-  const pages = useMemo(() => (backend.settings ? [SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), ...(backend.extensions ? [SettingsPage.Browsers] : []), SettingsPage.App] : []), [backend]);
+  const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings, unlock, accountTick }), [settings, settingsFailed, patchSettings, unlock, accountTick]);
+  const pages = useMemo(() => (backend.settings ? [...(backend.profile ? [SettingsPage.Account] : []), SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), ...(backend.extensions ? [SettingsPage.Browsers] : []), SettingsPage.App] : []), [backend]);
 
   // A person's places: read when the vault opens, dropped when it closes.
   const [mine, setMine] = useState<Place[]>([]);
@@ -253,6 +254,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
         const saved = await calls.account({ ...e.account, secrets: e.account.secrets });
         if (saved !== null) toasts.push(ToastKind.Ok, t("verb.acct.export.saved", { path: saved }));
         readUnlock();
+        setAccountTick((n) => n + 1);
         return true;
       }
       if ("trash" in e || "restore" in e) {

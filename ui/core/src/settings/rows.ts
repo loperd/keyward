@@ -24,6 +24,11 @@ export enum SettingKey {
   Biometric = "biometric",
   Pin = "pin",
   Export = "export",
+  Password = "password",
+  Kdf = "kdf",
+  SignOutEverywhere = "signOutEverywhere",
+  Purge = "purge",
+  DeleteAccount = "deleteAccount",
 }
 
 export enum RowKind {
@@ -45,7 +50,7 @@ export type SettingRow =
   | { kind: RowKind.Action; title: Key; hint: Key; verbs: MethodVerb[] };
 
 /// A button of a method's row: the verb it opens.
-export type MethodVerb = { label: Key; icon: string; verb: AccountVerb; quiet?: boolean };
+export type MethodVerb = { label: Key; icon: string; verb: AccountVerb; quiet?: boolean; danger?: boolean };
 
 const k = (key: Key, args?: Record<string, number>): Text => (args ? { key, args } : { key });
 
@@ -154,6 +159,11 @@ export const ROWS: Record<SettingKey, SettingRow> = {
         : [{ label: "set.turnOn", icon: "hash", verb: AccountVerb.Pin }],
   },
   [SettingKey.Export]: { kind: RowKind.Action, title: "set.export", hint: "set.exportHint", verbs: [{ label: "set.exportGo", icon: "ext", verb: AccountVerb.Export }] },
+  [SettingKey.Password]: { kind: RowKind.Action, title: "set.password", hint: "set.passwordHint", verbs: [{ label: "set.change", icon: "key", verb: AccountVerb.Password, quiet: true }] },
+  [SettingKey.Kdf]: { kind: RowKind.Action, title: "set.kdf", hint: "set.kdfHint", verbs: [{ label: "set.change", icon: "tune", verb: AccountVerb.Kdf, quiet: true }] },
+  [SettingKey.SignOutEverywhere]: { kind: RowKind.Action, title: "set.deauth", hint: "set.deauthHint", verbs: [{ label: "set.deauthGo", icon: "logout", verb: AccountVerb.SignOutEverywhere, quiet: true, danger: true }] },
+  [SettingKey.Purge]: { kind: RowKind.Action, title: "set.purge", hint: "set.purgeHint", verbs: [{ label: "set.purgeGo", icon: "trash", verb: AccountVerb.Purge, quiet: true, danger: true }] },
+  [SettingKey.DeleteAccount]: { kind: RowKind.Action, title: "set.delete", hint: "set.deleteHint", verbs: [{ label: "set.deleteGo", icon: "trash", verb: AccountVerb.DeleteAccount, quiet: true, danger: true }] },
   [SettingKey.Language]: {
     kind: RowKind.Choice,
     title: "set.language",

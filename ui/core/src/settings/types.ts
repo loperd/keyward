@@ -67,3 +67,25 @@ export type UnlockState = { biometric: boolean; biometricProblem: string | null;
 /// seconds since the epoch (`expires` is 0 for a paired one).
 export type BrowserExtension = { key: string; words: string[]; at: number; expires: number };
 export type BrowserExtensions = { paired: BrowserExtension[]; pending: BrowserExtension[] };
+
+/// How the master password is stretched into the key.
+export enum KdfKind {
+  Pbkdf2 = "pbkdf2",
+  Argon2id = "argon2id",
+}
+export const parseKdfKind = enumParser(KdfKind, "a key derivation");
+export type Kdf = { kind: KdfKind.Pbkdf2; iterations: number } | { kind: KdfKind.Argon2id; iterations: number; memoryMib: number; parallelism: number };
+
+/// What the server knows about the person: `created` is an ISO date, the
+/// fingerprint is the account key's five words.
+export type AccountProfile = {
+  email: string;
+  name: string | null;
+  hint: string | null;
+  emailVerified: boolean;
+  premium: boolean;
+  created: string | null;
+  kdf: Kdf;
+  fingerprint: string[];
+  twoFactor: boolean;
+};

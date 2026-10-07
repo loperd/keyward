@@ -6,4 +6,9 @@ export enum AccountVerb {
   Pin = "pin",
   PinOff = "pin off",
   Export = "export",
+  Password = "password",
+  Kdf = "kdf",
+  SignOutEverywhere = "sign out everywhere",
+  Purge = "purge vault",
+  DeleteAccount = "delete account",
 }

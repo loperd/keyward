@@ -4,7 +4,7 @@
 // like a real password. It also brings what a plugin would: SSH hosts, keys
 // and a topology, and Kubernetes clusters, as nodes of the graph with pages in
 // the core's vocabulary and words of their own.
-import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions } from "./settings/types";
+import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions, type AccountProfile, KdfKind } from "./settings/types";
 import { AccountOp, type AccountWrite } from "./verbs/spec";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
@@ -706,11 +706,37 @@ export class DemoBackend implements Backend {
       this.unlocks = { ...this.unlocks, pin: false };
       this.opts = { ...this.opts, pin: false };
     }
+    if (w.op !== AccountOp.ForgetBiometric && w.op !== AccountOp.ClearPin && w.op !== AccountOp.Export && w.op !== AccountOp.SetPin && w.op !== AccountOp.RememberBiometric) {
+      const password = w.op === AccountOp.ChangePassword ? secrets.current : secrets.password;
+      if (password === DEMO_WRONG) throw new Error("err.badPassword");
+      if (w.op === AccountOp.ChangeKdf) this.demoProfile = { ...this.demoProfile, kdf: structuredClone(w.kdf) };
+      if (w.op === AccountOp.Purge) this.data = { ...this.data, items: this.data.items.filter((i) => i.orgId !== null), folders: [] };
+      if (w.op === AccountOp.Deauthorize || w.op === AccountOp.DeleteAccount) this.state = w.op === AccountOp.DeleteAccount ? SessionState.NeedsSetup : SessionState.LoggedOut;
+      this.emit({ kind: w.op === AccountOp.Purge ? ChangeKind.Catalog : ChangeKind.Session });
+      return null;
+    }
     if (w.op === AccountOp.Export) {
       if (secrets.password === DEMO_WRONG) throw new Error("err.badPassword");
       return `~/Downloads/keyward-export.${w.format}`;
     }
     return null;
+  }
+
+  /// What the demo's server knows about the person.
+  private demoProfile: AccountProfile = {
+    email: "alex.morgan@acme.example",
+    name: "Alex Morgan",
+    hint: null,
+    emailVerified: true,
+    premium: true,
+    created: "2023-04-12T09:30:00Z",
+    kdf: { kind: KdfKind.Argon2id, iterations: 3, memoryMib: 64, parallelism: 4 },
+    fingerprint: ["lantern", "ripple", "cobalt", "meadow", "falcon"],
+    twoFactor: true,
+  };
+  async profile(): Promise<AccountProfile> {
+    await this.wait();
+    return structuredClone(this.demoProfile);
   }
 
   /// The demo's browsers: one paired, and one asking while `?pair=1` says so.

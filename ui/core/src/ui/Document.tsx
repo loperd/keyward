@@ -3,7 +3,7 @@
 // nothing: what a page says is the builder's (doc/build.ts) or the plugin's.
 import { useEffect, useRef, type ReactNode } from "react";
 import { t, text, type Text } from "../i18n";
-import { type Act, type Action, type Block, type DocSpec, type Hero, type Lead, type MarkSpec, type Section, LeadTile } from "../doc/spec";
+import { type Act, type Action, type Block, type DocSpec, type Hero, type Lead, type MarkSpec, type Section, LeadTile, LiveBlock } from "../doc/spec";
 import { type Member, MemberStatus, Level } from "../model/types";
 import { fieldLabel } from "../doc/build";
 import { Icon } from "./Icons";
@@ -15,6 +15,8 @@ import { dotsFor, TotpCode, useReportUnlessLocked, useReveal } from "./secret";
 import { BlockSkeleton } from "./Loading";
 import { SettingRowView } from "./settings-context";
 import { ExtensionsList } from "./Extensions";
+import { ProfileView } from "./Profile";
+import { useSettingsMaybe } from "./settings-context";
 
 const say = (x: Text) => text(x);
 
@@ -275,8 +277,9 @@ function MembersTable({ members }: { members: Member[] }) {
 function BlockView({ b }: { b: Block }) {
   const run = useAct();
   const { report } = useCore();
+  const profileTick = useSettingsMaybe()?.accountTick ?? 0;
   if ("setting" in b) return <SettingRowView setting={b.setting} report={report} />;
-  if ("live" in b) return <ExtensionsList />;
+  if ("live" in b) return b.live === LiveBlock.Extensions ? <ExtensionsList /> : <ProfileView version={profileTick} />;
   if ("secret" in b) return <SecretField b={b} />;
   if ("totp" in b)
     return (

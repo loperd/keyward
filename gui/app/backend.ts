@@ -44,12 +44,18 @@ import {
   type AccountWrite,
   type BrowserExtension,
   type BrowserExtensions,
+  type AccountProfile,
+  type Kdf,
+  KdfKind,
+  parseKdfKind,
 } from "@keyward/core";
 import type { PluginCall } from "@keyward/core";
 import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
 import type {
   AccountList,
+  AccountProfile as DaemonProfile,
+  KdfInfo as DaemonKdf,
   AppSettings as DaemonSettings,
   LockTimeout as DaemonLockTimeout,
   Catalog as DaemonCatalog,
@@ -163,6 +169,39 @@ function extensionsOf(w: unknown): BrowserExtensions {
     return { key: x.key as string, words: [...(x.words as string[])], at: x.at as number, expires: x.expires as number };
   };
   return { paired: o.paired.map(row), pending: o.pending.map(row) };
+}
+
+/// boundary: the daemon's derivation as the core's.
+function kdfOf(w: DaemonKdf): Kdf {
+  const kind = parseKdfKind(w.kind);
+  const n = (v: unknown, what: string) => {
+    if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) throw new Error(`the daemon's KDF has no ${what}: ${JSON.stringify(w)}`);
+    return v;
+  };
+  if (kind === KdfKind.Pbkdf2) return { kind, iterations: n(w.iterations, "iterations") };
+  if (!("memory_mib" in w)) throw new Error(`the daemon's Argon2id has no memory: ${JSON.stringify(w)}`);
+  return { kind, iterations: n(w.iterations, "iterations"), memoryMib: n(w.memory_mib, "memory"), parallelism: n(w.parallelism, "parallelism") };
+}
+
+/// boundary: the core's derivation in the daemon's words.
+function wireKdf(k: Kdf): DaemonKdf {
+  return k.kind === KdfKind.Pbkdf2 ? { kind: "pbkdf2", iterations: k.iterations } : { kind: "argon2id", iterations: k.iterations, memory_mib: k.memoryMib, parallelism: k.parallelism };
+}
+
+/// boundary: the daemon's profile as the core's.
+function profileOf(w: DaemonProfile): AccountProfile {
+  if (typeof w.email !== "string" || !Array.isArray(w.fingerprint) || !w.fingerprint.every((x) => typeof x === "string")) throw new Error("the daemon's profile does not read");
+  return {
+    email: w.email,
+    name: w.name,
+    hint: w.master_password_hint,
+    emailVerified: bool(w.email_verified, "email_verified"),
+    premium: bool(w.premium, "premium"),
+    created: w.creation_date,
+    kdf: kdfOf(w.kdf),
+    fingerprint: [...w.fingerprint],
+    twoFactor: bool(w.two_factor_enabled, "two_factor_enabled"),
+  };
 }
 
 /// Bitwarden's provider numbers, as the daemon speaks them.
@@ -640,7 +679,41 @@ export class DaemonBackend implements Backend {
       // save it and writes a file only its owner can read.
       case AccountOp.Export:
         return await invoke<string | null>("export_vault", { masterPassword: typed(secrets, "password"), format: w.format });
+      // The hint goes back as it was: sending none would wipe it.
+      case AccountOp.ChangePassword: {
+        const { master_password_hint: hint } = await invoke<DaemonProfile>("account_profile");
+        await this.afterRelogin(await invoke<LoginReply>("account_change_password", { current: typed(secrets, "current"), new: typed(secrets, "new"), hint }));
+        return null;
+      }
+      case AccountOp.ChangeKdf:
+        await this.afterRelogin(await invoke<LoginReply>("account_change_kdf", { masterPassword: typed(secrets, "password"), kdf: wireKdf(w.kdf) }));
+        return null;
+      case AccountOp.Deauthorize:
+        await invoke("account_deauthorize", { masterPassword: typed(secrets, "password") });
+        this.emit({ kind: ChangeKind.Session });
+        return null;
+      case AccountOp.Purge:
+        await invoke("account_purge", { masterPassword: typed(secrets, "password") });
+        this.emit({ kind: ChangeKind.Catalog });
+        return null;
+      case AccountOp.DeleteAccount:
+        await invoke("account_delete", { masterPassword: typed(secrets, "password") });
+        this.emit({ kind: ChangeKind.Session });
+        return null;
     }
+  }
+
+  /// A change of the master password or its derivation signs in again with
+  /// the new one. Where the server asks for the second factor for that, the
+  /// account is signed out and the gate takes the person through a sign-in,
+  /// as Bitwarden's own clients do after such a change.
+  private async afterRelogin(reply: LoginReply) {
+    if (step(reply).step !== LoginStepKind.Done) await this.logout();
+    else this.emit({ kind: ChangeKind.Session });
+  }
+
+  async profile(): Promise<AccountProfile> {
+    return profileOf(await invoke<DaemonProfile>("account_profile"));
   }
 
   async extensions(): Promise<BrowserExtensions> {

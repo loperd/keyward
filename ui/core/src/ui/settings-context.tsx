@@ -22,6 +22,9 @@ export type SettingsHold = {
   /// How the account opens here besides the master password: `null` while
   /// on its way, or where the app cannot tell.
   unlock: UnlockState | null;
+  /// Moves on after every change of the account, for what reads it again
+  /// (the profile).
+  accountTick: number;
 };
 
 export const SettingsContext = createContext<SettingsHold | null>(null);
@@ -70,7 +73,7 @@ function VerbButtons({ verbs }: { verbs: MethodVerb[] }) {
   return (
     <>
       {verbs.map((v) => (
-        <button key={v.verb} type="button" className={`kw-btn${v.quiet ? " kw-quiet" : " kw-solid"}`} onClick={() => store.verb(v.verb)}>
+        <button key={v.verb} type="button" className={`kw-btn${v.quiet ? " kw-quiet" : " kw-solid"}${v.danger ? " kw-danger-q" : ""}`} onClick={() => store.verb(v.verb)}>
           <BtnIcon icon={v.icon} phase={Phase.Idle} />
           {t(v.label)}
         </button>

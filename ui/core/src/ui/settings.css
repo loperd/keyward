@@ -19,3 +19,6 @@
 .kw-set-acts { display: flex; align-items: center; gap: var(--u); justify-self: end; }
 .kw-set-state { color: var(--faint); font-size: var(--fs-s); line-height: var(--lh-s); padding-right: var(--half); }
 .kw-set-state.kw-on { color: var(--mint); }
+/* a row of the danger zone: its button in the danger's colour, quiet until pointed at */
+.kw-btn.kw-danger-q { color: var(--rose); }
+.kw-btn.kw-danger-q:hover { background: color-mix(in srgb, var(--rose) 12%, transparent); }

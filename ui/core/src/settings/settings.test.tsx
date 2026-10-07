@@ -11,9 +11,9 @@ import { App } from "../ui/App";
 import { DemoBackend, DEMO_SETTINGS } from "../demo-backend";
 import { DEMO } from "../demo";
 import { allTexts, Lang, setLang, currentLang, text } from "../i18n";
-import { PIN_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb, exportFormatOf } from "../verbs/account";
+import { PIN_MIN, PASSWORD_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb, exportFormatOf, kdfOf } from "../verbs/account";
 import { SecretAskKind, PreviewKind, ExportFormat } from "../verbs/spec";
-import type { UnlockState } from "./types";
+import { type UnlockState, KdfKind } from "./types";
 
 const UNLOCKS: UnlockState[] = [
   { biometric: false, biometricProblem: null, pin: false },
@@ -381,5 +381,61 @@ describe("the export", () => {
     expect(document.body.textContent).toContain("Экспорт сохранён: ~/Downloads/keyward-export.csv");
     expect(lines.join("\n")).not.toContain("correct horse");
     expect(field.value).toBe("");
+  });
+});
+
+describe("the account page", () => {
+  it("reads a derivation from the line within the server's bounds", () => {
+    expect(kdfOf("")).toEqual({ kind: KdfKind.Argon2id, iterations: 3, memoryMib: 64, parallelism: 4 });
+    expect(kdfOf("argon2id 4 128 2")).toEqual({ kind: KdfKind.Argon2id, iterations: 4, memoryMib: 128, parallelism: 2 });
+    expect(kdfOf("pbkdf2 700000")).toEqual({ kind: KdfKind.Pbkdf2, iterations: 700000 });
+    expect(kdfOf("pbkdf2 5000")).toBeNull();
+    expect(kdfOf("argon2id 3 4096 4")).toBeNull();
+    expect(kdfOf("scrypt")).toBeNull();
+  });
+
+  it("asks for a new master password that is long, repeated and not the current one", () => {
+    const v = ACCOUNT_VERBS.find((x) => x.id === AccountVerb.Password)!;
+    const p = v.preview!(new Directory(DEMO, [], { settings: [SettingsPage.Account] }), pageId(SettingsPage.Account), "");
+    if (p.kind !== PreviewKind.Ready || !p.secrets) throw new Error("the preview asks for nothing");
+    const long = "a".repeat(PASSWORD_MIN);
+    expect(secretsProblem(p.secrets, { current: "old-password-x", new: "short", again: "short" })).toBe("verb.acct.passwordShort");
+    expect(secretsProblem(p.secrets, { current: long, new: long, again: long })).toBe("verb.acct.passwordSame");
+    expect(secretsProblem(p.secrets, { current: "old-password-x", new: long, again: `${long}b` })).toBe("verb.acct.passwordMismatch");
+    expect(secretsProblem(p.secrets, { current: "old-password-x", new: long, again: long })).toBeNull();
+  });
+
+  it("marks the danger zone's verbs as dangerous", () => {
+    const dir = new Directory(DEMO, [], { settings: [SettingsPage.Account] });
+    for (const id of [AccountVerb.SignOutEverywhere, AccountVerb.Purge, AccountVerb.DeleteAccount]) {
+      const p = ACCOUNT_VERBS.find((x) => x.id === id)!.preview!(dir, pageId(SettingsPage.Account), "");
+      expect(p.kind === PreviewKind.Ready && p.danger && p.secrets?.length === 1).toBe(true);
+    }
+  });
+});
+
+describe("the profile", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+  });
+
+  it("shows the email, the derivation and the fingerprint, and reads them again after a change", async () => {
+    const b = new DemoBackend();
+    act(() => root.render(<App backend={b} line="settings › settings-account" autoBiometric={false} />));
+    await flush();
+    await flush();
+    expect(host.textContent).toContain("alex.morgan@acme.example");
+    expect(host.textContent).toContain("Argon2id, 3 итер. · 64 МиБ · 4 потоков");
+    expect(host.textContent).toContain("lantern");
   });
 });

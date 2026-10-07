@@ -13,6 +13,8 @@ import type { SettingKey } from "../settings/rows";
 export enum LiveBlock {
   /// The browser extensions, paired and asking.
   Extensions = "extensions",
+  /// The account's profile: email, name, the derivation, the fingerprint.
+  Profile = "profile",
 }
 
 /// What a skeleton block stands for while its content is on its way.

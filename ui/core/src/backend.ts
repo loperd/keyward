@@ -7,7 +7,7 @@ import type { Catalog, ItemDetail, SecretRef, Totp } from "./model/types";
 import type { Contribution } from "./path/directory";
 import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
-import type { AppSettings, BrowserExtensions, SettingsPatch, UnlockState } from "./settings/types";
+import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, UnlockState } from "./settings/types";
 import type { AccountWrite } from "./verbs/spec";
 
 /// What a session is doing: the state of the app's session, and of each of
@@ -189,6 +189,10 @@ export interface Backend {
   /// ids, for this one call. An export answers with where it was saved, or
   /// `null` when the person closed the save dialogue; the rest with `null`.
   account?(w: AccountWrite & { secrets: Readonly<Record<string, string>> }): Promise<string | null>;
+
+  /// What the server knows about the person; present where the account can
+  /// be managed from the app.
+  profile?(): Promise<AccountProfile>;
 
   /// The browser extensions paired with the app, and those asking to be;
   /// present where the app takes passkey requests from a browser.

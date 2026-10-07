@@ -1,7 +1,8 @@
 // A verb's preview, described: what will happen, step by step, what changes
 // and what stays — before anything happens. Nothing runs until ↵; the effect
 // names what the backend is asked to do then.
-import type { Text } from "../i18n";
+import type { Kdf } from "../settings/types";
+import type { Key, Text } from "../i18n";
 import type { Lead, MarkSpec } from "../doc/spec";
 import type { Level, OrgRole, Permission, SecretRef } from "../model/types";
 import type { Invite } from "../writes";
@@ -21,6 +22,11 @@ export enum AccountOp {
   SetPin = "setPin",
   ClearPin = "clearPin",
   Export = "export",
+  ChangePassword = "changePassword",
+  ChangeKdf = "changeKdf",
+  Deauthorize = "deauthorize",
+  Purge = "purge",
+  DeleteAccount = "deleteAccount",
 }
 
 /// What an export is written as.
@@ -32,8 +38,9 @@ export enum ExportFormat {
 /// field's id — `null` in the preview, put in by the window at ↵ from fields
 /// that are emptied as they are read (`withSecrets`). Never kept anywhere.
 export type AccountWrite =
-  | { op: Exclude<AccountOp, AccountOp.Export>; secrets: Readonly<Record<string, string>> | null }
-  | { op: AccountOp.Export; format: ExportFormat; secrets: Readonly<Record<string, string>> | null };
+  | { op: Exclude<AccountOp, AccountOp.Export | AccountOp.ChangeKdf>; secrets: Readonly<Record<string, string>> | null }
+  | { op: AccountOp.Export; format: ExportFormat; secrets: Readonly<Record<string, string>> | null }
+  | { op: AccountOp.ChangeKdf; kdf: Kdf; secrets: Readonly<Record<string, string>> | null };
 
 /// What a secret field of a preview is for: a field the line never carries
 /// (a master password, a PIN), typed into the sheet and read once at ↵.
@@ -42,8 +49,10 @@ export enum SecretAskKind {
   NewPassword = "newPassword",
   Pin = "pin",
 }
-/// `same`: the id of the field it must repeat; `min`: its shortest length.
-export type SecretAsk = { id: string; label: Text; kind: SecretAskKind; same?: string; min?: number };
+/// `same`: the id of the field it must repeat; `differs`: the id of one it
+/// must not repeat (a new password is not the current one); `min`: its
+/// shortest length, with `short` the words for a shorter one.
+export type SecretAsk = { id: string; label: Text; kind: SecretAskKind; same?: string; differs?: string; min?: number; short?: Key };
 
 /// One of a plugin's actions, asked of the backend as the plugin declared it:
 /// the core does not read into `op` or `payload`.
