@@ -5,7 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@keyward/core";
 import { invoke as realInvoke } from "@tauri-real/core";
-import { installActionLog } from "../src/actionLog";
+import { installActionLog } from "./actionLog";
 import { DaemonBackend } from "./backend";
 import { DaemonWrites } from "./writes";
 

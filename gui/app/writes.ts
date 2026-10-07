@@ -16,8 +16,8 @@
 //   only to be shown; `drop` lets go of it.
 import { invoke } from "@tauri-apps/api/core";
 import { type Change, type DraftField, type GeneratorOptions, type Invite, type ItemDraft, ItemKind, type MergeComparison, MergeField, type MergePlan, type MergeSlot, OrgRole, Permission, type SecretInput, type Writes, ChangeKind, GeneratorKind, enumParser } from "@keyward/core";
-import { invokeSecret } from "../src/seal";
-import type { Catalog as DaemonCatalog, ItemDetail as DaemonDetail, OrgMember, PendingEdit, VaultState } from "../src/types";
+import { invokeSecret } from "./seal";
+import type { Catalog as DaemonCatalog, ItemDetail as DaemonDetail, OrgMember, PendingEdit, VaultState } from "./types";
 
 /// Bitwarden's numbers for the kinds an item can be created as.
 const KIND_CODE: Record<ItemKind, number> = { [ItemKind.Login]: 1, [ItemKind.SecureNote]: 2, [ItemKind.Card]: 3, [ItemKind.Identity]: 4, [ItemKind.SshKey]: 5 };

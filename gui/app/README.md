@@ -39,18 +39,64 @@ the CSP, the capabilities and the sealed channel are the same: a page opens
 its seal session (`window_seal_open`) on its first secret, and a reopen after a
 reload replaces the old session.
 
-## Not at parity yet
+## Road to parity (release 0.2.0)
 
-Known gaps of the new window, worked on now:
+0.2.0 ships the new window only: the old one (`index.html`, `gui/src`) is
+removed once every blocker below is in the new one. Tick a line when it is in
+`release/v0.2.0`. The old window's place is noted for each.
 
-- **Plugins** — their places, sections and screens (ssh terminal, hashicorp,
-  vaultwarden) are being brought in (`app/contributions.ts`); until then use
-  the old window for them.
-- **The gate** — login, second factor (with "remember this device"), unlock
-  by password, Touch ID and PIN are being brought to the old window's
-  behaviour.
-- **Settings** — the new window has no settings screen; switch back to the old
-  window to change them.
+### Phase 0 — the new window stands on its own
+- [x] Move what `gui/app` imports from `gui/src` (`seal`, `actionLog`,
+      `types`, `declared/channel` with `declared/types`, `plugins/link`,
+      `plugins/call`, `plugins/types`) into `gui/app` or `ui/core`.
+
+### Phase 1 — blockers
+- [ ] **Settings screen** in `ui/core` over `get_settings` / `set_settings`
+      (old: `src/screens/Settings.tsx`).
+- [ ] **Account security:** change the master password, email and KDF;
+      2FA (authenticator QR, email, recovery code, turn off)
+      (old: Settings.tsx:579-993).
+- [ ] **Export** of the vault, CSV and JSON (old: Settings.tsx:1146).
+- [ ] **Touch ID:** turn on and off, on launch, for secrets, grace time; **PIN:**
+      set and clear (old: Settings.tsx:1320-1476).
+- [ ] **Browser extensions:** list, pair, unpair, and the pairing prompt that
+      polls `extensions` (old: `src/screens/Extensions.tsx`, `src/PairPrompt.tsx`).
+- [ ] **Autofill:** the `autofill` event, ⌘⇧L, `autofill_fill`, the
+      Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).
+- [ ] **Plugin management:** catalogue, install from file, enable, remove,
+      trust, sources (old: `src/plugins/Plugins.tsx`).
+- [ ] **Plugin screens through the declarative protocol only** (no plugin
+      TS/CSS in the window): the core renderer in `ui/core` learns pages,
+      drawers, dialogs and the terminal (`pluginAct` go/drawer/dialog now
+      throw, `app/contributions.ts:84-87`); ssh, hashicorp and vaultwarden move
+      from `crates/plugins/*/ui` to Rust pages like kube; their settings
+      sections too.
+
+### Phase 2 — important
+- [ ] Account profile (name, avatar colour, fingerprint); devices,
+      deauthorise, purge, delete the account.
+- [ ] Lock timeout and lock-or-log-out; clipboard clear time, hide on copy,
+      website icons, Dock/tray, start at login, screen capture.
+- [ ] Theme, accent and language saved to `settings.json`, not just locally.
+- [ ] Offline edits: the queue, retry, roll back, discard (old: `src/screens/Edits.tsx`).
+- [ ] Generator with history (copy, reveal, forget).
+- [ ] Passkeys: remove, the Passkeys filter.
+- [ ] Organisations: create, rename, delete.
+- [ ] Gate: prefill the last server and email (`vault_config`), the daemon
+      probe (`daemon_probe`).
+
+### Phase 3 — minor
+- [ ] About (version, source, log path); recent items; regenerate a password;
+      restore a TOTP secret; password history values; the plugin "available" probe.
+
+### Phase 4 — removal
+- [ ] Drop `index.html`, `preview.html`, `gui/src`, the `main` input and the
+      `@keyward` → `src` aliases in `vite.config.ts` and `tsconfig.json`.
+- [ ] Drop `Interface`, `set_interface`, `KEYWARD_UI`, `interface_page` and
+      friends (keep reading an old `settings.json` that still has
+      `interface`); the strip's "new interface" row and its words.
+- [ ] Drop the Tauri commands only the old window used; fix README.md:187,
+      `scripts/readme-shots.mjs`, this file's sections above.
 
 ## Pointing the window at it
 

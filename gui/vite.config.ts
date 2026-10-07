@@ -30,7 +30,7 @@ export default defineConfig({
       // the log of actions: the import is swapped for a wrapper at build time.
       // The bridge itself is left alone: Tauri defines it read-only, and
       // writing over it took the whole window down.
-      { find: /^@tauri-apps\/api\/core$/, replacement: resolve(here, "src/ipc.ts") },
+      { find: /^@tauri-apps\/api\/core$/, replacement: resolve(here, "app/ipc.ts") },
       { find: /^@tauri-real\/core$/, replacement: resolve(here, "../node_modules/@tauri-apps/api/core.js") },
       ...pluginAliases,
     ],

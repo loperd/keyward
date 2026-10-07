@@ -19,8 +19,8 @@ import {
   type PluginCall,
   type Words,
 } from "@keyward/core";
-import { act, places } from "../src/declared/channel";
-import type { Manifest } from "../src/plugins/types";
+import { act, places } from "./declared/channel";
+import type { Manifest } from "./plugins/types";
 
 /// The built-in plugins' dictionaries, where they live: with the plugin.
 const DICTIONARIES = import.meta.glob<Record<string, string>>("../../crates/plugins/*/i18n/*.json", { eager: true, import: "default" });

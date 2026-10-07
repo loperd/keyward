@@ -33,7 +33,7 @@ import {
   parseOrgRole,
 } from "@keyward/core";
 import type { PluginCall } from "@keyward/core";
-import { invokeSecret } from "../src/seal";
+import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
 import type {
   AccountList,
@@ -46,7 +46,7 @@ import type {
   TwoFactorProvider as DaemonProvider,
   VaultItem,
   VaultState,
-} from "../src/types";
+} from "./types";
 
 /// Bitwarden's provider numbers, as the daemon speaks them.
 const PROVIDER_ID: Record<TwoFactorProvider, number> = { [TwoFactorProvider.Authenticator]: 0, [TwoFactorProvider.Email]: 1, [TwoFactorProvider.Duo]: 2, [TwoFactorProvider.Yubikey]: 3, [TwoFactorProvider.WebAuthn]: 7, [TwoFactorProvider.Recovery]: 8 };
