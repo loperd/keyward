@@ -300,7 +300,8 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
       ...(p.sub_mono ? { subMono: true } : {}),
       ...(p.wide ? { wide: true } : {}),
       ...(hue ? { hue } : {}),
-      ...(kids ? { kids: () => kids } : {}),
+      // A place with no rows is a leaf: no column opens after it.
+      ...(kids?.length ? { kids: () => kids } : {}),
       ...(p.map ? { map: { kind: MapKind.Topology as const, anchor: rootId } } : {}),
       ...(p.find
         ? { result: { group: p.find.group, kind: p.find.kind, orgId: null, place: home.slice(0, -1), haystack: p.find.words.toLowerCase() } }

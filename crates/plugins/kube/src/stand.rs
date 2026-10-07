@@ -200,6 +200,7 @@ fn the_screens_on_made_up_data() {
     if let Some(dir) = std::env::var_os("KEYWARD_STAND_OUT") {
         let path = std::path::Path::new(&dir).join("kube.json");
         let mut out = record.to_json();
+        out["places"] = serde_json::to_value(crate::places::declare(&o)).unwrap();
         out["manifest"] = serde_json::to_value(keyward_plugin::Plugin::manifest(&crate::KubePlugin::new())).unwrap();
         std::fs::write(&path, serde_json::to_vec_pretty(&out).unwrap()).unwrap();
     }

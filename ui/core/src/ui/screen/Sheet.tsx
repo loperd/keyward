@@ -6,15 +6,16 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { t, text, type Text } from "../../i18n";
 import { LeadTile } from "../../doc/spec";
-import type { ScreenPage } from "../../plugin/screen";
+import { type ScreenPage, refusalText } from "../../plugin/screen";
 import { Icon } from "../Icons";
 import { IconButton, Mark, Tile, useCore } from "../marks";
 import { Level } from "../../model/types";
 import { DocSkeleton } from "../Loading";
-import { ScreenContext, useReader, useScreenCtx } from "./context";
+import { ScreenContext, useReader, useScreenCtx, useWords } from "./context";
 import { ButtonView, ChipView, Nodes } from "./Nodes";
 import type { ScreenStore, ScreenView } from "./store";
 import "../sheet.css";
+import "../edit.css";
 import "./screen.css";
 
 /// What is open of plugins' screens over a node, as it changes.
@@ -25,6 +26,9 @@ export function useScreenView(screens: ScreenStore, node: string | null): Screen
   );
 }
 
+/// A value (a host, a namespace) is set in the machines' face; words are not.
+const valueClass = (t: Text) => ("raw" in t ? "kw-mono" : undefined);
+
 /// The least a screen is asked again after, whatever it asks.
 const MIN_REFRESH_MS = 500;
 
@@ -32,6 +36,7 @@ const MIN_REFRESH_MS = 500;
 function usePage(plugin: string, route: string, epoch: number) {
   const { backend } = useCore();
   const reader = useReader(plugin);
+  const words = useWords(plugin);
   const [page, setPage] = useState<ScreenPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [again, setAgain] = useState(0);
@@ -58,7 +63,7 @@ function usePage(plugin: string, route: string, epoch: number) {
         .catch((e: unknown) => {
           if (!alive) return;
           console.error(e);
-          setError(e instanceof Error ? e.message : String(e));
+          setError(text(refusalText(plugin, words, e)));
         })
         .finally(() => {
           if (alive && every) timer = setTimeout(load, Math.max(MIN_REFRESH_MS, every));
@@ -107,7 +112,7 @@ export function ScreenSheet({ node, view }: { node: string; view: ScreenView & {
             {page?.subtitle && (
               <>
                 <span className="kw-sl">·</span>
-                <span className="kw-mono">{text(page.subtitle)}</span>
+                <span className={valueClass(page.subtitle)}>{text(page.subtitle)}</span>
               </>
             )}
           </div>
@@ -142,7 +147,7 @@ function OverHead({ page, onClose }: { page: ScreenPage; onClose: () => void }) 
       {page.icon && <Icon name={page.icon} className="kw-ohead-ic" />}
       <span className="kw-ohead-t">
         <b>{page.title ? text(page.title) : ""}</b>
-        {page.subtitle && <span className="kw-mono">{text(page.subtitle)}</span>}
+        {page.subtitle && <span className={valueClass(page.subtitle)}>{text(page.subtitle)}</span>}
       </span>
       {page.chips.map((c, i) => (
         <ChipView key={i} chip={c} />

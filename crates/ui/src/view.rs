@@ -309,6 +309,8 @@ pub enum FieldKind {
     Area,
     Number { min: i64, max: i64 },
     Select { options: Vec<(String, Text)> },
+    /// On or off: the form sends `"true"` or `"false"`.
+    Toggle,
 }
 
 /// One node of a screen.

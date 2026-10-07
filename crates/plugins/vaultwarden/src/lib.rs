@@ -17,6 +17,9 @@
 
 pub mod api;
 pub mod settings;
+pub mod ui;
+#[cfg(test)]
+mod stand;
 
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
@@ -41,6 +44,8 @@ pub struct VaultwardenPlugin {
     /// Whether the account's server has the panel, by server, with when it
     /// was found out: the window asks often, the server is asked seldom.
     probed: Mutex<Option<(String, bool, Instant)>>,
+    /// The sealed road to the window's declared screens (ui.rs).
+    ui: keyward_ui::UiServer,
 }
 
 /// How long an answer about the server holds.
@@ -331,8 +336,8 @@ impl Plugin for VaultwardenPlugin {
             // Its token in the keychain, and the network to reach the panel.
             permissions: vec![Permission::Keychain, Permission::Network],
             probe: true,
-            declared: false,
-            places: false,
+            declared: true,
+            places: true,
         }
     }
 
@@ -460,7 +465,17 @@ impl Plugin for VaultwardenPlugin {
                 ok()
             }
 
-            other => Err(keyward_core::fault!("err.pluginUnknownOp", "op" => other)),
+            other => match self.ui.call(self, host, other, payload).await {
+                Some(answer) => answer,
+                None => Err(keyward_core::fault!("err.pluginUnknownOp", "op" => other)),
+            },
+        }
+    }
+
+    async fn on_event(&self, _host: &dyn Host, event: keyward_plugin::HostEvent) {
+        // The links to the window were made while the vault was open.
+        if event == keyward_plugin::HostEvent::Locked {
+            self.ui.lock();
         }
     }
 }

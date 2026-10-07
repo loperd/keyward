@@ -21,6 +21,14 @@ import {
 import { act, places } from "./declared/channel";
 import type { Manifest } from "./plugins/types";
 import { wordsOf } from "./plugins/admin";
+import { call } from "./plugins/call";
+
+/// boundary: whether a plugin that probes applies here, as it answers.
+async function available(plugin: string): Promise<boolean> {
+  const r = await call<{ available: unknown }>(plugin, "available");
+  if (typeof r?.available !== "boolean") throw new Error(`the plugin "${plugin}" answered "available" with something other than yes or no`);
+  return r.available;
+}
 
 export type PluginPlaces = {
   contributions: Contribution[];
@@ -32,15 +40,19 @@ export type PluginPlaces = {
 export async function pluginPlaces(): Promise<PluginPlaces> {
   const list = await invoke<Manifest[]>("plugins");
   const ours = list.filter((m) => m.enabled && m.places);
-  const answers = await Promise.all(
+  const asked = await Promise.all(
     ours.map(async (m) => {
       try {
+        // A plugin that applies only where it says so (the server's admin
+        // panel) is asked first; one that says no adds no place.
+        if (m.probe && !(await available(m.id))) return null;
         return { m, d: (await places(m.id)) as DeclaredPlaces };
       } catch (e) {
         return { m, e };
       }
     }),
   );
+  const answers = asked.filter((a) => a !== null);
   const taken = new Set<string>([...withWriteVerbs(CORE_VERBS).map((v) => v.id), ...DOCUMENT_VERBS]);
   const contributions: Contribution[] = [];
   let refreshMs: number | null = null;

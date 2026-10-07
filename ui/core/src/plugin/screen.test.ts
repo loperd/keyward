@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { Lang, type Words } from "../i18n";
 import { ICONS } from "../ui/Icons";
-import { CellType, FieldKind, ScreenNodeType, StreamState, Tone, screenReader } from "./screen";
+import { CellType, FieldKind, ScreenNodeType, StreamState, Tone, refusalText, screenReader } from "./screen";
 import { contributionOf, type DeclaredPlaces } from "./declared";
 import { Level } from "../model/types";
 
@@ -134,5 +134,20 @@ describe("a place that opens a screen", () => {
 
   it("is refused when two places open one screen", () => {
     expect(() => contributionOf("kube", places({ c1: "x", "": "x" }), { words: WORDS, icons: ICONS })).toThrow(/the screen "x" opened by two places/);
+  });
+});
+
+describe("a plugin's switch and refusal", () => {
+  it("reads a switch only as on or off", () => {
+    const form = (value: string) => ({ title: { key: "pods" }, body: [{ type: "form", fields: [{ id: "x", label: { key: "name" }, kind: { kind: "toggle" }, value }], submit: { label: { key: "open" }, title: { key: "open" }, action: { op: "save" } } }] });
+    expect(read().page(form("true"), "s").body[0]).toMatchObject({ fields: [{ spec: { kind: FieldKind.Toggle }, value: "true" }] });
+    expect(() => read().page(form("yes"), "s")).toThrow(/a switch set to "yes"/);
+  });
+
+  it("says a refusal in the plugin's words, else the core's, else as it came", () => {
+    const words: Words = { [Lang.Ru]: { ...WORDS[Lang.Ru], "err.mine": "Моё {n}" }, [Lang.En]: { ...WORDS[Lang.En], "err.mine": "Mine {n}" } };
+    expect(refusalText("kube", words, new Error('err.mine {"n":2}'))).toEqual({ ext: "kube.err.mine", args: { n: 2 } });
+    expect(refusalText("kube", words, new Error("err.badPassword"))).toEqual({ key: "err.badPassword" });
+    expect(refusalText("kube", words, new Error("connection refused"))).toEqual({ raw: "connection refused" });
   });
 });

@@ -6,6 +6,8 @@
   "section": true,
   "needs_unlocked": true,
   "probe": true,
+  "declared": true,
+  "places": true,
   "permissions": ["keychain", "network"],
   "protocol": 2,
   "exec": "keyward-plugin-vaultwarden"

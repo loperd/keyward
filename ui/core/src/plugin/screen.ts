@@ -6,7 +6,8 @@
 // core's words and members, and whatever does not hold together is refused
 // by the plugin's name rather than drawn half. A plugin ships no code for
 // any of it: the core draws these with its own kit (ui/screen/*).
-import type { Text, Words } from "../i18n";
+import { type Args, type Text, type Words, isKey } from "../i18n";
+
 import { isEnumValue } from "../model/enum";
 import { type DeclaredText, wordReader } from "./words";
 
@@ -52,6 +53,8 @@ export enum FieldKind {
   Area = "area",
   Number = "number",
   Select = "select",
+  /// On or off: sent as "true" or "false".
+  Toggle = "toggle",
 }
 
 /// The two lanes of a plugin's sealed link: a long poll (a terminal's
@@ -105,7 +108,8 @@ export type ScreenFieldSpec =
   | { kind: FieldKind.Secret }
   | { kind: FieldKind.Area }
   | { kind: FieldKind.Number; min: number; max: number }
-  | { kind: FieldKind.Select; options: [string, Text][] };
+  | { kind: FieldKind.Select; options: [string, Text][] }
+  | { kind: FieldKind.Toggle };
 export type ScreenField = { id: string; label: Text; spec: ScreenFieldSpec; hint?: Text; value?: string };
 export type ScreenTab = { id: string; title: Text; icon?: string; load?: ScreenAction; refreshMs?: number; body: ScreenNode[] };
 export type TerminalOps = { open: ScreenAction; read: string; write: string; resize: string; close: string };
@@ -314,6 +318,9 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
       case FieldKind.Number:
         spec = { kind: FieldKind.Number, min: num(k.min, w), max: num(k.max, w) };
         break;
+      case FieldKind.Toggle:
+        spec = { kind: FieldKind.Toggle };
+        break;
       case FieldKind.Select: {
         const os = options(k.options, w);
         if (!os.length) fail(`a choice with nothing to choose in ${w}`);
@@ -326,6 +333,7 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
     const hint = optWords(f.hint, w);
     const value = optStr(f.value, w);
     if (value !== undefined && spec.kind === FieldKind.Secret) fail(`a secret field with a value in ${w}: a secret is never echoed into a form`);
+    if (value !== undefined && spec.kind === FieldKind.Toggle && value !== "true" && value !== "false") fail(`a switch set to "${value}" in ${w}`);
     return { id, label: words(f.label, w), spec, ...(hint ? { hint } : {}), ...(value !== undefined ? { value } : {}) };
   };
   const tab = (v: unknown, where: string): ScreenTab => {
@@ -505,3 +513,28 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
 }
 
 export type ScreenReader = ReturnType<typeof screenReader>;
+
+/// A plugin's refusal in words: its code (`err.x {"args"}`) read in its own
+/// dictionary, else in the core's, else as it came.
+export function refusalText(plugin: string, words: Words | undefined, e: unknown): Text {
+  const msg = (e instanceof Error ? e.message : String(e)).trim();
+  const m = /^(err\.[A-Za-z0-9]+)(?: (\{.*\}))?$/s.exec(msg);
+  if (!m) return { raw: msg };
+  const code = m[1]!;
+  let args: Args | undefined;
+  if (m[2]) {
+    // A refusal whose arguments do not read is said as it came.
+    let raw: unknown;
+    try {
+      raw = JSON.parse(m[2]);
+    } catch {
+      return { raw: msg };
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { raw: msg };
+    args = {};
+    for (const [k, v] of Object.entries(raw)) args[k] = typeof v === "number" ? v : String(v);
+  }
+  if (words && code in words.ru) return args ? { ext: `${plugin}.${code}`, args } : { ext: `${plugin}.${code}` };
+  if (isKey(code)) return args ? { key: code, args } : { key: code };
+  return { raw: msg };
+}

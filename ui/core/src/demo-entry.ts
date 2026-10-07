@@ -5,3 +5,4 @@ export { DEMO, DEMO_NOW } from "./demo";
 export { DemoBackend, DEMO_PLACES, DEMO_WRONG, demoContributions, type DemoOptions } from "./demo-backend";
 export { DemoWrites } from "./demo-writes";
 export { synthetic, type SyntheticOptions } from "./bench/synthetic";
+export { RecordedPlugins, type PluginRecord } from "./demo-records";

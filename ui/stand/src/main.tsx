@@ -5,7 +5,21 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App, currentLang, onLang, setLang, type Item, type PlaceStore, Lang, LanguageChoice, SessionState } from "@keyward/core";
-import { DEMO, DemoBackend, DemoWrites, DEMO_PLACES, synthetic } from "@keyward/core/demo";
+import { DEMO, DemoBackend, DemoWrites, DEMO_PLACES, RecordedPlugins, synthetic, type PluginRecord } from "@keyward/core/demo";
+import { ICONS, type Words } from "@keyward/core";
+
+// The real plugins' records, where their tests wrote them
+// (`KEYWARD_STAND_OUT=gui/stand cargo test`): their places and screens,
+// served beside the demo's, with their own dictionaries.
+const RECORDS = Object.values(import.meta.glob<PluginRecord>("../../../gui/stand/*.json", { eager: true, import: "default" }));
+const DICTIONARIES = import.meta.glob<Record<string, string>>("../../../crates/plugins/*/i18n/*.json", { eager: true, import: "default" });
+const wordsOf = (plugin: string): Words | undefined => {
+  const ru = DICTIONARIES[`../../../crates/plugins/${plugin}/i18n/ru.json`];
+  const en = DICTIONARIES[`../../../crates/plugins/${plugin}/i18n/en.json`];
+  if (!ru && !en) return undefined;
+  if (!ru || !en) throw new Error(`the plugin "${plugin}" has a dictionary in one language only`);
+  return { ru, en };
+};
 
 const PRESETS: Record<string, string> = {
   home: "",
@@ -116,7 +130,9 @@ const backend = new DemoBackend({
   accounts: flag(DemoFlag.Accounts),
   pin: flag(DemoFlag.Pin),
   biometric: qs.get(DemoFlag.Bio) !== "0",
+  ...(RECORDS.length ? { records: new RecordedPlugins(RECORDS, wordsOf, ICONS) } : {}),
 });
+
 if (flag(DemoFlag.Pair)) backend.askToPair();
 // The demo's places are kept in the browser's storage, so a saved one
 // survives a reload of the stand. Only the stand does this: its vault is made

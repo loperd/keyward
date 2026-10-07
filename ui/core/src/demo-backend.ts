@@ -21,6 +21,9 @@ import { type Preview, PreviewKind } from "./verbs/spec";
 import { PluginLane } from "./plugin/screen";
 import { SCREEN_WORDS, demoAct, demoView } from "./demo-screens";
 import { DemoPlugins, PLUGIN_WORDS } from "./demo-plugins";
+import type { RecordedPlugins } from "./demo-records";
+import { CORE_VERBS } from "./verbs/core";
+import { DOCUMENT_VERBS, withWriteVerbs } from "./verbs/writes";
 import type { InstalledPlugin, PluginAdminWrite, PluginOffer } from "./plugin/admin";
 
 const W = (ru: string, en: string) => ({ ru, en });
@@ -528,6 +531,8 @@ export type DemoOptions = {
   biometric?: boolean;
   /// The vault to serve instead of the demo's (the stand's `?synthetic=N`).
   catalog?: Catalog;
+  /// Real plugins' records, served beside the demo's own (the stand's).
+  records?: RecordedPlugins;
   /// How long each read takes, in milliseconds (the stand's `?slow=MS`): the
   /// session, the catalogue, the plugins' places, an item and its code wait
   /// this long, and the members come in a change of the catalogue of their
@@ -915,7 +920,11 @@ export class DemoBackend implements Backend {
   }
   async contributions(): Promise<Contribution[]> {
     await this.wait();
-    return demoContributions();
+    const demo = demoContributions();
+    if (!this.opts.records) return demo;
+    // A recorded plugin's verbs may not shadow the window's or the demo's.
+    const taken = new Set([...withWriteVerbs(CORE_VERBS).map((v) => v.id), ...DOCUMENT_VERBS, ...demo.flatMap((c) => (c.verbs ?? []).map((v) => v.id))]);
+    return [...demo, ...this.opts.records.contributions(taken)];
   }
   /// The demo's plugins as Settings › Plugins manages them.
   private plugins = new DemoPlugins();
@@ -948,14 +957,17 @@ export class DemoBackend implements Backend {
   async pluginView(plugin: string, route: string): Promise<unknown> {
     this.calls.push(`pluginView:${route}`);
     await this.wait();
+    if (this.opts.records?.has(plugin)) return this.opts.records.view(plugin, route);
     if (plugin !== "demo") throw new Error(`the demo has no plugin "${plugin}"`);
     return demoView(route);
   }
   async pluginRun(plugin: string, op: { op: string; payload: unknown; form: Readonly<Record<string, string>> | null }, lane: PluginLane): Promise<unknown> {
     // A form's values are never noted: only which fields came.
     this.calls.push(`pluginRun:${op.op}${op.form ? `:${Object.keys(op.form).sort().join(",")}` : ""}${lane === PluginLane.Output ? ":out" : ""}`);
+    if (this.opts.records?.has(plugin)) return this.opts.records.act(plugin, op.op, op.payload);
     if (plugin !== "demo") throw new Error(`the demo has no plugin "${plugin}"`);
     return demoAct(op.op, op.payload, op.form);
+
   }
 
   async item(id: string): Promise<ItemDetail> {

@@ -6,7 +6,7 @@
 // state. The terminal's code is loaded when one is first drawn.
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { t } from "../../i18n";
+import { t, text } from "../../i18n";
 import { type TerminalOps, PluginLane, StreamState } from "../../plugin/screen";
 import { ThemeChoice } from "../../settings/types";
 import { Icon } from "../Icons";
@@ -76,7 +76,7 @@ function onTheme(change: () => void): () => void {
 }
 
 export function Terminal({ ops: given }: { ops: TerminalOps }) {
-  const { call, reader } = useScreen();
+  const { call, reader, refusal } = useScreen();
   const host = useRef<HTMLDivElement>(null);
   const [state, setState] = useState(StreamState.Connecting);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
     setError(null);
     const fail = (e: unknown) => {
       if (!alive) return;
-      setError(e instanceof Error ? e.message : String(e));
+      setError(text(refusal(e)));
       setState(StreamState.Closed);
     };
 
@@ -119,7 +119,7 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
           cursor = r.cursor;
           setState(r.state);
           if (r.state === StreamState.Closed) {
-            if (r.error) setError(r.error);
+            if (r.error) setError(text(refusal(r.error)));
             return;
           }
         }
@@ -158,7 +158,7 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
       if (stream) void call(ops.close, { stream }, PluginLane.Input).catch(console.error);
       cleanup?.();
     };
-  }, [call, reader, ops, round]);
+  }, [call, reader, refusal, ops, round]);
 
   return (
     <div className="kw-term">

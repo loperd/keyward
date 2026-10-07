@@ -3513,6 +3513,7 @@ dependencies = [
  "keyward-core",
  "keyward-plugin",
  "keyward-plugin-stdio",
+ "keyward-ui",
  "reqwest 0.12.28",
  "scraper",
  "serde",

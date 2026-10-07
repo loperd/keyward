@@ -4,7 +4,8 @@
 // toast, the screen asked again. A refusal is reported, never swallowed.
 import { createContext, useCallback, useContext, useMemo, useRef } from "react";
 import { text } from "../../i18n";
-import { type ScreenAction, type ScreenReader, type ScreenReply, PluginLane, screenReader } from "../../plugin/screen";
+import { type ScreenAction, type ScreenReader, type ScreenReply, PluginLane, refusalText, screenReader } from "../../plugin/screen";
+import type { Text, Words } from "../../i18n";
 import { ICONS } from "../Icons";
 import { type Core, useCore } from "../marks";
 import { ToastKind } from "../toasts";
@@ -23,6 +24,8 @@ export type ScreenCtx = {
   call: (op: string, payload: unknown, lane: PluginLane) => Promise<ScreenReply>;
   /// Moves on every refresh a reply asks for.
   epoch: number;
+  /// A refusal of the plugin's in words, its own dictionary first.
+  refusal: (e: unknown) => Text;
 };
 
 export const ScreenContext = createContext<ScreenCtx | null>(null);
@@ -33,10 +36,14 @@ export function useScreen(): ScreenCtx {
   return c;
 }
 
+/// A plugin's words, from its contribution.
+export function useWords(plugin: string): Words | undefined {
+  return useCore().dir.contributions.find((c) => c.id === plugin)?.words;
+}
+
 /// The reader of a plugin's answers, with its words.
 export function useReader(plugin: string): ScreenReader {
-  const { dir } = useCore();
-  const words = dir.contributions.find((c) => c.id === plugin)?.words;
+  const words = useWords(plugin);
   // The dictionaries are the plugin's files, the same objects from one
   // reading of the places to the next.
   return useMemo(() => screenReader(plugin, { words, icons: ICONS }), [plugin, words?.ru, words?.en]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -67,6 +74,8 @@ export function applyReply(core: Core, node: string, plugin: string, r: ScreenRe
 export function useScreenCtx(node: string, plugin: string, epoch: number): ScreenCtx {
   const core = useCore();
   const reader = useReader(plugin);
+  const words = useWords(plugin);
+  const refusal = useCallback((e: unknown) => refusalText(plugin, words, e), [plugin, words?.ru]); // eslint-disable-line react-hooks/exhaustive-deps
   const { backend } = core;
   // The graph is built anew on every reading of the catalogue; an action
   // reads the one standing when its reply comes, and a screen's loads are
@@ -81,11 +90,12 @@ export function useScreenCtx(node: string, plugin: string, epoch: number): Scree
         applyReply(now.current, node, plugin, r);
         return r;
       } catch (e) {
-        now.current.report(e);
+        console.error(e);
+        now.current.report(new Error(text(refusal(e))));
         return null;
       }
     },
-    [backend, reader, node, plugin],
+    [backend, reader, node, plugin, refusal],
   );
   const call = useCallback(
     async (op: string, payload: unknown, lane: PluginLane): Promise<ScreenReply> => {
@@ -94,5 +104,6 @@ export function useScreenCtx(node: string, plugin: string, epoch: number): Scree
     },
     [backend, reader, plugin],
   );
-  return useMemo(() => ({ node, plugin, reader, run, call, epoch }), [node, plugin, reader, run, call, epoch]);
+  return useMemo(() => ({ node, plugin, reader, run, call, epoch, refusal }), [node, plugin, reader, run, call, epoch, refusal]);
+
 }

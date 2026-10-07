@@ -304,7 +304,8 @@ function TableView({ id, columns, facets, rows, empty }: { id: string; columns: 
 const TABS = new Map<string, string>();
 
 function TabsView({ id, iconsOnly, initial, tabs }: { id: string; iconsOnly: boolean; initial: string | undefined; tabs: ScreenTab[] }) {
-  const { plugin, run, epoch, reader } = useScreen();
+  const { plugin, run, epoch, reader, refusal } = useScreen();
+
   const key = `${plugin}|${id}`;
   const [on, setOn] = useState(() => initial ?? (tabs.some((x) => x.id === TABS.get(key)) ? TABS.get(key)! : tabs[0]!.id));
   const [loaded, setLoaded] = useState<{ tab: string; body: ScreenNode[] } | null>(null);
@@ -331,7 +332,7 @@ function TabsView({ id, iconsOnly, initial, tabs }: { id: string; iconsOnly: boo
           // A body that does not read is the plugin's mistake: said, and the
           // tab shows what it had.
           console.error(e);
-          setLoaded({ tab: tab.id, body: [{ type: ScreenNodeType.Alert, text: { raw: e instanceof Error ? e.message : String(e) }, tone: Tone.Bad }] });
+          setLoaded({ tab: tab.id, body: [{ type: ScreenNodeType.Alert, text: refusal(e), tone: Tone.Bad }] });
         })
         .finally(schedule);
     };
@@ -428,6 +429,8 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
           <Icon name="chev" className="kw-fin-ic kw-down" />
         </span>
       );
+    case FieldKind.Toggle:
+      return <ToggleControl label={label} initial={f.value === "true"} keep={keep(f.id)} />;
     case FieldKind.Number:
       return (
         <span className="kw-fin">
@@ -441,6 +444,18 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
         </span>
       );
   }
+}
+
+/// A switch of a form: the window's own, its state read at sending from the
+/// hidden box it keeps.
+function ToggleControl({ label, initial, keep }: { label: string; initial: boolean; keep: (el: HTMLInputElement | null) => void }) {
+  const [on, setOn] = useState(initial);
+  return (
+    <span className="kw-stoggle">
+      <input ref={keep} type="checkbox" hidden checked={on} readOnly />
+      <button type="button" role="switch" aria-checked={on} aria-label={label} title={t(on ? "set.on" : "set.off")} className={`kw-switch${on ? " kw-on" : ""}`} onClick={() => setOn((x) => !x)} />
+    </span>
+  );
 }
 
 function FormView({ fields, submit }: { fields: ScreenField[]; submit: ScreenButton }) {
@@ -459,7 +474,7 @@ function FormView({ fields, submit }: { fields: ScreenField[]; submit: ScreenBut
       } else {
         const el = refs.get(f.id);
         if (!el) throw new Error(`the field "${f.id}" was sent before it was drawn`);
-        form[f.id] = el.value;
+        form[f.id] = f.spec.kind === FieldKind.Toggle ? String((el as HTMLInputElement).checked) : el.value;
       }
     }
     setBusy(true);
