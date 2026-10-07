@@ -38,6 +38,10 @@ import { copiedWords } from "./act";
 import { Toasts, ToastKind } from "./toasts";
 import { Toaster } from "./Toaster";
 import { LoadPhase, Loading } from "./Loading";
+import { SettingsContext, type SettingsHold } from "./settings-context";
+import { SettingsPage } from "../settings/pages";
+import type { AppSettings, SettingsPatch } from "../settings/types";
+import { applyLook } from "../settings/apply";
 
 export type AppProps = {
   backend: Backend;
@@ -95,6 +99,39 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     console.error(e);
     toasts.push(ToastKind.Error, msg);
   }, [toasts]);
+
+  // The app's settings, where it keeps any: no vault data, so they are read
+  // at once, before the gate, and the theme and language follow them from
+  // the first frame.
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settingsFailed, setSettingsFailed] = useState<string | null>(null);
+  useEffect(() => {
+    if (!backend.settings) return;
+    let live = true;
+    backend.settings().then(
+      (s) => live && setSettings(s),
+      (e: unknown) => {
+        if (!live) return;
+        console.error(e);
+        setSettingsFailed(e instanceof Error ? e.message : String(e));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [backend]);
+  useEffect(() => {
+    if (settings) applyLook(settings);
+  }, [settings]);
+  const patchSettings = useCallback(
+    async (p: SettingsPatch) => {
+      if (!calls.setSettings) throw new Error("this app keeps no settings");
+      setSettings(await calls.setSettings(p));
+    },
+    [calls],
+  );
+  const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings }), [settings, settingsFailed, patchSettings]);
+  const pages = useMemo(() => (backend.settings ? [SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), SettingsPage.App] : []), [backend]);
 
   // A person's places: read when the vault opens, dropped when it closes.
   const [mine, setMine] = useState<Place[]>([]);
@@ -164,8 +201,8 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     if (!loaded) return null;
     for (const c of loaded.contributions) if (c.words) hold.registerWords(c.id, c.words);
     const catalog: Catalog = overlay.size ? { ...loaded.catalog, items: loaded.catalog.items.map((i) => (overlay.has(i.id) ? { ...i, deleted: overlay.get(i.id)! } : i)) } : loaded.catalog;
-    return new Directory(catalog, loaded.contributions, { places });
-  }, [loaded, overlay, places, hold]);
+    return new Directory(catalog, loaded.contributions, { places, settings: pages });
+  }, [loaded, overlay, places, hold, pages]);
   const query = useMemo(() => (dir && loaded ? new Query(dir, [...(writes ? withWriteVerbs(CORE_VERBS) : CORE_VERBS), ...loaded.contributions.flatMap((c) => c.verbs ?? [])]) : null), [dir, loaded, writes]);
 
   // The path lives in the hold, and goes with the session. A new graph is
@@ -292,11 +329,13 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     const s = loaded.session;
     content = (
       <CoreContext.Provider value={core}>
+        <SettingsContext.Provider value={settingsHold}>
         <WritesProvider writes={changes}>
           <RenderGuard line={store?.get().line ?? ""} onBack={() => store?.commit("")}>
             <Window name={s.name ?? s.email} syncedAt={loaded.at} version={version} perform={perform} startTyping={startTyping} />
           </RenderGuard>
         </WritesProvider>
+        </SettingsContext.Provider>
         <RepromptPrompt reprompt={hold.reprompt} />
         {toastEl}
       </CoreContext.Provider>

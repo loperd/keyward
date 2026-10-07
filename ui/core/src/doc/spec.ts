@@ -7,6 +7,7 @@ import type { Text } from "../i18n";
 import type { MapRef } from "../path/query";
 import type { Field, Level, Member, SecretRef } from "../model/types";
 import { enumParser } from "../model/enum";
+import type { SettingKey } from "../settings/rows";
 
 /// What a skeleton block stands for while its content is on its way.
 export enum SkeletonKind {
@@ -83,6 +84,9 @@ export type Block =
   /// Something on its way, in its shape: an item's fields while the item is
   /// read, the members table while the members are; `words` say the wait.
   | { skeleton: SkeletonKind; rows: number; words?: Text }
+  /// One of the app's settings as a live control: the window draws it
+  /// against the settings it holds and saves a change at once.
+  | { setting: SettingKey }
   | { para: Text };
 
 export type Section = { title: Text; count?: number | Text; aside?: { label: Text; act: Act; icon?: string }; blocks: Block[] };

@@ -11,6 +11,7 @@ import type { Link, MapModel } from "../map/types";
 import type { Place } from "./places";
 import type { Verb } from "./query";
 import { enumParser } from "../model/enum";
+import { PAGE_ICON, PAGE_NAME, pageDoc, pageId, pageSub, SETTINGS_ID, type SettingsPage, settingsDoc } from "../settings/pages";
 
 export enum NodeKind {
   Root = "root",
@@ -24,6 +25,8 @@ export enum NodeKind {
   Member = "member",
   Trash = "trash",
   Plugin = "plugin",
+  Settings = "settings",
+  SettingsPage = "settingsPage",
 }
 export enum MapKind {
   Relations = "relations",
@@ -159,7 +162,9 @@ export function policyLevel(p: Policy): Level {
   return Level.Healthy;
 }
 
-export type DirectoryOptions = { places?: Place[]; now?: Date };
+/// `settings`: the settings' pages the app offers, in their order; none, no
+/// Settings on the path (the web app).
+export type DirectoryOptions = { places?: Place[]; now?: Date; settings?: SettingsPage[] };
 
 export class Directory {
   private readonly nodes = new Map<string, Node>();
@@ -181,6 +186,7 @@ export class Directory {
   private collectionsOf: Map<string, Collection[]> | null = null;
   readonly now: Date;
   readonly places: Place[];
+  readonly settings: SettingsPage[];
 
   constructor(
     readonly catalog: Catalog,
@@ -189,6 +195,7 @@ export class Directory {
   ) {
     this.now = opts.now ?? new Date();
     this.places = opts.places ?? [];
+    this.settings = opts.settings ?? [];
     for (const p of this.places) {
       if (this.placeMap.has(p.id)) throw new Error(`duplicate place "${p.id}"`);
       this.placeMap.set(p.id, p);
@@ -400,10 +407,18 @@ export class Directory {
         ...orgs.map((o) => ({ id: `org:${o.id}` })),
         ...(contributions.length ? [{ gap: true } as const, ...contributions.map((c) => ({ id: c.root.id }))] : []),
         ...(dead.length ? [{ id: "trash" }] : []),
+        ...(this.settings.length ? [{ id: SETTINGS_ID }] : []),
         ...(this.places.length ? [{ heading: key("places") }, ...this.places.map((p) => ({ place: p.id }))] : []),
       ],
     };
     this.add(root);
+    // The settings come before the vault's things: their words are fixed, an
+    // item named "Settings" takes the next free slug, not theirs.
+    if (this.settings.length) {
+      const pages = this.settings;
+      this.add({ id: SETTINGS_ID, kind: NodeKind.Settings, slug: SETTINGS_ID, name: key("set.title"), icon: "settings", level: Level.Unknown, home: [SETTINGS_ID], kids: () => pages.map((p) => ({ id: pageId(p), sub: key(pageSub(p)) })), doc: () => settingsDoc(pages) });
+      for (const p of pages) this.add({ id: pageId(p), kind: NodeKind.SettingsPage, slug: `${SETTINGS_ID}-${p}`, name: key(PAGE_NAME[p]), icon: PAGE_ICON[p], level: Level.Unknown, home: [SETTINGS_ID, pageId(p)], doc: () => pageDoc(p) });
+    }
     const personal = live.filter((i) => !i.orgId);
     const inFolder = groupBy(personal, (i) => i.folderId);
     this.add({

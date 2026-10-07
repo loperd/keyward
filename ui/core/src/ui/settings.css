@@ -1,0 +1,17 @@
+/* ---------- a setting as a live control ---------- */
+/* its words on the left, a switch on the right; choices go under the words,
+   across the whole row, and wrap rather than leave a narrow island */
+.kw-set {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--u2); row-gap: var(--u);
+  min-height: var(--row-1); padding: var(--u) var(--pad); margin: 0 calc(var(--pad) * -1); border-radius: var(--r-ctl);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.kw-set:hover { background: var(--hover); }
+.kw-set-t { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
+.kw-set-t b { font-weight: var(--w-text); color: var(--text); }
+.kw-set-h { color: var(--dim); font-size: var(--fs-s); line-height: var(--lh-s); }
+.kw-set-choice { grid-template-columns: minmax(0, 1fr); }
+.kw-set .kw-set-chips { grid-column: 1 / -1; }
+.kw-set .kw-switch { justify-self: end; }
+.kw-set[aria-busy="true"] .kw-switch, .kw-set[aria-busy="true"] .kw-chip { opacity: 0.6; }
+.kw-set-wait b { color: var(--dim); }

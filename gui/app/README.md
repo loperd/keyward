@@ -51,8 +51,11 @@ removed once every blocker below is in the new one. Tick a line when it is in
       `plugins/call`, `plugins/types`) into `gui/app` or `ui/core`.
 
 ### Phase 1 — blockers
-- [ ] **Settings screen** in `ui/core` over `get_settings` / `set_settings`
-      (old: `src/screens/Settings.tsx`).
+- [x] **Settings screen** in `ui/core` over `get_settings` / `set_settings`
+      (old: `src/screens/Settings.tsx`): Settings on the path (⌘,, the
+      account menu), pages Security, Unlocking and Application whose rows are
+      live controls saved at once; secret and dangerous changes go through
+      verbs with a preview.
 - [ ] **Account security:** change the master password, email and KDF;
       2FA (authenticator QR, email, recovery code, turn off)
       (old: Settings.tsx:579-993).
@@ -75,9 +78,10 @@ removed once every blocker below is in the new one. Tick a line when it is in
 ### Phase 2 — important
 - [ ] Account profile (name, avatar colour, fingerprint); devices,
       deauthorise, purge, delete the account.
-- [ ] Lock timeout and lock-or-log-out; clipboard clear time, hide on copy,
+- [x] Lock timeout and lock-or-log-out; clipboard clear time, hide on copy,
       website icons, Dock/tray, start at login, screen capture.
-- [ ] Theme, accent and language saved to `settings.json`, not just locally.
+- [x] Theme and language saved to `settings.json`, not just locally (the
+      strip's toggles too). The accent colour is still to come.
 - [ ] Offline edits: the queue, retry, roll back, discard (old: `src/screens/Edits.tsx`).
 - [ ] Generator with history (copy, reveal, forget).
 - [ ] Passkeys: remove, the Passkeys filter.

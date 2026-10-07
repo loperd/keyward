@@ -13,6 +13,7 @@ import { useFeedback, Phase } from "./feedback";
 import { useRowMotion, withGone } from "./row-motion";
 import { dotsFor, TotpCode, useReportUnlessLocked, useReveal } from "./secret";
 import { BlockSkeleton } from "./Loading";
+import { SettingRowView } from "./settings-context";
 
 const say = (x: Text) => text(x);
 
@@ -272,6 +273,8 @@ function MembersTable({ members }: { members: Member[] }) {
 
 function BlockView({ b }: { b: Block }) {
   const run = useAct();
+  const { report } = useCore();
+  if ("setting" in b) return <SettingRowView setting={b.setting} report={report} />;
   if ("secret" in b) return <SecretField b={b} />;
   if ("totp" in b)
     return (

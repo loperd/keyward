@@ -117,6 +117,7 @@ export function kindLabel(k: string): `kind.${string}` {
   return `kind.${k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())}`;
 }
 
+/// boundary: the daemon's kind as the dictionary's word for it.
 export function kindKey(kind: ItemKind): KindKey {
   return kind === "secure_note" ? "note" : (kind as KindKey);
 }

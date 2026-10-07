@@ -4,6 +4,7 @@
 // like a real password. It also brings what a plugin would: SSH hosts, keys
 // and a topology, and Kubernetes clusters, as nodes of the graph with pages in
 // the core's vocabulary and words of their own.
+import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice } from "./settings/types";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
 import { registerWords, t, type Text, type Words, Lang } from "./i18n";
@@ -521,11 +522,34 @@ export type DemoOptions = {
   /// own after twice as long, as the desktop's do — so every loading state
   /// can be seen.
   slow?: number;
+  /// The settings it starts with, over the daemon's defaults (the stand's
+  /// language).
+  settings?: Partial<AppSettings>;
 };
 
 /// The demo's refusals: a password or code of exactly this is refused, so the
 /// stand can show an error.
 export const DEMO_WRONG = "wrong";
+
+/// The settings the demo starts with: the daemon's defaults.
+export const DEMO_SETTINGS: AppSettings = {
+  lockTimeout: { kind: LockTimeoutKind.Minutes, minutes: 15 },
+  lockAction: LockAction.Lock,
+  touchIdOnLaunch: true,
+  touchIdForSecrets: false,
+  clipboardClearSeconds: 30,
+  biometricGraceSeconds: 60,
+  showWebsiteIcons: true,
+  hideOnCopy: false,
+  keepInTray: true,
+  keepInDock: false,
+  allowScreenCapture: false,
+  startOnLogin: true,
+  theme: ThemeChoice.System,
+  accentColor: null,
+  // The reference language, as the window starts in; the stand says its own.
+  language: LanguageChoice.Ru,
+};
 
 export class DemoBackend implements Backend {
   readonly caps: Capabilities;
@@ -564,6 +588,7 @@ export class DemoBackend implements Backend {
     this.opts = opts;
     if (opts.catalog) this.data = structuredClone(opts.catalog);
     this.state = opts.start ?? SessionState.Unlocked;
+    this.appSettings = { ...structuredClone(DEMO_SETTINGS), ...structuredClone(opts.settings ?? {}) };
     if (opts.slow !== undefined && !(Number.isInteger(opts.slow) && opts.slow >= 0)) throw new Error(`a demo's slowness is a whole number of milliseconds, not ${opts.slow}`);
     this.membersIn = !opts.slow;
     this.caps = { chooseServer: opts.chooseServer ?? false, accounts: opts.accounts ?? false, biometric: true, plugins: true, clipboardClears: true };
@@ -640,6 +665,23 @@ export class DemoBackend implements Backend {
   async unlockBiometric(): Promise<void> {
     this.open();
   }
+  /// The demo's settings: kept in memory, changed as the daemon changes
+  /// them — a refusal when `failNext` says so.
+  private appSettings: AppSettings;
+  async settings(): Promise<AppSettings> {
+    await this.wait();
+    return structuredClone(this.appSettings);
+  }
+  async setSettings(patch: SettingsPatch): Promise<AppSettings> {
+    if (this.failNext) {
+      const why = this.failNext;
+      this.failNext = null;
+      throw new Error(why);
+    }
+    this.appSettings = { ...this.appSettings, ...structuredClone(patch) };
+    return structuredClone(this.appSettings);
+  }
+
   async lock(): Promise<void> {
     if (this.state === SessionState.Unlocked) this.state = SessionState.Locked;
     // The members are vault data: read again after the next unlock.

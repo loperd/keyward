@@ -2,6 +2,7 @@
 // walk the columns, typing anywhere goes to the line, ⌘K opens it, ⌘[ ⌘] walk
 // the history, Space looks quickly, Esc steps back out of a preview, a map or
 // a look.
+import { SETTINGS_ID } from "../settings/pages";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { answerOf, columns, fold, type Column, AnswerKind, ColumnType } from "../path/query";
 import { usePath } from "../path/store";
@@ -135,6 +136,11 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
       if (meta && k === "l") {
         e.preventDefault();
         store.verb("lock");
+        return;
+      }
+      if (meta && e.key === "," && core.dir.has(SETTINGS_ID)) {
+        e.preventDefault();
+        store.go(SETTINGS_ID);
         return;
       }
       if (meta && /^[1-9]$/.test(e.key)) {

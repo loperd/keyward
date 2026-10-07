@@ -4,7 +4,7 @@
 // concept; the flags below open the gate instead of the window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App, currentLang, onLang, setLang, type Item, type PlaceStore, Lang, SessionState } from "@keyward/core";
+import { App, currentLang, onLang, setLang, type Item, type PlaceStore, Lang, LanguageChoice, SessionState } from "@keyward/core";
 import { DEMO, DemoBackend, DemoWrites, DEMO_PLACES, synthetic } from "@keyward/core/demo";
 
 const PRESETS: Record<string, string> = {
@@ -90,6 +90,9 @@ const COPIES: Item[] = [
   appleId({ id: "appleid", name: "appleid.icloud.com", uris: ["https://appleid.apple.com"], hasTotp: true, passkeys: 1 }),
 ];
 const backend = new DemoBackend({
+  // The language the stand was opened in is the demo's setting too: the
+  // window follows its settings.
+  settings: { language: currentLang() === Lang.En ? LanguageChoice.En : LanguageChoice.Ru },
   ...(slow !== null ? { slow: Number(slow) } : {}),
   ...(many !== null ? { catalog: synthetic({ items: Number(many), base: DEMO }) } : copies ? { catalog: { ...DEMO, items: [...DEMO.items, ...COPIES] } } : {}),
   start: flag(DemoFlag.Damaged)

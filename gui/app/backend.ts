@@ -31,12 +31,22 @@ import {
   parseItemKind,
   parseMemberStatus,
   parseOrgRole,
+  type AppSettings,
+  type LockTimeout,
+  LockTimeoutKind,
+  type SettingsPatch,
+  parseLanguageChoice,
+  parseLockAction,
+  parseLockTimeoutKind,
+  parseThemeChoice,
 } from "@keyward/core";
 import type { PluginCall } from "@keyward/core";
 import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
 import type {
   AccountList,
+  AppSettings as DaemonSettings,
+  LockTimeout as DaemonLockTimeout,
   Catalog as DaemonCatalog,
   ItemDetail as DaemonDetail,
   LoginReply,
@@ -47,6 +57,75 @@ import type {
   VaultItem,
   VaultState,
 } from "./types";
+
+/// boundary: the daemon's lock timeout as the core's.
+function lockTimeoutOf(w: DaemonLockTimeout): LockTimeout {
+  const kind = parseLockTimeoutKind(w.kind);
+  if (kind !== LockTimeoutKind.Minutes) return { kind };
+  if (!("minutes" in w) || !Number.isInteger(w.minutes) || w.minutes <= 0) throw new Error(`the daemon's lock timeout has no minutes: ${JSON.stringify(w)}`);
+  return { kind, minutes: w.minutes };
+}
+
+/// boundary: the core's lock timeout in the daemon's words.
+function wireLockTimeout(v: LockTimeout): DaemonLockTimeout {
+  if (v.kind === LockTimeoutKind.Minutes) return { kind: "minutes", minutes: v.minutes };
+  return v.kind === LockTimeoutKind.OnRestart ? { kind: "on_restart" } : { kind: "never" };
+}
+
+const bool = (v: unknown, what: string): boolean => {
+  if (typeof v !== "boolean") throw new Error(`the daemon's setting "${what}" is not a yes or no: ${JSON.stringify(v)}`);
+  return v;
+};
+const seconds = (v: unknown, what: string): number => {
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0) throw new Error(`the daemon's setting "${what}" is not a number of seconds: ${JSON.stringify(v)}`);
+  return v;
+};
+
+/// boundary: the daemon's settings as the core's; a field that does not read
+/// stops it, it is never taken for its default.
+function settingsOf(w: DaemonSettings): AppSettings {
+  if (w.accent_color !== null && (typeof w.accent_color !== "string" || !/^#[0-9a-f]{6}$/i.test(w.accent_color))) throw new Error(`the daemon's accent colour does not read: ${JSON.stringify(w.accent_color)}`);
+  return {
+    lockTimeout: lockTimeoutOf(w.lock_timeout),
+    lockAction: parseLockAction(w.lock_action),
+    touchIdOnLaunch: bool(w.touch_id_on_launch, "touch_id_on_launch"),
+    touchIdForSecrets: bool(w.touch_id_for_secrets, "touch_id_for_secrets"),
+    clipboardClearSeconds: seconds(w.clipboard_clear_seconds, "clipboard_clear_seconds"),
+    biometricGraceSeconds: seconds(w.biometric_grace_seconds, "biometric_grace_seconds"),
+    showWebsiteIcons: bool(w.show_website_icons, "show_website_icons"),
+    hideOnCopy: bool(w.hide_on_copy, "hide_on_copy"),
+    keepInTray: bool(w.keep_in_tray, "keep_in_tray"),
+    keepInDock: bool(w.keep_in_dock, "keep_in_dock"),
+    allowScreenCapture: bool(w.allow_screen_capture, "allow_screen_capture"),
+    startOnLogin: bool(w.start_on_login, "start_on_login"),
+    theme: parseThemeChoice(w.theme),
+    accentColor: w.accent_color,
+    language: parseLanguageChoice(w.language),
+  };
+}
+
+/// A change in the daemon's words, laid over what it holds now: the daemon
+/// takes the whole object, and a field the window does not know (the
+/// interface) goes back as it came.
+function withPatch(w: DaemonSettings, p: SettingsPatch): DaemonSettings {
+  const out: DaemonSettings = { ...w };
+  if (p.lockTimeout !== undefined) out.lock_timeout = wireLockTimeout(p.lockTimeout);
+  if (p.lockAction !== undefined) out.lock_action = p.lockAction;
+  if (p.touchIdOnLaunch !== undefined) out.touch_id_on_launch = p.touchIdOnLaunch;
+  if (p.touchIdForSecrets !== undefined) out.touch_id_for_secrets = p.touchIdForSecrets;
+  if (p.clipboardClearSeconds !== undefined) out.clipboard_clear_seconds = p.clipboardClearSeconds;
+  if (p.biometricGraceSeconds !== undefined) out.biometric_grace_seconds = p.biometricGraceSeconds;
+  if (p.showWebsiteIcons !== undefined) out.show_website_icons = p.showWebsiteIcons;
+  if (p.hideOnCopy !== undefined) out.hide_on_copy = p.hideOnCopy;
+  if (p.keepInTray !== undefined) out.keep_in_tray = p.keepInTray;
+  if (p.keepInDock !== undefined) out.keep_in_dock = p.keepInDock;
+  if (p.allowScreenCapture !== undefined) out.allow_screen_capture = p.allowScreenCapture;
+  if (p.startOnLogin !== undefined) out.start_on_login = p.startOnLogin;
+  if (p.theme !== undefined) out.theme = p.theme;
+  if (p.accentColor !== undefined) out.accent_color = p.accentColor;
+  if (p.language !== undefined) out.language = p.language;
+  return out;
+}
 
 /// Bitwarden's provider numbers, as the daemon speaks them.
 const PROVIDER_ID: Record<TwoFactorProvider, number> = { [TwoFactorProvider.Authenticator]: 0, [TwoFactorProvider.Email]: 1, [TwoFactorProvider.Duo]: 2, [TwoFactorProvider.Yubikey]: 3, [TwoFactorProvider.WebAuthn]: 7, [TwoFactorProvider.Recovery]: 8 };
@@ -482,6 +561,19 @@ export class DaemonBackend implements Backend {
   async purge(ids: string[]) {
     await invoke("purge_items", { entryIds: ids });
     this.emit({ kind: ChangeKind.Catalog });
+  }
+
+  async settings(): Promise<AppSettings> {
+    return settingsOf(await invoke<DaemonSettings>("get_settings"));
+  }
+
+  /// Laid over what the daemon holds now; the window's own preferences
+  /// (the Dock, the menu bar, screen capture) are put in force at once.
+  async setSettings(patch: SettingsPatch): Promise<AppSettings> {
+    const now = await invoke<DaemonSettings>("get_settings");
+    const saved = await invoke<DaemonSettings>("set_settings", { settings: withPatch(now, patch) });
+    await invoke("apply_window_prefs");
+    return settingsOf(saved);
   }
 
   /// Saved in the settings; the window reloads into the other page.

@@ -11,6 +11,9 @@ import { IconButton, Kbd, useCore } from "./marks";
 import { PathLine, type LineHandle } from "./PathLine";
 import { useBusy, Busy } from "./activity";
 import { Turning } from "./Loading";
+import { useSettingsMaybe } from "./settings-context";
+import { SETTINGS_ID } from "../settings/pages";
+import { LanguageChoice, ThemeChoice } from "../settings/types";
 
 export const isDark = () => {
   const set = document.documentElement.dataset.theme;
@@ -31,7 +34,14 @@ export function sectionLines(core: ReturnType<typeof useCore>): { line: string; 
 
 function AccountMenu({ name, onClose }: { name: string; onClose: () => void }) {
   const core = useCore();
+  const kept = useSettingsMaybe();
   const lang = currentLang();
+  // Where the app keeps settings, the language is one of them: chosen here,
+  // it is saved, not only shown.
+  const chooseLang = (code: Lang) => {
+    if (kept?.settings) kept.patch({ language: code === Lang.Ru ? LanguageChoice.Ru : LanguageChoice.En }).catch(core.report);
+    else setLang(code);
+  };
   // The other accounts, where the app holds several: read each time the menu
   // opens, so a sign-in elsewhere shows.
   const b = core.backend;
@@ -50,7 +60,7 @@ function AccountMenu({ name, onClose }: { name: string; onClose: () => void }) {
     fn().catch(core.report);
   };
   const langRow = (code: Lang, label: string) => (
-    <div className="kw-mrow" onClick={() => setLang(code)}>
+    <div className="kw-mrow" onClick={() => chooseLang(code)}>
       <span className="kw-ic">
         <Icon name="lang" />
       </span>
@@ -89,6 +99,21 @@ function AccountMenu({ name, onClose }: { name: string; onClose: () => void }) {
             <Kbd>{`⌘${i + 1}`}</Kbd>
           </div>
         ))}
+        {core.dir.has(SETTINGS_ID) && (
+          <div
+            className="kw-mrow"
+            onClick={() => {
+              onClose();
+              core.store.go(SETTINGS_ID);
+            }}
+          >
+            <span className="kw-ic">
+              <Icon name="settings" />
+            </span>
+            <span className="kw-lb">{t("set.title")}</span>
+            <Kbd>⌘,</Kbd>
+          </div>
+        )}
         <div className="kw-mh">{t("lang")}</div>
         {langRow(Lang.Ru, t("ui.lang.ru"))}
         {langRow(Lang.En, t("ui.lang.en"))}
@@ -162,6 +187,7 @@ export const Strip = forwardRef<LineHandle, { name: string; syncedAt: number; me
   line,
 ) {
   const core = useCore();
+  const kept = useSettingsMaybe();
   const snap = usePath(core.store);
   const [dark, setDark] = useState(isDark);
   // A sync under way, whoever started it: the glyph turns until it ends.
@@ -189,7 +215,9 @@ export const Strip = forwardRef<LineHandle, { name: string; syncedAt: number; me
         icon={dark ? "sun" : "moon"}
         tip={t("theme")}
         onClick={() => {
-          document.documentElement.dataset.theme = dark ? "light" : "dark";
+          // Where the app keeps settings, the theme is one of them.
+          if (kept?.settings) kept.patch({ theme: dark ? ThemeChoice.Light : ThemeChoice.Dark }).catch(core.report);
+          else document.documentElement.dataset.theme = dark ? "light" : "dark";
           setDark(!dark);
         }}
       />

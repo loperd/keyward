@@ -7,6 +7,7 @@ import type { Catalog, ItemDetail, SecretRef, Totp } from "./model/types";
 import type { Contribution } from "./path/directory";
 import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
+import type { AppSettings, SettingsPatch } from "./settings/types";
 
 /// What a session is doing: the state of the app's session, and of each of
 /// its accounts.
@@ -172,6 +173,12 @@ export interface Backend {
   /// present only where `caps.plugins`. What it changed comes back as a
   /// change of the catalogue.
   pluginAct?(call: PluginCall): Promise<void>;
+
+  /// The app's settings; present only where the app keeps any (the desktop
+  /// app). Without them there is no Settings on the path.
+  settings?(): Promise<AppSettings>;
+  /// Changes some of them and answers with all of them as they now stand.
+  setSettings?(patch: SettingsPatch): Promise<AppSettings>;
 
   /// The desktop app's choice of window, while the old one and this one live
   /// side by side: saves it and reloads the window into that page. Absent
