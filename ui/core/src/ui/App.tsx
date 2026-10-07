@@ -27,6 +27,7 @@ import { Gate } from "./Gate";
 import { ICONS, Icon } from "./Icons";
 import { CoreContext, useLang, type Core } from "./marks";
 import { RepromptPrompt } from "./RepromptPrompt";
+import { PairPrompt } from "./Extensions";
 import { SessionHold } from "./session-hold";
 import { Window } from "./Window";
 import { WritesProvider } from "./writes-context";
@@ -139,7 +140,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     backend.unlockState().then(setUnlock, report);
   }, [backend, report]);
   const settingsHold: SettingsHold = useMemo(() => ({ settings, failed: settingsFailed, patch: patchSettings, unlock }), [settings, settingsFailed, patchSettings, unlock]);
-  const pages = useMemo(() => (backend.settings ? [SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), SettingsPage.App] : []), [backend]);
+  const pages = useMemo(() => (backend.settings ? [SettingsPage.Security, ...(backend.caps.biometric ? [SettingsPage.Unlock] : []), ...(backend.extensions ? [SettingsPage.Browsers] : []), SettingsPage.App] : []), [backend]);
 
   // A person's places: read when the vault opens, dropped when it closes.
   const [mine, setMine] = useState<Place[]>([]);
@@ -353,6 +354,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
         </WritesProvider>
         </SettingsContext.Provider>
         <RepromptPrompt reprompt={hold.reprompt} />
+        {backend.extensions && <PairPrompt />}
         {toastEl}
       </CoreContext.Provider>
     );

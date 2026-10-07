@@ -4,7 +4,7 @@
 // like a real password. It also brings what a plugin would: SSH hosts, keys
 // and a topology, and Kubernetes clusters, as nodes of the graph with pages in
 // the core's vocabulary and words of their own.
-import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState } from "./settings/types";
+import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions } from "./settings/types";
 import { AccountOp } from "./verbs/spec";
 import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
@@ -705,6 +705,34 @@ export class DemoBackend implements Backend {
       this.unlocks = { ...this.unlocks, pin: false };
       this.opts = { ...this.opts, pin: false };
     }
+  }
+
+  /// The demo's browsers: one paired, and one asking while `?pair=1` says so.
+  private browsers: BrowserExtensions = {
+    paired: [{ key: "demo-paired", words: ["amber", "canyon", "lilac", "orbit", "spruce"], at: 1780000000, expires: 0 }],
+    pending: [],
+  };
+  /// Puts a browser asking to be paired on the demo's list, for `seconds`.
+  askToPair(seconds = 300) {
+    const now = Math.floor(Date.now() / 1000);
+    this.browsers = { ...this.browsers, pending: [{ key: "demo-asking", words: ["harbor", "violet", "maple", "comet", "tundra"], at: now, expires: now + seconds }] };
+  }
+  async extensions(): Promise<BrowserExtensions> {
+    await this.wait();
+    return structuredClone(this.browsers);
+  }
+  async pairExtension(key: string): Promise<BrowserExtensions> {
+    const r = this.browsers.pending.find((x) => x.key === key);
+    if (!r) throw new Error("this browser is not on the demo's list");
+    this.calls.push(`pair:${key}`);
+    this.browsers = { paired: [...this.browsers.paired, { ...r, at: Math.floor(Date.now() / 1000), expires: 0 }], pending: this.browsers.pending.filter((x) => x.key !== key) };
+    return structuredClone(this.browsers);
+  }
+  async unpairExtension(key: string): Promise<BrowserExtensions> {
+    if (!this.browsers.paired.some((x) => x.key === key)) throw new Error("this browser is not on the demo's list");
+    this.calls.push(`unpair:${key}`);
+    this.browsers = { ...this.browsers, paired: this.browsers.paired.filter((x) => x.key !== key) };
+    return structuredClone(this.browsers);
   }
 
   async lock(): Promise<void> {

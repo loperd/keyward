@@ -62,7 +62,7 @@ removed once every blocker below is in the new one. Tick a line when it is in
 - [ ] **Export** of the vault, CSV and JSON (old: Settings.tsx:1146).
 - [x] **Touch ID:** turn on and off, on launch, for secrets, grace time; **PIN:**
       set and clear (old: Settings.tsx:1320-1476).
-- [ ] **Browser extensions:** list, pair, unpair, and the pairing prompt that
+- [x] **Browser extensions:** list, pair, unpair, and the pairing prompt that
       polls `extensions` (old: `src/screens/Extensions.tsx`, `src/PairPrompt.tsx`).
 - [ ] **Autofill:** the `autofill` event, ⌘⇧L, `autofill_fill`, the
       Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).

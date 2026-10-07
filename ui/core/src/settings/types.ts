@@ -61,3 +61,9 @@ export type SettingsPatch = Partial<AppSettings>;
 /// How the account opens on this computer besides the master password.
 /// `biometricProblem`: why Touch ID cannot be used here, if it cannot.
 export type UnlockState = { biometric: boolean; biometricProblem: string | null; pin: boolean };
+
+/// A browser extension that may ask for passkeys, or asks to: its key's five
+/// words, compared with the extension's own window; `at` and `expires` are
+/// seconds since the epoch (`expires` is 0 for a paired one).
+export type BrowserExtension = { key: string; words: string[]; at: number; expires: number };
+export type BrowserExtensions = { paired: BrowserExtension[]; pending: BrowserExtension[] };

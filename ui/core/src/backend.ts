@@ -7,7 +7,7 @@ import type { Catalog, ItemDetail, SecretRef, Totp } from "./model/types";
 import type { Contribution } from "./path/directory";
 import type { PluginCall } from "./verbs/spec";
 import { enumParser } from "./model/enum";
-import type { AppSettings, SettingsPatch, UnlockState } from "./settings/types";
+import type { AppSettings, BrowserExtensions, SettingsPatch, UnlockState } from "./settings/types";
 import type { AccountOp } from "./verbs/spec";
 
 /// What a session is doing: the state of the app's session, and of each of
@@ -187,6 +187,14 @@ export interface Backend {
   /// Changes that: `secrets` are what the person typed for it (the master
   /// password, the PIN), by the preview's field ids, for this one call.
   account?(op: AccountOp, secrets: Readonly<Record<string, string>>): Promise<void>;
+
+  /// The browser extensions paired with the app, and those asking to be;
+  /// present where the app takes passkey requests from a browser.
+  extensions?(): Promise<BrowserExtensions>;
+  /// Pairs one that asks: the app confirms it with the person's finger, the
+  /// key's words in its prompt.
+  pairExtension?(key: string): Promise<BrowserExtensions>;
+  unpairExtension?(key: string): Promise<BrowserExtensions>;
 
   /// The desktop app's choice of window, while the old one and this one live
   /// side by side: saves it and reloads the window into that page. Absent

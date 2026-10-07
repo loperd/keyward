@@ -14,6 +14,7 @@ import { useRowMotion, withGone } from "./row-motion";
 import { dotsFor, TotpCode, useReportUnlessLocked, useReveal } from "./secret";
 import { BlockSkeleton } from "./Loading";
 import { SettingRowView } from "./settings-context";
+import { ExtensionsList } from "./Extensions";
 
 const say = (x: Text) => text(x);
 
@@ -275,6 +276,7 @@ function BlockView({ b }: { b: Block }) {
   const run = useAct();
   const { report } = useCore();
   if ("setting" in b) return <SettingRowView setting={b.setting} report={report} />;
+  if ("live" in b) return <ExtensionsList />;
   if ("secret" in b) return <SecretField b={b} />;
   if ("totp" in b)
     return (

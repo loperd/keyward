@@ -269,3 +269,70 @@ describe("the unlocking page", () => {
     for (const el of host.querySelectorAll("input")) expect(el.value).toBe("");
   });
 });
+
+describe("the browsers", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    setLang(Lang.Ru);
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+  afterEach(() => {
+    expect(caught.map(String)).toEqual([]);
+    act(() => root.unmount());
+    host.remove();
+    setLang(Lang.Ru);
+  });
+  const dialog = () => host.ownerDocument.querySelector('[role="dialog"][aria-label="Сопряжение браузера"]');
+  const inDialog = (words: string) => [...(dialog()?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.includes(words));
+
+  it("lists the paired ones on their page with their five words", async () => {
+    const b = new DemoBackend();
+    act(() => root.render(<App backend={b} line="settings › settings-browsers" autoBiometric={false} />));
+    await flush();
+    await flush();
+    expect(host.textContent).toContain("Сопряжено");
+    expect(host.textContent).toContain("amber");
+    await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Отменить сопряжение"]')!.click());
+    await flush();
+    expect(b.calls).toContain("unpair:demo-paired");
+    expect(host.textContent).toContain("Браузеры не сопряжены");
+  });
+
+  it("asks over the window when a browser wants to pair, and pairs it", async () => {
+    const b = new DemoBackend();
+    b.askToPair();
+    act(() => root.render(<App backend={b} autoBiometric={false} />));
+    await flush();
+    await flush();
+    expect(dialog()?.textContent).toContain("harbor");
+    await act(async () => inDialog("Сопрячь")!.click());
+    await flush();
+    expect(b.calls).toContain("pair:demo-asking");
+    expect(dialog()).toBeNull();
+  });
+
+  it("sets an asking browser aside on Not now, and does not pair it", async () => {
+    const b = new DemoBackend();
+    b.askToPair();
+    act(() => root.render(<App backend={b} autoBiometric={false} />));
+    await flush();
+    await flush();
+    await act(async () => inDialog("Не сейчас")!.click());
+    await flush();
+    expect(dialog()).toBeNull();
+    expect(b.calls).not.toContain("pair:demo-asking");
+  });
+
+  it("will not pair once the words have expired", async () => {
+    const b = new DemoBackend();
+    b.askToPair(-1);
+    act(() => root.render(<App backend={b} autoBiometric={false} />));
+    await flush();
+    await flush();
+    expect(dialog()?.textContent).toContain("Слова истекли");
+    expect(inDialog("Сопрячь")?.disabled).toBe(true);
+  });
+});

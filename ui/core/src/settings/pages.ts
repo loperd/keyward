@@ -3,12 +3,13 @@
 // the app's: the web app has none, an app without Touch ID has no Unlocking.
 // Pure.
 import type { Key } from "../i18n";
-import { type DocSpec, Hue, LeadTile, type Section } from "../doc/spec";
+import { type DocSpec, Hue, LeadTile, LiveBlock, type Section } from "../doc/spec";
 import { SettingKey } from "./rows";
 
 export enum SettingsPage {
   Security = "security",
   Unlock = "unlock",
+  Browsers = "browsers",
   App = "app",
 }
 
@@ -18,16 +19,19 @@ export const pageId = (p: SettingsPage) => `${SETTINGS_ID}/${p}`;
 export const PAGE_ICON: Record<SettingsPage, string> = {
   [SettingsPage.Security]: "shield",
   [SettingsPage.Unlock]: "finger",
+  [SettingsPage.Browsers]: "login",
   [SettingsPage.App]: "window",
 };
 export const PAGE_NAME: Record<SettingsPage, Key> = {
   [SettingsPage.Security]: "set.page.security",
   [SettingsPage.Unlock]: "set.page.unlock",
+  [SettingsPage.Browsers]: "set.page.browsers",
   [SettingsPage.App]: "set.page.app",
 };
 const PAGE_SUB: Record<SettingsPage, Key> = {
   [SettingsPage.Security]: "set.page.securitySub",
   [SettingsPage.Unlock]: "set.page.unlockSub",
+  [SettingsPage.Browsers]: "set.page.browsersSub",
   [SettingsPage.App]: "set.page.appSub",
 };
 export const pageSub = (p: SettingsPage): Key => PAGE_SUB[p];
@@ -37,6 +41,7 @@ const rows = (title: Key, keys: SettingKey[]): Section => ({ title: { key: title
 const SECTIONS: Record<SettingsPage, Section[]> = {
   [SettingsPage.Security]: [rows("set.sec.timeout", [SettingKey.LockTimeout, SettingKey.LockAction]), rows("set.sec.clipboard", [SettingKey.Clipboard])],
   [SettingsPage.Unlock]: [rows("set.sec.touchId", [SettingKey.Biometric, SettingKey.TouchIdOnLaunch, SettingKey.TouchIdForSecrets, SettingKey.Grace]), rows("set.sec.pin", [SettingKey.Pin])],
+  [SettingsPage.Browsers]: [{ title: { key: "set.sec.extensions" }, blocks: [{ live: LiveBlock.Extensions }] }],
   [SettingsPage.App]: [
     rows("set.sec.window", [SettingKey.HideOnCopy, SettingKey.KeepInDock, SettingKey.KeepInTray, SettingKey.StartOnLogin, SettingKey.ScreenCapture]),
     rows("set.sec.look", [SettingKey.Theme, SettingKey.Language, SettingKey.Icons]),

@@ -41,6 +41,8 @@ import {
   parseThemeChoice,
   type UnlockState,
   AccountOp,
+  type BrowserExtension,
+  type BrowserExtensions,
 } from "@keyward/core";
 import type { PluginCall } from "@keyward/core";
 import { invokeSecret } from "./seal";
@@ -138,6 +140,28 @@ function typed(secrets: Readonly<Record<string, string>>, id: string): string {
   const v = secrets[id];
   if (v === undefined || v === "") throw new Error(`the preview's field "${id}" was not filled in`);
   return v;
+}
+
+/// boundary: the daemon's list of browser extensions; a row that does not
+/// read stops it.
+function extensionsOf(w: unknown): BrowserExtensions {
+  const o = w as { paired?: unknown; pending?: unknown } | null;
+  if (!o || !Array.isArray(o.paired) || !Array.isArray(o.pending)) throw new Error("the daemon's list of browser extensions does not read");
+  const row = (r: unknown): BrowserExtension => {
+    const x = r as Record<string, unknown> | null;
+    const ok =
+      !!x &&
+      typeof x.key === "string" &&
+      x.key !== "" &&
+      Array.isArray(x.words) &&
+      x.words.length > 0 &&
+      x.words.every((w) => typeof w === "string") &&
+      Number.isInteger(x.at) &&
+      Number.isInteger(x.expires);
+    if (!ok) throw new Error("a browser extension in the daemon's list does not read");
+    return { key: x.key as string, words: [...(x.words as string[])], at: x.at as number, expires: x.expires as number };
+  };
+  return { paired: o.paired.map(row), pending: o.pending.map(row) };
 }
 
 /// Bitwarden's provider numbers, as the daemon speaks them.
@@ -611,6 +635,17 @@ export class DaemonBackend implements Backend {
         await invoke("pin_clear");
         return;
     }
+  }
+
+  async extensions(): Promise<BrowserExtensions> {
+    return extensionsOf(await invoke<unknown>("extensions"));
+  }
+  /// The daemon asks for the finger itself, the key's words in its prompt.
+  async pairExtension(key: string): Promise<BrowserExtensions> {
+    return extensionsOf(await invoke<unknown>("extension_pair", { key }));
+  }
+  async unpairExtension(key: string): Promise<BrowserExtensions> {
+    return extensionsOf(await invoke<unknown>("extension_unpair", { key }));
   }
 
   /// Saved in the settings; the window reloads into the other page.

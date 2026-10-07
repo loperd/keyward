@@ -47,7 +47,8 @@ onLang(() => keepInUrl(current));
 // server be chosen as on the desktop, ?pin=1 sets a PIN, ?bio=0 takes Touch ID
 // away (the stand never asks for it by itself), ?accounts=1 sets two more
 // accounts beside the demo's, ?damaged=1 opens on a session that does not
-// read. A password or code "wrong" is refused.
+// read, ?pair=1 has a browser asking to be paired. A password or code
+// "wrong" is refused.
 enum DemoFlag {
   Locked = "locked",
   SignIn = "signin",
@@ -59,6 +60,7 @@ enum DemoFlag {
   Bio = "bio",
   Accounts = "accounts",
   Damaged = "damaged",
+  Pair = "pair",
 }
 const flag = (k: DemoFlag) => qs.get(k) === "1";
 // ?synthetic=10000 serves a vault of that many more items, made up the same
@@ -111,6 +113,7 @@ const backend = new DemoBackend({
   pin: flag(DemoFlag.Pin),
   biometric: qs.get(DemoFlag.Bio) !== "0",
 });
+if (flag(DemoFlag.Pair)) backend.askToPair();
 // The demo's places are kept in the browser's storage, so a saved one
 // survives a reload of the stand. Only the stand does this: its vault is made
 // up. The real apps keep places in memory (see AppProps.placeStore). Storage

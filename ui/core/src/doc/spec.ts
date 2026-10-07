@@ -9,6 +9,12 @@ import type { Field, Level, Member, SecretRef } from "../model/types";
 import { enumParser } from "../model/enum";
 import type { SettingKey } from "../settings/rows";
 
+/// What a live block shows.
+export enum LiveBlock {
+  /// The browser extensions, paired and asking.
+  Extensions = "extensions",
+}
+
 /// What a skeleton block stands for while its content is on its way.
 export enum SkeletonKind {
   /// An item's fields: a label, then a value.
@@ -87,6 +93,8 @@ export type Block =
   /// One of the app's settings as a live control: the window draws it
   /// against the settings it holds and saves a change at once.
   | { setting: SettingKey }
+  /// A block the window keeps up to date itself, from the backend.
+  | { live: LiveBlock }
   | { para: Text };
 
 export type Section = { title: Text; count?: number | Text; aside?: { label: Text; act: Act; icon?: string }; blocks: Block[] };
