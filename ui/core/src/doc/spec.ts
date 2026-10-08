@@ -78,9 +78,17 @@ export type Act =
   | { run: string }
   | { reveal: true }
   | { copy: SecretRef }
+  /// A value that is no secret (a card's expiry, an email), put on the
+  /// clipboard as it is.
+  | { copyText: { text: string; what: Text } }
+  /// A site or a mail opened in the person's own apps.
+  | { open: string }
+  /// The verbs the node offers beyond its buttons, as a menu.
+  | { menu: true }
   | { sync: true }
   | { none: true };
-export type Action = { icon: string; label: Text; act: Act };
+/// `off`: why the button stands but cannot be pressed (a login with no site).
+export type Action = { icon: string; label: Text; act: Act; off?: Text };
 
 export type MarkSpec = { level: Level; text: Text };
 

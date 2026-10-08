@@ -350,9 +350,6 @@ pub struct OrgMember {
     pub two_factor: bool,
     /// Access to every collection of the organisation at once.
     pub access_all: bool,
-    /// How many collections were given by name. Kept for the old window;
-    /// `access` says which and how.
-    pub collections: usize,
     /// The collections given by name, each with its level. Empty with
     /// `access_all`.
     #[serde(default)]
@@ -394,8 +391,8 @@ mod rights_tests {
         let raw = r#"{"id":"m","user_id":null,"name":null,"email":"a@b.c","role":"user",
             "status":"confirmed","two_factor":false,"access_all":false,"collections":2,
             "is_you":false,"can_edit":true,"can_confirm":false}"#;
+        // Its count of collections is passed over: `access` says which.
         let m: OrgMember = serde_json::from_str(raw).expect("parses");
-        assert_eq!(m.collections, 2);
         assert!(m.access.is_empty());
     }
 

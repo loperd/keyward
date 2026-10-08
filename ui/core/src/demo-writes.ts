@@ -29,6 +29,7 @@ export enum Call {
   ConfirmMember = "confirmMember",
   RemoveMember = "removeMember",
   Merge = "merge",
+  Regenerate = "regenerate",
 }
 
 /// The demo's fingerprint phrase for every member: Bitwarden's own example
@@ -202,6 +203,12 @@ export class DemoWrites implements Writes {
         }
       }
     });
+  }
+
+  /// The demo's item gets a new password where its keys would be: the window
+  /// never sees it.
+  async regenerate(itemId: string): Promise<void> {
+    await this.call(Call.Regenerate, itemId);
   }
 
   async generate(opts: GeneratorOptions): Promise<{ value: string; drop: () => void }> {

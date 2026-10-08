@@ -255,15 +255,6 @@ async fn plugin_enable(id: String, on: bool) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
-async fn daemon_reload() -> Result<Status, String> {
-    match ask(Request::Reload).await? {
-        Response::Status(s) => Ok(s),
-        Response::Error { message } => Err(message),
-        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
-    }
-}
-
 /// The shared path for every operation on the vault: each of them answers
 /// with a state.
 async fn vault_op(req: Request) -> Result<VaultState, String> {
@@ -641,11 +632,6 @@ async fn item_detail(entry_id: String) -> Result<ItemDetail, String> {
 }
 
 #[tauri::command]
-async fn create_item(kind: u8, folder_id: Option<String>, edit: ItemEdit) -> Result<VaultState, String> {
-    vault_op(Request::CreateItem { kind, folder_id, edit }).await
-}
-
-#[tauri::command]
 async fn trash_item(entry_id: String) -> Result<VaultState, String> {
     vault_op(Request::TrashItem { entry_id }).await
 }
@@ -672,15 +658,6 @@ async fn recent_items() -> Result<Vec<String>, String> {
 #[tauri::command]
 async fn generator_history() -> Result<GeneratorHistory, String> {
     match ask(Request::GeneratorHistory).await? {
-        Response::History { history } => Ok(history),
-        Response::Error { message } => Err(humanize(&message)),
-        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
-    }
-}
-
-#[tauri::command]
-async fn remember_generated(taken: bool, value: Secret) -> Result<GeneratorHistory, String> {
-    match ask(Request::RememberGenerated { taken, value }).await? {
         Response::History { history } => Ok(history),
         Response::Error { message } => Err(humanize(&message)),
         other => Err(format!("an unexpected answer from the daemon: {other:?}")),
@@ -734,6 +711,17 @@ async fn generate_password(window: tauri::WebviewWindow, spec: GeneratorSpec) ->
     }
 }
 
+/// Opens a site or a mail in the person's own apps: only an `https`, `http`
+/// or `mailto` address, the rest is refused rather than handed to the system.
+#[tauri::command]
+fn open_link(url: String) -> Result<(), String> {
+    let scheme = url.split_once(':').map(|(s, _)| s.to_ascii_lowercase()).unwrap_or_default();
+    if !matches!(scheme.as_str(), "https" | "http" | "mailto") || url.chars().any(char::is_control) {
+        return Err(format!("not a site or a mail address: {url:?}"));
+    }
+    std::process::Command::new("/usr/bin/open").arg(&url).status().map_err(|e| format!("open would not start: {e}")).and_then(|s| if s.success() { Ok(()) } else { Err(format!("open could not open {url:?}")) })
+}
+
 #[tauri::command]
 async fn copy_text(value: Secret) -> Result<u64, String> {
     match ask(Request::CopyText { value }).await? {
@@ -741,32 +729,6 @@ async fn copy_text(value: Secret) -> Result<u64, String> {
         Response::Error { message } => Err(humanize(&message)),
         other => Err(format!("an unexpected answer from the daemon: {other:?}")),
     }
-}
-
-/// A draft of an ssh key, made or read by the daemon: the window gets its
-/// number and the public half, never the private key. "From the clipboard" is
-/// read by the daemon itself — the clipboard does not pass through here.
-#[tauri::command]
-async fn ssh_key_draft(source: keyward_core::edits::SshDraftSource) -> Result<keyward_core::edits::SshDraftView, String> {
-    match ask(Request::SshKeyDraft { source }).await? {
-        Response::SshDraft { draft } => Ok(draft),
-        Response::Error { message } => Err(humanize(&message)),
-        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
-    }
-}
-
-#[tauri::command]
-async fn copy_ssh_draft(id: String) -> Result<u64, String> {
-    match ask(Request::CopySshDraft { id }).await? {
-        Response::Copied { clears_in } => Ok(clears_in),
-        Response::Error { message } => Err(humanize(&message)),
-        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
-    }
-}
-
-#[tauri::command]
-async fn create_folder(name: String) -> Result<VaultState, String> {
-    vault_op(Request::CreateFolder { name }).await
 }
 
 #[tauri::command]
@@ -777,11 +739,6 @@ async fn rename_folder(folder_id: String, name: String) -> Result<VaultState, St
 #[tauri::command]
 async fn delete_folder(folder_id: String) -> Result<VaultState, String> {
     vault_op(Request::DeleteFolder { folder_id }).await
-}
-
-#[tauri::command]
-async fn create_collection(org_id: String, name: String) -> Result<VaultState, String> {
-    vault_op(Request::CreateCollection { org_id, name }).await
 }
 
 #[tauri::command]
@@ -796,16 +753,6 @@ async fn rename_collection(
 #[tauri::command]
 async fn delete_collection(org_id: String, collection_id: String) -> Result<VaultState, String> {
     vault_op(Request::DeleteCollection { org_id, collection_id }).await
-}
-
-#[tauri::command]
-async fn invite_member(org_id: String, email: String, role: keyward_core::items::OrgRole) -> Result<VaultState, String> {
-    vault_op(Request::InviteMember { org_id, email, role }).await
-}
-
-#[tauri::command]
-async fn set_member_role(org_id: String, member_id: String, role: keyward_core::items::OrgRole) -> Result<VaultState, String> {
-    vault_op(Request::SetMemberRole { org_id, member_id, role }).await
 }
 
 #[tauri::command]
@@ -835,12 +782,11 @@ async fn member_fingerprint(org_id: String, member_id: String, user_id: String) 
     }
 }
 
-// -- The new window's writes ---------------------------------------------------
+// -- The window's writes -------------------------------------------------------
 //
 // What the shared UI core asks of the desktop app (`gui/app/writes.ts`): the
-// same operations as above, with an answer that names what was made, an
-// access to collections that is said per collection, and the two checks the
-// old window did not need.
+// operations with an answer that names what was made, an access to
+// collections that is said per collection, and two checks.
 
 /// The answer to an operation that makes something: its identifier.
 async fn created_op(req: Request) -> Result<String, String> {
@@ -938,11 +884,6 @@ async fn update_org(org_id: String, name: String, billing_email: String) -> Resu
 #[tauri::command]
 async fn delete_org(org_id: String, master_password: String) -> Result<VaultState, String> {
     vault_op(Request::DeleteOrg { org_id, master_password }).await
-}
-
-#[tauri::command]
-fn autofill_context() -> Option<autofill::Context> {
-    autofill::last()
 }
 
 #[tauri::command]
@@ -1125,20 +1066,6 @@ async fn set_settings(settings: AppSettings) -> Result<AppSettings, String> {
         Response::Error { message } => Err(humanize(&message)),
         other => Err(format!("an unexpected answer from the daemon: {other:?}")),
     }
-}
-
-#[tauri::command]
-async fn note_fields(entry_id: String) -> Result<Vec<String>, String> {
-    match ask(Request::NoteFields { entry_id }).await? {
-        Response::Fields { names } => Ok(names),
-        Response::Error { message } => Err(humanize(&message)),
-        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
-    }
-}
-
-#[tauri::command]
-fn biometric_available() -> bool {
-    keyward_vault::biometric::is_available()
 }
 
 /// What is really the matter with the sensor: whether it is available, and if
@@ -1444,35 +1371,27 @@ pub fn run() {
             extension_unpair,
             plugin_remove,
             plugin_enable,
-            daemon_reload,
             vault_setup,
             vault_config,
             vault_items,
             item_detail,
             org_members,
-            create_item,
             trash_item,
             restore_item,
             purge_items,
             generator_history,
             recent_items,
             remember_opened,
-            remember_generated,
             forget_generated,
             generate_password,
             copy_generated,
             reveal_generated,
             copy_text,
-            ssh_key_draft,
-            copy_ssh_draft,
-            create_folder,
+            open_link,
             rename_folder,
             delete_folder,
-            create_collection,
             rename_collection,
             delete_collection,
-            invite_member,
-            set_member_role,
             remove_member,
             confirm_member,
             member_fingerprint,
@@ -1488,7 +1407,6 @@ pub fn run() {
             update_org,
             delete_org,
             site_icon,
-            autofill_context,
             autofill_trusted,
             autofill_request_access,
             autofill_fill,
@@ -1506,11 +1424,9 @@ pub fn run() {
             discard_edit,
             get_settings,
             set_settings,
-            note_fields,
             vault_accounts,
             vault_switch_account,
             vault_logout,
-            biometric_available,
             biometric_state,
             vault_login,
             vault_login_two_factor,

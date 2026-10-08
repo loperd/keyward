@@ -1,6 +1,6 @@
 // The UI check: a visual and layout regression run over the core's stand
 // (ui/stand, Vite dev on :5190). For every preset × theme × size it takes a
-// screenshot in headless Chrome, runs the layout audit (scripts/stand-audit.js,
+// screenshot in headless WebKit (playwright-core), runs the layout audit (scripts/stand-audit.js,
 // scoped to the core's kw- containers) and the alignment probe
 // (scripts/stand-align.js), and collects console errors.
 //
@@ -10,14 +10,14 @@
 // Options: --only=aws,map-ssh  --themes=dark,light  --sizes=1440x900,1280x800
 //          --threshold=0.001 (share of changed pixels allowed)
 //          --tolerance=8 (per-channel delta below which a pixel is unchanged)
-//          --jobs=3 (Chromes in the pool)  --out=<dir>  --url=http://localhost:5190
+//          --jobs=3 (WebKits in the pool)  --out=<dir>  --url=http://localhost:5190
 //          --baselines=<dir> (default ui/stand/baselines)
 //          --strict (a flaky run, one that matched only on a second capture, fails)
 //
 // The page's clock is pinned (Date stands at the demo's 2026-10-05T12:00:05Z),
 // so time-based codes, countdowns and "synced" labels repeat. A
 // page that reloads under the run (Vite's HMR when a source changes) or a
-// Chrome that hangs is retried once, on a fresh Chrome. The run starts with a
+// WebKit that hangs is retried once, on a fresh one. The run starts with a
 // warm-up load so Vite has transformed the modules. --update writes a baseline
 // only when two captures agree; a normal run captures a visual mismatch once
 // more and reports it "flaky" when the second capture matches.
@@ -27,16 +27,15 @@
 // baseline, a console error, or a run that could not finish. Bad usage or a
 // stand that is not up exits 2. Diff images, the current shots of what
 // changed and report.json go to the output directory.
-import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { webkit } from "playwright-core";
 import { decodePng, encodePng } from "./png.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
-const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 const PRESETS = ["home", "aws", "acme", "dana", "finance", "ssh", "critical", "critical-step", "rotate", "map-aws", "map-acme", "map-ssh", "typing", "en", "locked"];
 // A preset is the stand's ?p=; "locked" is the gate (?locked=1, with the
@@ -90,113 +89,30 @@ const OUT = typeof args.out === "string" ? args.out : join(tmpdir(), "keyward-ui
 const AUDIT_JS = readFileSync(join(HERE, "stand-audit.js"), "utf8");
 const ALIGN_JS = readFileSync(join(HERE, "stand-align.js"), "utf8");
 
-// ---------------------------------------------------------------- Chrome
+// ---------------------------------------------------------------- WebKit
 
 class Hung extends Error {}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** One headless Chrome, driven over its browser-level DevTools socket. */
-class Chrome {
+/** One headless WebKit (playwright-core's build: `npx playwright-core install webkit`). */
+class Browser {
   static async launch() {
-    const profile = mkdtempSync(join(tmpdir(), "kw-ui-check-"));
-    const proc = spawn(
-      CHROME,
-      [
-        "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-color-profile=srgb", "--no-first-run",
-        "--no-default-browser-check", "--mute-audio", "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows",
-        "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank",
-      ],
-      { stdio: "ignore" },
-    );
-    const portFile = join(profile, "DevToolsActivePort");
-    for (let i = 0; i < 150 && !existsSync(portFile); i++) await sleep(100);
-    if (!existsSync(portFile)) {
-      proc.kill("SIGKILL");
-      throw new Hung("Chrome did not come up in 15s");
+    try {
+      return new Browser(await webkit.launch());
+    } catch (e) {
+      throw new Hung(`WebKit did not come up: ${e.message.split("\n")[0]}`);
     }
-    const [port, path] = readFileSync(portFile, "utf8").trim().split("\n");
-    const ws = new WebSocket(`ws://127.0.0.1:${port}${path}`);
-    await new Promise((res, rej) => {
-      ws.addEventListener("open", res, { once: true });
-      ws.addEventListener("error", () => rej(new Hung("could not reach Chrome's DevTools socket")), { once: true });
-    });
-    return new Chrome(proc, ws, profile);
   }
 
-  constructor(proc, ws, profile) {
-    this.proc = proc;
-    this.ws = ws;
-    this.profile = profile;
-    this.id = 0;
-    this.pending = new Map();
-    this.listeners = new Map();
+  constructor(browser) {
+    this.browser = browser;
     this.dead = false;
-    ws.addEventListener("message", (e) => {
-      const m = JSON.parse(e.data);
-      if (m.id !== undefined) {
-        const p = this.pending.get(m.id);
-        if (!p) return;
-        this.pending.delete(m.id);
-        clearTimeout(p.timer);
-        if (m.error) p.reject(new Error(`${p.method}: ${m.error.message}${m.error.data ? " (" + m.error.data + ")" : ""}`));
-        else p.resolve(m.result);
-      } else this.listeners.get(m.sessionId)?.(m.method, m.params);
-    });
-    ws.addEventListener("close", () => this.fail(new Hung("Chrome's DevTools socket closed")));
-    proc.on("exit", () => this.fail(new Hung("Chrome exited")));
-  }
-
-  fail(err) {
-    this.dead = true;
-    for (const p of this.pending.values()) {
-      clearTimeout(p.timer);
-      p.reject(err);
-    }
-    this.pending.clear();
-  }
-
-  send(method, params = {}, sessionId, timeout = 15000) {
-    if (this.dead) return Promise.reject(new Hung("Chrome is gone"));
-    return new Promise((resolve, reject) => {
-      const id = ++this.id;
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Hung(`${method} did not answer in ${timeout}ms`));
-      }, timeout);
-      this.pending.set(id, { resolve, reject, timer, method });
-      this.ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
-    });
-  }
-
-  /** A fresh, isolated page (its own storage), torn down by its close(). */
-  async page(onEvent) {
-    const { browserContextId } = await this.send("Target.createBrowserContext", { disposeOnDetach: true });
-    const { targetId } = await this.send("Target.createTarget", { url: "about:blank", browserContextId });
-    const { sessionId } = await this.send("Target.attachToTarget", { targetId, flatten: true });
-    this.listeners.set(sessionId, onEvent);
-    const send = (method, params, timeout) => this.send(method, params, sessionId, timeout);
-    const close = async () => {
-      this.listeners.delete(sessionId);
-      if (this.dead) return;
-      await this.send("Target.closeTarget", { targetId }).catch(() => {});
-      await this.send("Target.disposeBrowserContext", { browserContextId }).catch(() => {});
-    };
-    return { send, close };
+    browser.on("disconnected", () => (this.dead = true));
   }
 
   async kill() {
     this.dead = true;
-    try {
-      this.ws.close();
-    } catch {
-      /* already closed */
-    }
-    const exited = this.proc.exitCode !== null || this.proc.signalCode !== null ? Promise.resolve() : new Promise((r) => this.proc.once("exit", r));
-    this.proc.kill("SIGKILL");
-    await exited;
-    // Chrome's helpers may still be letting go of the profile for a moment.
-    rmSync(this.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    await this.browser.close().catch(() => {});
   }
 }
 
@@ -251,47 +167,40 @@ const SETTLE_JS = `(async () => {
   return { ok: true, ms: Math.round(performance.now() - t0) };
 })()`;
 
-// The page went away under the run: Vite reloaded it after a source changed.
-const RELOADED = /navigated or closed|Execution context was destroyed|Cannot find context/;
+// The page went away under the run: Vite reloaded it after a source changed;
+// or the browser is gone.
+const RELOADED = /navigated|Execution context was destroyed|Target (page, context or browser )?(has been )?closed|Browser has been closed/;
 
 async function evaluate(page, expression, timeout) {
-  let r;
   try {
-    r = await page.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, timeout);
+    return await Promise.race([page.evaluate(expression), sleep(timeout ?? 15000).then(() => Promise.reject(new Hung(`the page did not answer in ${timeout ?? 15000}ms`)))]);
   } catch (e) {
-    if (RELOADED.test(e.message)) throw new Hung(`the page reloaded under the run (${e.message})`);
-    throw e;
+    if (e instanceof Hung) throw e;
+    if (RELOADED.test(e.message)) throw new Hung(`the page reloaded under the run (${e.message.split("\n")[0]})`);
+    throw new Error(`in the page: ${e.message.split("\n")[0]}`);
   }
-  if (r.exceptionDetails) throw new Error(`in the page: ${r.exceptionDetails.exception?.description ?? r.exceptionDetails.text}`);
-  return r.result.value;
 }
 
-async function capture(chrome, job) {
+async function capture(browser, job) {
   const consoleErrors = [];
   const warnings = [];
-  let loaded;
-  const loadedP = new Promise((r) => (loaded = r));
-  const page = await chrome.page((method, p) => {
-    if (method === "Runtime.consoleAPICalled") {
-      const text = p.args.map((a) => a.value ?? a.description ?? a.type).join(" ");
-      if (p.type === "error" || p.type === "assert") consoleErrors.push(text);
-      else if (p.type === "warning") warnings.push(text);
-    } else if (method === "Runtime.exceptionThrown") consoleErrors.push("uncaught " + (p.exceptionDetails.exception?.description ?? p.exceptionDetails.text));
-    // Chrome asks for /favicon.ico by itself; the stand has none, and that is
-    // the browser's request, not the page's.
-    else if (method === "Log.entryAdded" && p.entry.level === "error" && !/\/favicon\.ico$/.test(p.entry.url ?? "")) consoleErrors.push(`${p.entry.source}: ${p.entry.text}${p.entry.url ? " " + p.entry.url : ""}`);
-    else if (method === "Page.loadEventFired") loaded();
-  });
+  const ctx = await browser.browser.newContext({ viewport: { width: job.size.w, height: job.size.h }, deviceScaleFactor: 1, colorScheme: job.theme });
   try {
-    await page.send("Runtime.enable");
-    await page.send("Log.enable");
-    await page.send("Page.enable");
-    await page.send("Page.addScriptToEvaluateOnNewDocument", { source: CLOCK_JS });
-    await page.send("Emulation.setDeviceMetricsOverride", { width: job.size.w, height: job.size.h, deviceScaleFactor: 1, mobile: false });
-    await page.send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: job.theme }] });
-    const nav = await page.send("Page.navigate", { url: job.url });
-    if (nav.errorText) throw new Error(`navigation failed: ${nav.errorText}`);
-    await Promise.race([loadedP, sleep(20000).then(() => Promise.reject(new Hung("no load event in 20s")))]);
+    await ctx.addInitScript(CLOCK_JS);
+    const page = await ctx.newPage();
+    page.on("console", (m) => {
+      // The browser asks for /favicon.ico by itself; the stand has none, and
+      // that is the browser's request, not the page's.
+      if (/\/favicon\.ico$/.test(m.location().url ?? "")) return;
+      if (m.type() === "error" || m.type() === "assert") consoleErrors.push(m.text());
+      else if (m.type() === "warning") warnings.push(m.text());
+    });
+    page.on("pageerror", (e) => consoleErrors.push("uncaught " + e.message));
+    try {
+      await page.goto(job.url, { waitUntil: "load", timeout: 20000 });
+    } catch (e) {
+      throw new Hung(`no load in 20s (${e.message.split("\n")[0]})`);
+    }
     const first = await evaluate(page, SETTLE_JS, 30000);
     if (!first.ok) return { error: first.why, consoleErrors, warnings };
     // The web fonts (fontsource) arrive after the first render; a view that
@@ -299,19 +208,19 @@ async function capture(chrome, job) {
     // its size changes. A 1px nudge of the viewport makes every measured view
     // measure again, now with the fonts, so the shot does not depend on how
     // fast the fonts came.
-    await page.send("Emulation.setDeviceMetricsOverride", { width: job.size.w - 1, height: job.size.h, deviceScaleFactor: 1, mobile: false });
+    await page.setViewportSize({ width: job.size.w - 1, height: job.size.h });
     await evaluate(page, "new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))");
-    await page.send("Emulation.setDeviceMetricsOverride", { width: job.size.w, height: job.size.h, deviceScaleFactor: 1, mobile: false });
+    await page.setViewportSize({ width: job.size.w, height: job.size.h });
     const settled = await evaluate(page, SETTLE_JS, 30000);
     if (!settled.ok) return { error: settled.why, consoleErrors, warnings };
     settled.ms += first.ms;
-    const shot = await page.send("Page.captureScreenshot", { format: "png" });
+    const png = await page.screenshot({ type: "png" });
     await evaluate(page, `(window.__kwAuditScope = ${JSON.stringify(AUDIT_SCOPE)}, 1)`);
     const audit = await evaluate(page, AUDIT_JS);
     const align = await evaluate(page, ALIGN_JS);
-    return { png: Buffer.from(shot.data, "base64"), audit, align, settleMs: settled.ms, consoleErrors, warnings };
+    return { png, audit, align, settleMs: settled.ms, consoleErrors, warnings };
   } finally {
-    await page.close();
+    await ctx.close().catch(() => {});
   }
 }
 
@@ -378,8 +287,8 @@ async function standIsUp() {
   }
 }
 
-if (!existsSync(CHROME)) {
-  console.error(`ui-check: no Chrome at ${CHROME}`);
+if (!existsSync(webkit.executablePath())) {
+  console.error(`ui-check: no WebKit at ${webkit.executablePath()}; get it with: npx playwright-core install webkit`);
   process.exit(2);
 }
 if (!(await standIsUp())) {
@@ -425,11 +334,11 @@ function visualProblems(refPng, refMetrics, r, metrics) {
   return { problems: out, diff: d };
 }
 
-/** One capture of a job, with a hung Chrome replaced and the capture retried once. */
+/** One capture of a job, with a hung WebKit replaced and the capture retried once. */
 async function attempt(state, job) {
   for (let tries = 1; ; tries++) {
     try {
-      if (!state.chrome || state.chrome.dead) state.chrome = await Chrome.launch();
+      if (!state.chrome || state.chrome.dead) state.chrome = await Browser.launch();
       let timer;
       const r = await Promise.race([
         capture(state.chrome, job),
@@ -441,7 +350,7 @@ async function attempt(state, job) {
       await state.chrome?.kill();
       state.chrome = null;
       if (tries >= 2) return { error: `failed twice: ${e.message}`, tries };
-      process.stderr.write(`  ${job.name}: ${e.message}; retrying on a fresh Chrome\n`);
+      process.stderr.write(`  ${job.name}: ${e.message}; retrying on a fresh WebKit\n`);
     }
   }
 }
@@ -576,7 +485,7 @@ console.log(`\n${pad("run", 34)}${lpad("pixels", 9)}${lpad("audit", 7)}${lpad("a
 for (const r of results) {
   const px = UPDATE ? "-" : r.diff === null ? "?" : (r.diff * 100).toFixed(3) + "%";
   const status = r.problems.length ? "FAIL" : r.flaky ? (UPDATE ? "written (flaky)" : "flaky") : UPDATE ? "written" : "ok";
-  console.log(`${pad(r.name, 34)}${lpad(px, 9)}${lpad(q(r.audit), 7)}${lpad(q(r.align), 7)}${lpad(q(r.console), 9)}${lpad(r.ms, 7)}  ${status}${r.retried ? " (Chrome retried)" : ""}`);
+  console.log(`${pad(r.name, 34)}${lpad(px, 9)}${lpad(q(r.audit), 7)}${lpad(q(r.align), 7)}${lpad(q(r.console), 9)}${lpad(r.ms, 7)}  ${status}${r.retried ? " (WebKit retried)" : ""}`);
 }
 const failed = results.filter((r) => r.problems.length);
 const flaky = results.filter((r) => !r.problems.length && r.flaky);
@@ -587,7 +496,7 @@ for (const r of flaky) console.log(`\n${r.name} (flaky):\n  ${short(r.flaky)}`);
 const total = results.reduce((s, r) => s + r.ms, 0);
 writeFileSync(join(OUT, "report.json"), JSON.stringify({ update: UPDATE, strict: STRICT, threshold: THRESHOLD, tolerance: TOLERANCE, wallMs: wall, warmUpMs: warmMs, results }, null, 2) + "\n");
 console.log(
-  `\n${results.length} runs, ${failed.length} failed, ${flaky.length} flaky; wall ${(wall / 1000).toFixed(1)}s with ${JOBS} Chromes ` +
+  `\n${results.length} runs, ${failed.length} failed, ${flaky.length} flaky; wall ${(wall / 1000).toFixed(1)}s with ${JOBS} WebKits ` +
     `(warm-up ${(warmMs / 1000).toFixed(1)}s, ${(total / results.length / 1000).toFixed(2)}s a run); ${UPDATE ? `baselines in ${BASELINES}; ` : ""}output in ${OUT}`,
 );
 process.exit(failed.length ? 1 : 0);

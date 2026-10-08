@@ -1143,5 +1143,11 @@
   "err.mergeFieldGone": "The record no longer has that field: sync and look again",
   "err.mergeNameTaken": "The kept record already has a field named {name}",
   "err.mergeKeeperWaiting": "The merged record is waiting to reach the server: the copies stay where they are until it does",
-  "err.mergeInTrash": "A record in the trash is not merged"
+  "err.mergeInTrash": "A record in the trash is not merged",
+  "doc.noSite": "The item has no site address",
+  "doc.expiry": "The expiry",
+  "doc.noEmail": "The item has no email",
+  "doc.noPublicKey": "The key has no public part",
+  "doc.reading": "Reading the item…",
+  "doc.openHost": "Open the host"
 }

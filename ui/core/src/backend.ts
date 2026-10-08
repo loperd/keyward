@@ -146,6 +146,12 @@ export interface Backend {
 
   /// The backend puts the secret on the clipboard (and clears it after).
   copy(ref: SecretRef): Promise<Copied>;
+  /// Puts a value that is no secret on the clipboard; absent where the app
+  /// has no way to.
+  copyText?(text: string): Promise<Copied>;
+  /// Opens a site or a mail address (`https:`, `http:`, `mailto:`) in the
+  /// person's own apps; absent where the app cannot.
+  openUrl?(url: string): Promise<void>;
   reveal(ref: SecretRef): Promise<Revealed>;
   totp(itemId: string): Promise<Totp>;
   /// An item marked `reprompt` shows and copies nothing until the master

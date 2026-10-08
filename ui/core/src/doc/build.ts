@@ -7,7 +7,7 @@ import { duplicatesOf, partnerName, placeOf as itemPlace, reusedWith, sameServic
 import { orgFindings } from "../model/findings";
 import { ago } from "../model/time";
 import { isLoud, policyLevel, type Directory, type Node, NodeKind, MapKind } from "../path/directory";
-import { type Field, type ItemDetail, Level, type Member, type Policy, ItemKind, MemberStatus, PolicyType, Permission } from "../model/types";
+import { type Field, type ItemDetail, Level, type Member, type Policy, ItemKind, MemberStatus, PolicyType, Permission, SecretField } from "../model/types";
 import { type Action, type Block, type DocSpec, type Lead, type MarkSpec, type Section, LeadTile, Hue, SkeletonKind } from "./spec";
 import type { Place } from "../path/places";
 import { collectionActions, invite, memberActions, newCollection, verbOn } from "./org-actions";
@@ -19,6 +19,22 @@ const mark = (level: Level, text: Text): MarkSpec => ({ level, text });
 const none = { none: true } as const;
 const act = (icon: string, label: Key, a: Action["act"] = none): Action => ({ icon, label: k(label), act: a });
 const verb = (icon: string, label: Key, v: string): Action => act(icon, label, { verb: v });
+/// A button that stands but cannot be pressed, saying why.
+const off = (icon: string, label: Key, why: Key): Action => ({ ...act(icon, label), off: k(why) });
+/// A copy of one of the item's secrets, done at once: a button is no place
+/// for a preview of something this small.
+const copyOf = (icon: string, label: Key, itemId: string, field: Exclude<SecretField, SecretField.Custom>): Action => act(icon, label, { copy: { itemId, field } });
+/// A field's value that is no secret, from the opened item, when it has one.
+const plainValue = (detail: ItemDetail | null, key: string): string | null => detail?.fields.find((f) => f.key === key && f.value)?.value ?? null;
+/// The address a login's site opens at: its first URI that reads as one.
+function siteUrl(uris: string[]): string | null {
+  for (const u of uris) {
+    const host = siteHost(u);
+    if (!host) continue;
+    return /^[a-z][a-z0-9+.-]*:/i.test(u) ? (/^https?:/i.test(u) ? u : null) : `https://${u}`;
+  }
+  return null;
+}
 const nodeLead = (id: string): Lead => ({ tile: LeadTile.Node, id });
 /// A node's mark: loud levels say why, quiet ones say they are fine.
 const stateMark = (n: Node): MarkSpec => (isLoud(n.level) ? mark(n.level, n.why ?? k(`level.${n.level}` as Key)) : mark(Level.Healthy, k("level.healthy")));
@@ -96,7 +112,7 @@ function home(ctx: DocContext): DocSpec {
       what: k("home.what", { server: ctx.server, items: k("count.items", { n: live.length }) }),
       state: summary(root, live.map((x) => x.level)),
       primary: verb("plus", "doc.newItem", "new"),
-      more: [act("refresh", "sync", { sync: true }), act("more", "doc.more")],
+      more: [act("refresh", "sync", { sync: true }), act("more", "doc.more", { menu: true })],
     },
     sections: [
       ...(urgent.length ? [sec(k("doc.firstThis"), urgent.map((x) => nodeRef(dir, x.id, x.why ? { mark: mark(x.level, x.short ?? x.why) } : {})), { count: urgent.length })] : []),
@@ -155,7 +171,7 @@ function personal(ctx: DocContext): DocSpec {
       what: k("personal.sub", { n: items.length }),
       state: summary(n, items.map((x) => x.level)),
       primary: verb("plus", "doc.newItem", "new"),
-      more: [verb("folder", "doc.newFolder", "new folder"), act("more", "doc.more")],
+      more: [verb("folder", "doc.newFolder", "new folder"), act("more", "doc.more", { menu: true })],
     },
     sections: [
       ...(loud.length ? [sec(k("doc.firstThis"), loud.map((x) => nodeRef(dir, x.id)))] : []),
@@ -259,7 +275,7 @@ function org(ctx: DocContext, n: Node): DocSpec {
         ...(hasMembers ? [act("map", "map.access", { map: { kind: MapKind.Access, anchor: n.id } })] : []),
         ...(can.editOrg ? [verb("check", "verb.require2fa", "require 2fa")] : []),
         ...(newCollection(n) ? [newCollection(n)!] : []),
-        act("more", "doc.more"),
+        act("more", "doc.more", { menu: true }),
       ],
     },
     sections,
@@ -326,8 +342,8 @@ function collection(ctx: DocContext, n: Node): DocSpec {
       place: n.home.slice(0, -1),
       what: ms.length ? k("doc.collWhat", { a: has.length, b: ms.length }) : k("doc.collection"),
       state: loud.length ? mark(n.level, loud.length === 1 ? loud[0]!.why! : k("state.needAttention", { n: loud.length })) : mark(Level.Healthy, k("why.none")),
-      primary: act("people", "doc.changeAccess"),
-      more: [...(ms.length ? [act("map", "map.access", { map: { kind: MapKind.Access, anchor: orgId } })] : []), verb("plus", "doc.newItem", "new"), ...collectionActions(n), act("more", "doc.more")],
+      ...(ms.length ? { primary: act("people", "doc.changeAccess", { map: { kind: MapKind.Access, anchor: orgId } }) } : {}),
+      more: [verb("plus", "doc.newItem", "new"), ...collectionActions(n), act("more", "doc.more", { menu: true })],
     },
     sections: [
       sec(k("doc.items"), ids.map((x) => nodeRef(dir, x)), { count: ids.length }),
@@ -353,7 +369,7 @@ function members(ctx: DocContext, n: Node): DocSpec {
       what: k("count.members", { n: ms.length }),
       state: accepted ? mark(Level.Action, k("state.awaitConfirm", { n: accepted })) : stateMark(n),
       ...(invite(n) ? { primary: invite(n)! } : {}),
-      more: [act("map", "map.access", { map: { kind: MapKind.Access, anchor: orgId } }), verb("check", "verb.require2fa", "require 2fa"), act("more", "doc.more")],
+      more: [act("map", "map.access", { map: { kind: MapKind.Access, anchor: orgId } }), verb("check", "verb.require2fa", "require 2fa"), act("more", "doc.more", { menu: true })],
     },
     sections: [
       sec(k("doc.twoStep"), [
@@ -392,7 +408,7 @@ function member(ctx: DocContext, n: Node): DocSpec {
       what: k(roleKey(m.role)),
       state: mark(n.level, n.why!),
       ...(memberActions(n).primary ? { primary: memberActions(n).primary! } : {}),
-      more: [act("map", "map.access", { map: { kind: MapKind.Access, anchor: orgId } }), ...memberActions(n).more, act("mail", "doc.write"), act("more", "doc.more")],
+      more: [act("map", "map.access", { map: { kind: MapKind.Access, anchor: orgId } }), ...memberActions(n).more, act("mail", "doc.write", { open: `mailto:${m.email}` }), act("more", "doc.more", { menu: true })],
     },
     sections: [
       sec(k("doc.access"), [
@@ -477,7 +493,7 @@ function policies(ctx: DocContext, n: Node): DocSpec {
       place: n.home.slice(0, -1),
       state: tf ? mark(policyLevel(tf), k("find.twoFactorOptional")) : stateMark(n),
       ...(tf ? { primary: verb("check", "policy.require", "require 2fa") } : {}),
-      more: [act("more", "doc.more")],
+      more: [act("more", "doc.more", { menu: true })],
     },
     sections: [
       sec(
@@ -600,8 +616,16 @@ function item(ctx: DocContext, n: Node): DocSpec {
     primary = verb("refresh", "verb.restore", "restore");
     body = sec(k("doc.contents"), fields);
   } else if (it.kind === ItemKind.Login) {
-    primary = verb("copy", "doc.copyPassword", "copy password");
-    more = [...(copies.length ? [verb("merge", "verb.merge", "merge")] : []), verb("user2", "verb.copyUsername", "copy username"), ...(it.hasTotp ? [verb("hash", "verb.copyTotp", "copy totp")] : []), verb("refresh", "verb.rotate", "rotate"), act("ext", "doc.openSite"), relMap, verb("edit", "doc.edit", "edit")];
+    primary = copyOf("copy", "doc.copyPassword", it.id, SecretField.Password);
+    const site = siteUrl(it.uris);
+    more = [
+      copyOf("user2", "verb.copyUsername", it.id, SecretField.Username),
+      ...(it.hasTotp ? [copyOf("hash", "verb.copyTotp", it.id, SecretField.Totp)] : []),
+      verb("refresh", "verb.rotate", "rotate"),
+      site ? act("ext", "doc.openSite", { open: site }) : off("ext", "doc.openSite", "doc.noSite"),
+      relMap,
+      verb("edit", "doc.edit", "edit"),
+    ];
     body = sec(k("doc.signIn"), fields);
     const months = it.passwordRevised ? Math.floor((dir.now.getTime() - Date.parse(it.passwordRevised)) / (30 * 86_400_000)) : null;
     security = [
@@ -621,8 +645,8 @@ function item(ctx: DocContext, n: Node): DocSpec {
         : []),
     ];
   } else if (it.kind === ItemKind.Card) {
-    primary = verb("copy", "doc.copyNumber", "copy number");
-    more = [act("clock", "doc.copyExpiry"), relMap, verb("edit", "doc.edit", "edit")];
+    primary = copyOf("copy", "doc.copyNumber", it.id, SecretField.CardNumber);
+    more = [it.expires ? act("clock", "doc.copyExpiry", { copyText: { text: expiryText(it.expires).replace(/ /g, ""), what: k("doc.expiry") } }) : off("clock", "doc.copyExpiry", "doc.noExpiry"), relMap, verb("edit", "doc.edit", "edit")];
     body = sec(k("kind.card"), fields);
     security = [
       { sig: isLoud(n.level) && it.expires ? n.level : Level.Healthy, title: isLoud(n.level) ? n.why! : k("doc.expiryFine"), sub: it.expires ? k("doc.expiryIs", { date: expiryText(it.expires).replace(/ /g, "") }) : k("doc.noExpiry") },
@@ -634,13 +658,17 @@ function item(ctx: DocContext, n: Node): DocSpec {
     body = sec(k("doc.contents"), detailNotes(it.id, ctx.detail));
     security = [{ sig: Level.Unknown, title: k("doc.notChecked"), sub: k("doc.notCheckedSub") }];
   } else if (it.kind === ItemKind.Identity) {
-    primary = act("copy", "doc.copyEmail");
+    const email = plainValue(ctx.detail, "email");
+    primary = email ? act("copy", "doc.copyEmail", { copyText: { text: email, what: k("field.email") } }) : off("copy", "doc.copyEmail", ctx.detail ? "doc.noEmail" : "doc.reading");
     more = [verb("edit", "doc.edit", "edit")];
     body = sec(k("kind.identity"), fields);
     security = [{ sig: Level.Healthy, title: k("why.none") }];
   } else {
-    primary = act("terminal", "doc.openTerminal");
-    more = [act("copy", "doc.copyPublicKey"), relMap, verb("edit", "doc.edit", "edit")];
+    // A key opens no shell of its own: the hosts it signs in to do.
+    const host = links[0];
+    if (host) primary = act("terminal", "doc.openHost", { go: host.from });
+    const publicKey = plainValue(ctx.detail, "publicKey");
+    more = [publicKey ? act("copy", "doc.copyPublicKey", { copyText: { text: publicKey, what: k("field.publicKey") } }) : off("copy", "doc.copyPublicKey", ctx.detail ? "doc.noPublicKey" : "doc.reading"), relMap, verb("edit", "doc.edit", "edit")];
     body = sec(k("doc.key"), fields);
     security = links.map((l): Block => {
       const h = dir.node(l.from);
@@ -666,7 +694,7 @@ function item(ctx: DocContext, n: Node): DocSpec {
   } else if (!it.orgId) rel.push({ ref: null, lead: { tile: LeadTile.Plain, icon: "lock" }, title: k("doc.onlyYou"), context: k("doc.neverShared") });
   const state: MarkSpec = { level: n.level, text: n.why! };
   return {
-    hero: { lead: nodeLead(n.id), title: n.name, place: n.home.slice(0, -1), what: k(`kind.${it.kind}` as Key), state, primary, more: [...more, act("more", "doc.more")] },
+    hero: { lead: nodeLead(n.id), title: n.name, place: n.home.slice(0, -1), what: k(`kind.${it.kind}` as Key), state, primary, more: [...more, act("more", "doc.more", { menu: true })] },
     sections: [
       ...(body && body.blocks.length ? [body] : body ? [{ ...body, blocks: [] }] : []),
       sec(k(it.kind === ItemKind.SshKey ? "doc.opens" : "doc.security"), security),

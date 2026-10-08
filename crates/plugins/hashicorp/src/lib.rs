@@ -373,8 +373,7 @@ async fn dispatch(host: &dyn Host, op: &str, payload: Value) -> Result<Value> {
         "health" => out(broker::health(host).await?),
         "seal_status" => out(broker::seal_status(host).await?),
         "unseal" => {
-            // No payload at all is an old window: it sends no shares.
-            let a: SharesArg = if payload.is_null() { SharesArg::default() } else { arg(payload)? };
+            let a: SharesArg = arg(payload)?;
             out(broker::unseal(host, &a.shares).await?)
         }
         "probe" => {

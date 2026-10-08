@@ -79,6 +79,9 @@ export interface Writes {
   update(id: string, draft: ItemDraft): Promise<void>;
   /// A fresh password or passphrase, as a value shown for a moment.
   generate(opts: GeneratorOptions): Promise<{ value: string; drop: () => void }>;
+  /// A new password made where the keys are and saved into the item, the
+  /// old one kept in its history; the new one never reaches the window.
+  regenerate?(itemId: string): Promise<void>;
 
   /// The records compared field by field where the keys are, in the order
   /// asked: which hold a field and which agree, never what it holds.

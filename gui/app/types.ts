@@ -232,7 +232,6 @@ export type OrgMember = {
   status: MemberStatus;
   two_factor: boolean;
   access_all: boolean;
-  collections: number;
   /// The collections given by name, each at its level
   /// (`keyward_core::items::CollectionAccess`). Empty with `access_all`.
   access: { id: string; permission: CollectionPermission }[];

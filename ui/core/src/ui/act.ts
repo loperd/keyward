@@ -7,7 +7,7 @@ import { useCallback } from "react";
 import type { Act } from "../doc/spec";
 import type { Copied } from "../backend";
 import type { Key } from "../i18n";
-import { t } from "../i18n";
+import { t, text } from "../i18n";
 import { type SecretRef, SecretField } from "../model/types";
 import { Outcome } from "./feedback";
 import { useCore } from "./marks";
@@ -53,6 +53,25 @@ export function useAct(): (a: Act) => Promise<Outcome> {
           report(e);
           return Outcome.Failed;
         }
+      } else if ("copyText" in a) {
+        if (!backend.copyText) throw new Error("this app cannot copy a value");
+        try {
+          const c = await backend.copyText(a.copyText.text);
+          toast(ToastKind.Copy, c.clearsIn === null ? t("ui.toast.copied", { what: text(a.copyText.what) }) : t("ui.toast.copiedClears", { what: text(a.copyText.what), n: c.clearsIn }));
+          return Outcome.Done;
+        } catch (e) {
+          report(e);
+          return Outcome.Failed;
+        }
+      } else if ("open" in a) {
+        if (!backend.openUrl) throw new Error("this app cannot open a link");
+        try {
+          await backend.openUrl(a.open);
+          return Outcome.Done;
+        } catch (e) {
+          report(e);
+          return Outcome.Failed;
+        }
       } else if ("sync" in a) {
         try {
           await backend.sync();
@@ -62,8 +81,7 @@ export function useAct(): (a: Act) => Promise<Outcome> {
           return Outcome.Failed;
         }
       } else if ("reveal" in a) revealAll();
-      // `none` is answered by nothing: the demo draws buttons the backend has
-      // no call for yet.
+      // A menu is drawn by its button, not run; `none` is answered by nothing.
       return Outcome.None;
     },
     [store, backend, report, revealAll, reprompt, toast, screens],

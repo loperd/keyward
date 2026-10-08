@@ -193,3 +193,14 @@
 .kw-lsrow .kw-v { flex: 1; min-width: 0; font-size: var(--fs-m); line-height: var(--lh-m); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kw-lsrow .kw-v.kw-code { font: var(--w-text) var(--fs-l)/var(--lh-l) var(--mono); letter-spacing: 0.08em; }
 .kw-lens-foot { display: flex; gap: var(--u); margin-top: var(--u2); justify-content: space-between; align-items: center; }
+
+/* ---------- "More": the node's other verbs ---------- */
+.kw-more { position: relative; display: inline-flex; }
+.kw-more-menu {
+  position: absolute; left: 0; top: calc(100% + var(--half)); z-index: 40; min-width: calc(var(--u) * 28); padding: var(--u);
+  display: flex; flex-direction: column; border-radius: var(--r-panel); background: var(--surface);
+  box-shadow: var(--sh-pop), inset 0 0 0 1px var(--edge); animation: kw-pop-in var(--dur) var(--ease-out);
+}
+.kw-more-menu .kw-mrow { border: 0; background: transparent; font: inherit; text-align: left; width: 100%; }
+.kw-more-menu .kw-mrow:hover, .kw-more-menu .kw-mrow:focus-visible { background: var(--hover); }
+.kw-more-menu .kw-ic { color: var(--dim); display: inline-flex; }

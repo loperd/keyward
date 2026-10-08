@@ -18,7 +18,7 @@ import "./inspector.css";
 import "./map.css";
 import { type Backend, type Session, SessionState } from "../backend";
 import { t } from "../i18n";
-import type { Catalog } from "../model/types";
+import { type Catalog, SecretField } from "../model/types";
 import { Directory, type Contribution } from "../path/directory";
 import { DEFAULT_PLACES, placeFor, type Place, type PlaceStore } from "../path/places";
 import { Query } from "../path/query";
@@ -327,6 +327,16 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
         await calls.sync();
         return true;
       }
+      if ("rotate" in e) {
+        if (!changes?.regenerate) throw new Error("this app cannot change a password");
+        // A new password where the keys are, on the clipboard for the site's
+        // form, the site's page opened, the old one in the item's history.
+        await changes.regenerate(e.rotate.itemId);
+        const ref = { itemId: e.rotate.itemId, field: SecretField.Password } as const;
+        toasts.push(ToastKind.Copy, copiedWords(ref, await calls.copy(ref)));
+        if (e.rotate.site && calls.openUrl) await calls.openUrl(e.rotate.site);
+        return true;
+      }
       if ("fill" in e) {
         if (!calls.fill || !calls.fillAccess || !calls.requestFillAccess) throw new Error("this app cannot type into other apps");
         // Without Accessibility nothing can be typed: the system is asked,
@@ -371,7 +381,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       }
       return false;
     },
-    [calls, store, report, hold, toasts, readUnlock, load, readCatalog, readSources],
+    [calls, store, report, hold, toasts, readUnlock, load, readCatalog, readSources, changes],
   );
 
   // ⌘⇧L: the window comes up on the items for the site in front.

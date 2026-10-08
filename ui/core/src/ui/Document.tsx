@@ -1,10 +1,11 @@
 // A document drawn: the hero, then sections of fields, relations, signal
 // lines, a members table, a door to a map. It draws a `DocSpec` and decides
 // nothing: what a page says is the builder's (doc/build.ts) or the plugin's.
-import { useEffect, useRef, type ReactNode } from "react";
+import { PreviewKind } from "../verbs/spec";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t, text, type Text } from "../i18n";
 import { type Act, type Action, type Block, type DocSpec, type Hero, type Lead, type MarkSpec, type Section, LeadTile, LiveBlock } from "../doc/spec";
-import { type Member, MemberStatus, Level } from "../model/types";
+import { type Member, MemberStatus, Level, SecretField as SecretFieldKind } from "../model/types";
 import { fieldLabel } from "../doc/build";
 import { Icon } from "./Icons";
 import { BtnIcon, Glyph, IconButton, Mark, Spinner, Tile, nodeLead, useCore } from "./marks";
@@ -74,15 +75,88 @@ export function Place({ ids, what }: { ids: string[]; what?: Text | undefined })
   return <div className="kw-place">{parts}</div>;
 }
 
+/// The verbs a node offers beyond the buttons its page already shows: not a
+/// copy (a button does that at once, a preview for it is a detour), and not
+/// what works anywhere (locking is the strip's).
+function menuVerbs(query: ReturnType<typeof useCore>["query"], dir: ReturnType<typeof useCore>["dir"], node: string | null, shown: ReadonlySet<string>) {
+  const n = node && dir.has(node) ? dir.node(node) : null;
+  if (!n) return [];
+  return query.verbs.filter((v) => {
+    if (!v.preview || !v.applies(n) || v.applies(null) || shown.has(v.id)) return false;
+    const p = v.preview(dir, n.id, "");
+    return !(p.kind === PreviewKind.Ready && "copy" in p.effect);
+  });
+}
+
+/// "More": the node's other verbs, each opening its preview on the line.
+function MoreMenu({ tip, verbs }: { tip: string; verbs: ReturnType<typeof menuVerbs> }) {
+  const { store } = useCore();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as globalThis.Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", away);
+    window.addEventListener("keydown", esc, true);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      window.removeEventListener("keydown", esc, true);
+    };
+  }, [open]);
+  return (
+    <span className="kw-more" ref={box}>
+      <IconButton icon="more" tip={tip} onClick={() => setOpen(!open)} className={open ? "kw-on" : undefined} />
+      {open && (
+        <span className="kw-more-menu" role="menu">
+          {verbs.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="menuitem"
+              className="kw-mrow"
+              onClick={() => {
+                // The menu closes first: the page fading out under the
+                // preview keeps no open menu in its picture.
+                setOpen(false);
+                requestAnimationFrame(() => store.verb(v.id));
+              }}
+            >
+              <span className="kw-ic">
+                <Icon name={v.icon ?? "verb"} />
+              </span>
+              <span className="kw-lb">{say(v.name)}</span>
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function HeroView({ hero }: { hero: Hero }) {
-  const { dir } = useCore();
+  const { dir, backend } = useCore();
   const lead: Lead = hero.lead.tile === LeadTile.Node ? nodeLead(dir, hero.lead.id, true) : hero.lead;
   // A button for a verb the window does not have (an app without writes has
-  // no `> edit`) is not drawn.
+  // no `> edit`), or for what the app cannot do (open a link), is not drawn.
   const { query } = useCore();
-  const offered = (a: Action | undefined) => !!a && (!("verb" in a.act) || query.verbs.some((v) => "verb" in a.act && v.id === a.act.verb));
+  const offered = (a: Action | undefined) =>
+    !!a &&
+    (!("verb" in a.act) || query.verbs.some((v) => "verb" in a.act && v.id === a.act.verb)) &&
+    (!("open" in a.act) || !!backend.openUrl) &&
+    (!("copyText" in a.act) || !!backend.copyText);
   const primary = offered(hero.primary) ? hero.primary : undefined;
-  const more = hero.more?.filter(offered);
+  const shown = new Set([primary, ...(hero.more ?? [])].flatMap((a) => (a && "verb" in a.act ? [a.act.verb] : [])));
+  const extra = menuVerbs(query, dir, hero.lead.tile === LeadTile.Node ? hero.lead.id : null, shown);
+  // "More" with nothing more to offer is not drawn.
+  const more = hero.more?.filter((a) => offered(a) && (!("menu" in a.act) || extra.length > 0));
   return (
     <header className="kw-hero">
       <Tile lead={lead} xl />
@@ -101,7 +175,15 @@ function HeroView({ hero }: { hero: Hero }) {
                 {say(primary.label)}
               </ActButton>
             )}
-            {more?.map((a, i) => <ActIconButton key={i} icon={a.icon} tip={say(a.label)} act={a.act} />)}
+            {more?.map((a, i) =>
+              "menu" in a.act ? (
+                <MoreMenu key={i} tip={say(a.label)} verbs={extra} />
+              ) : a.off ? (
+                <IconButton key={i} icon={a.icon} tip={`${say(a.label)} — ${say(a.off)}`} disabled />
+              ) : (
+                <ActIconButton key={i} icon={a.icon} tip={say(a.label)} act={a.act} />
+              ),
+            )}
           </div>
         )}
       </div>
@@ -172,7 +254,7 @@ function SecretField({ b }: { b: Extract<Block, { secret: unknown }> }) {
           </span>}</span>
       <span className={`kw-fa${r.value !== null ? " kw-held" : ""}`}>
         <IconButton icon="eye" tip={r.value !== null ? t("ui.hide") : tip} onClick={r.toggle} phase={r.busy ? Phase.Busy : Phase.Idle} />
-        {f.secret && <ActIconButton icon="copy" tip={copyTip()} act={b.verb ? { verb: b.verb } : { copy: f.secret }} />}
+        {f.secret && <ActIconButton icon="copy" tip={copyTip()} act={{ copy: f.secret }} />}
       </span>
     </div>
   );
@@ -201,6 +283,9 @@ function RefView({ b }: { b: Extract<Block, { ref: string | null }> }) {
 
 function SigView({ b }: { b: Extract<Block, { sig: unknown }> }) {
   const run = useAct();
+  const { query } = useCore();
+  // A way out the window has no verb for is not offered.
+  const action = b.action && (!("verb" in b.action.act) || query.verbs.some((v) => "verb" in b.action!.act && v.id === b.action!.act.verb)) ? b.action : undefined;
   return (
     <div className="kw-sig" onClick={b.go ? () => run(b.go!) : undefined}>
       <Glyph level={b.sig} />
@@ -208,9 +293,9 @@ function SigView({ b }: { b: Extract<Block, { sig: unknown }> }) {
         <b className={b.mono ? "kw-mono" : undefined}>{say(b.title)}</b>
         {b.sub && <span>{say(b.sub)}</span>}
       </span>
-      {b.action ? (
-        <ActButton act={b.action.act} className="kw-btn kw-quiet">
-          {say(b.action.label)}
+      {action ? (
+        <ActButton act={action.act} className="kw-btn kw-quiet">
+          {say(action.label)}
         </ActButton>
       ) : (
         <span />
@@ -289,7 +374,9 @@ function BlockView({ b }: { b: Block }) {
         <span className="kw-v">
           <TotpCode itemId={b.totp} />
         </span>
-        <span className="kw-fa">{b.verb && <ActIconButton icon="copy" tip={copyTip()} act={{ verb: b.verb }} />}</span>
+        <span className="kw-fa">
+          <ActIconButton icon="copy" tip={copyTip()} act={{ copy: { itemId: b.totp, field: SecretFieldKind.Totp } }} />
+        </span>
       </div>
     );
   if ("field" in b)

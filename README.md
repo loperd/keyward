@@ -39,38 +39,40 @@ Bitwarden / Vaultwarden
 - Card networks inferred locally from the IIN: Visa, Mastercard, AmEx, Discover, JCB, Diners and UnionPay. The list receives only a network label — never a PAN or its prefix.
 - A native macOS experience with Touch ID, clipboard expiry, password generation and a menu-bar presence.
 
+The vault opens on its home: the owners — your personal vault and each organisation — with SSH, Kubernetes, Settings and saved places beside them, and what needs action first.
+
 <p align="center">
-  <a href="docs/assets/shots/inventory.png"><img src="docs/assets/shots/inventory.png" width="900" alt="A rich vault inventory in keyward"></a>
+  <a href="docs/assets/shots/vault-home.png"><img src="docs/assets/shots/vault-home.png" width="900" alt="The vault's home in keyward: owners, connections and saved places in the side column, items needing action first"></a>
+</p>
+
+An organisation's access is drawn as a map: who reaches which collection and which items, with the findings — reading without two-step login, an expired card, invites with no reply — named above it. A member's page says what they reach and what is out of their reach.
+
+<p align="center">
+  <a href="docs/assets/shots/access-map.png"><img src="docs/assets/shots/access-map.png" width="900" alt="The access map of a demo organisation: members linked to collections and items, with findings"></a>
 </p>
 
 <p align="center">
-  <a href="docs/assets/shots/filters-open.png"><img src="docs/assets/shots/filters-open.png" width="900" alt="Folders and organisation filters expanded in keyward"></a>
+  <a href="docs/assets/shots/org-members.png"><img src="docs/assets/shots/org-members.png" width="900" alt="A member of a demo organisation in keyward: their role, the collections and items they reach, and what is closed to them"></a>
 </p>
 
 <p align="center"><sub>All screenshots use local, deliberately fake preview data.</sub></p>
 
 ### Find anything fast
 
-The built-in command palette keeps navigation out of the way: invoke it with <kbd>⌘</kbd><kbd>K</kbd>, filter the inventory, and open the selected record. The screenshots are made from the app's preview stand with made-up data by `node scripts/readme-shots.mjs`.
+The line at the top is the path to where you are, and the place to go, find or act: <kbd>⌘</kbd><kbd>K</kbd> focuses it. Typing `>` and a verb shows what it would do first — here changing a password: the steps, what changes, what stays — and nothing happens until <kbd>↵</kbd>. The screenshots are made from the window's stand (`ui/stand`) with made-up data by `node scripts/readme-shots.mjs`.
 
 <p align="center">
-  <a href="docs/assets/shots/command-palette.png"><img src="docs/assets/shots/command-palette.png" width="900" alt="The keyward command palette over a deliberately fake vault inventory"></a>
+  <a href="docs/assets/shots/verb-rotate.png"><img src="docs/assets/shots/verb-rotate.png" width="900" alt="The preview of changing a login's password in keyward: steps, what changes and what stays, before anything happens"></a>
 </p>
 
 ### Records, not just passwords
 
 Cards, identities, secure notes and login details use the same fast list and detail model. Card networks are derived locally from the number; sensitive values remain masked until deliberately revealed.
 
-<p align="center">
-  <a href="docs/assets/shots/card-detail.png"><img src="docs/assets/shots/card-detail.png" width="900" alt="A Visa card detail in keyward"></a>
-</p>
+A login reads as a document: its sign-in with the password masked and the one-time code counting down, its security checks, and its relations — who else sees it and through what.
 
 <p align="center">
-  <a href="docs/assets/shots/edit-card.png"><img src="docs/assets/shots/edit-card.png" width="900" alt="Editing a payment card in keyward"></a>
-</p>
-
-<p align="center">
-  <a href="docs/assets/shots/new-item.png"><img src="docs/assets/shots/new-item.png" width="900" alt="Creating a new vault item in keyward"></a>
+  <a href="docs/assets/shots/login-item.png"><img src="docs/assets/shots/login-item.png" width="900" alt="A login item in keyward: username, masked password, one-time code, site, security checks and relations"></a>
 </p>
 
 ## SSH without key sprawl
@@ -83,8 +85,10 @@ Assign a `kw-host` custom field to an SSH-key item, for example:
 
 The most specific pattern wins: exact host, then the glob with the longest literal suffix, then `*`. A tie is a visible warning, never a guess. keyward currently signs with Ed25519 and can request confirmation per key.
 
+A host's page shows its last check — here a key the server refused, with the likely cause — its connection, the rule that matched it and its host key, and the key it was opened with.
+
 <p align="center">
-  <a href="docs/assets/shots/ssh-key-detail.png"><img src="docs/assets/shots/ssh-key-detail.png" width="900" alt="An SSH key and its destination rules in keyward"></a>
+  <a href="docs/assets/shots/ssh-host.png"><img src="docs/assets/shots/ssh-host.png" width="900" alt="An SSH host in keyward: the key refused by the server, the connection, the matching rule and the host key"></a>
 </p>
 
 ## Install
@@ -134,34 +138,30 @@ Match exec "keyward resolve %h %r %p"
 
 The bundled HashiCorp Vault plugin connects to Vault, works with policies and engines, issues short-lived access, and manages secrets. The Vaultwarden plugin provides an admin view for compatible servers. Plugins are isolated executables with explicit permissions.
 
+Settings › Plugins lists what is installed, what the catalogue offers, its updates and the permissions a plugin asks for. A plugin's screens are drawn by the window itself — here the Kubernetes plugin's pods of a cluster, filtered by namespace and status.
+
 <p align="center">
-  <a href="docs/assets/shots/vault-access.png"><img src="docs/assets/shots/vault-access.png" width="900" alt="Short-lived HashiCorp Vault access in keyward"></a>
+  <a href="docs/assets/shots/settings-plugins.png"><img src="docs/assets/shots/settings-plugins.png" width="900" alt="Settings › Plugins in keyward: installed plugins, the catalogue with an update and an unknown publisher, and the sources"></a>
 </p>
 
 <p align="center">
-  <a href="docs/assets/shots/vaultwarden.png"><img src="docs/assets/shots/vaultwarden.png" width="900" alt="Vaultwarden administration in keyward"></a>
+  <a href="docs/assets/shots/kubernetes-pods.png"><img src="docs/assets/shots/kubernetes-pods.png" width="900" alt="The Kubernetes plugin's screen in keyward: a cluster's pods with their readiness, status, restarts and age"></a>
 </p>
 
 Read the [plugin protocol](docs/plugin-protocol.md) and [plugin registry guide](docs/plugin-registry.md) before writing or publishing a plugin.
 
 ## Generate and protect
 
-The generator gives passwords and passphrases a dedicated workspace. Preferences collect theme, language, accent colour, clipboard expiry and capture controls; Security is kept separate for Touch ID, PIN and lock policy.
+Settings are split into Account, Security, Unlocking, Browsers, Application and Plugins. Unlocking holds Touch ID — on launch, for every password, and how long a touch is remembered — and the PIN.
 
 <p align="center">
-  <a href="docs/assets/shots/generator.png"><img src="docs/assets/shots/generator.png" width="900" alt="Password generator in keyward"></a>
+  <a href="docs/assets/shots/settings-unlocking.png"><img src="docs/assets/shots/settings-unlocking.png" width="900" alt="Settings › Unlocking in keyward: Touch ID, a fingerprint for every password, how long a touch is remembered, and the PIN"></a>
 </p>
 
-<p align="center">
-  <a href="docs/assets/shots/preferences.png"><img src="docs/assets/shots/preferences.png" width="900" alt="Keyward preferences including theme accent colours"></a>
-</p>
+A locked vault shows only the gate: the account and server, the master password and Touch ID.
 
 <p align="center">
-  <a href="docs/assets/shots/security.png"><img src="docs/assets/shots/security.png" width="900" alt="Keyward security settings for Touch ID and lock controls"></a>
-</p>
-
-<p align="center">
-  <a href="docs/assets/shots/locked.png"><img src="docs/assets/shots/locked.png" width="900" alt="The locked vault state in keyward"></a>
+  <a href="docs/assets/shots/locked.png"><img src="docs/assets/shots/locked.png" width="900" alt="The locked vault in keyward: the master password field and Touch ID"></a>
 </p>
 
 ## Security boundaries

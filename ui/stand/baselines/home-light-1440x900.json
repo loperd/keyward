@@ -6,13 +6,13 @@
     "kw-list: 16 0 24 0 ×1",
     "kw-qline: 0 4 0 4 ×1",
     "kw-ref: 0 8 0 8 ×15",
-    "kw-row: 0 8 0 8 ×11",
+    "kw-row: 0 8 0 8 ×12",
     "kw-strip: 0 16 0 80 ×1"
   ],
   "type": [
     "12px/400 sans ×34  e.g. span.kw-s \"13 записей\"",
+    "12px/500 sans ×30  e.g. span \"Хранилище\"",
     "12px/600 sans ×30  e.g. span.kw-ava \"AM\"",
-    "12px/500 sans ×29  e.g. span \"Хранилище\"",
     "12px/400 mono ×1  e.g. kbd.kw-kbd \"⌘K\"",
     "20px/600 sans ls-0.2px ×1  e.g. h1.kw-h1 \"Хранилище\"",
     "12px/500 mono ×1  e.g. span.kw-rt.kw-mono \"db-1.prod.demo.example\""

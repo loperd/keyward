@@ -5,8 +5,8 @@
 //   argument of `invoke`. The window's seal channel runs one way only — the
 //   Rust half seals for the page (`seal.rs`), the page's key is derived for
 //   decrypting and nothing on the Rust side opens what a page would seal — so
-//   there is nothing to seal it with on the way out. It is the same path the
-//   old window's edit form takes: Tauri's IPC inside the one process, where
+//   there is nothing to seal it with on the way out. It goes over Tauri's IPC
+//   inside the one process, where
 //   the Rust half takes it as a `Secret` (wiped on drop) and sends it to the
 //   daemon over the sealed control socket. The page holds it no longer than
 //   the call.
@@ -299,6 +299,17 @@ export class DaemonWrites implements Writes {
       fail("err.collectionsNeedOrg");
     }
     this.changed({ kind: ChangeKind.Item, id });
+    this.changed({ kind: ChangeKind.Catalog });
+  }
+
+  /// The daemon makes the new password and saves it into the item; it never
+  /// reaches the window.
+  async regenerate(itemId: string) {
+    await invoke("regenerate_password", {
+      entryId: itemId,
+      spec: { length: 24, upper: true, lower: true, digits: true, symbols: true, avoid_ambiguous: false, symbols_inside_only: false },
+    });
+    this.changed({ kind: ChangeKind.Item, id: itemId });
     this.changed({ kind: ChangeKind.Catalog });
   }
 

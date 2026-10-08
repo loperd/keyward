@@ -184,11 +184,10 @@ function sshDoc(dir: Directory): DocSpec {
       place: [],
       what: d("sshWhat"),
       state: mk(Level.Critical, d("sshWhy")),
-      primary: { icon: "terminal", label: d("newTerminal"), act: { none: true } },
       more: [
         { icon: "refresh", label: d("checkAll"), act: { verb: "check keys" } },
         { icon: "map", label: d("topology"), act: { map: { kind: MapKind.Topology, anchor: "plugin:ssh" } } },
-        { icon: "more", label: d("more"), act: { none: true } },
+        { icon: "more", label: d("more"), act: { menu: true } },
       ],
     },
     sections: [
@@ -216,8 +215,7 @@ function hostDoc(h: Host, dir: Directory): DocSpec {
       more: [
         { icon: "refresh", label: d("check"), act: { verb: "check keys" } },
         { icon: "map", label: d("topology"), act: { map: { kind: MapKind.Topology, anchor: "plugin:ssh" } } },
-        { icon: "edit", label: d("edit"), act: { none: true } },
-        { icon: "more", label: d("more"), act: { none: true } },
+        { icon: "more", label: d("more"), act: { menu: true } },
       ],
     },
     sections: [
@@ -261,9 +259,7 @@ function k8sDoc(): DocSpec {
       place: [],
       what: d("k8sWhat"),
       state: mk(Level.Warning, d("k8sWhy")),
-      primary: { icon: "plus", label: d("addCluster"), act: { none: true } },
       more: [
-        { icon: "refresh", label: d("checkAll"), act: { none: true } },
         { icon: "map", label: d("topology"), act: { map: { kind: MapKind.Topology, anchor: "plugin:ssh" } } },
       ],
     },
@@ -285,9 +281,7 @@ function clusterDoc(c: Cluster, dir: Directory): DocSpec {
       state: mk(c.level, c.why),
       primary: { icon: "window", label: { key: "plugin.openScreen" }, act: { screen: { node: c.id, plugin: "demo", route: `cluster/${c.slug}` } } },
       more: [
-        { icon: "refresh", label: d("check"), act: { none: true } },
         { icon: "map", label: d("topology"), act: { map: { kind: MapKind.Topology, anchor: "plugin:ssh" } } },
-        { icon: "edit", label: d("edit"), act: { none: true } },
       ],
     },
     sections: [
@@ -860,6 +854,17 @@ export class DemoBackend implements Backend {
     this.calls.push(`unpair:${key}`);
     this.browsers = { ...this.browsers, paired: this.browsers.paired.filter((x) => x.key !== key) };
     return structuredClone(this.browsers);
+  }
+
+  /// What the demo was asked to copy and open, for the tests.
+  copiedText: string | null = null;
+  opened: string[] = [];
+  async copyText(text: string): Promise<Copied> {
+    this.copiedText = text;
+    return { clearsIn: null };
+  }
+  async openUrl(url: string): Promise<void> {
+    this.opened.push(url);
   }
 
   async lock(): Promise<void> {

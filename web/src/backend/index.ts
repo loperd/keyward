@@ -432,6 +432,17 @@ export class WebBackend implements Backend, Writes {
     return { clearsIn: this.clipboard.canClear() ? this.clipboard.clearsInSeconds() : null };
   }
 
+  async copyText(text: string): Promise<Copied> {
+    await this.clipboard.copy(text);
+    return { clearsIn: this.clipboard.canClear() ? this.clipboard.clearsInSeconds() : null };
+  }
+
+  /// A site or a mail, in a tab of its own that cannot reach back into this one.
+  async openUrl(url: string): Promise<void> {
+    if (!/^(https?|mailto):/i.test(url)) throw new Error(`not a site or a mail address: ${url}`);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
   async reveal(ref: SecretRef): Promise<Revealed> {
     const value = ref.field === SecretField.Totp ? (await this.totp(ref.itemId)).code : await this.secret(ref);
     // The only reference to the text is this object's: `drop` lets it go.

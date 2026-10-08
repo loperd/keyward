@@ -8,7 +8,7 @@ import { installActionLog } from "./actionLog";
 import { DaemonBackend } from "./backend";
 import { DaemonWrites } from "./writes";
 
-// Every command goes through the log of actions, as in the old window.
+// Every command goes through the log of actions.
 installActionLog((cmd, args) => realInvoke(cmd, args as Record<string, unknown>));
 
 const root = document.getElementById("root");

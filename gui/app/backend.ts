@@ -693,6 +693,16 @@ export class DaemonBackend implements Backend {
     if (!Number.isInteger(s) || s < 0) throw new Error(`the daemon answered a copy with ${String(s)}`);
     return { clearsIn: s > 0 ? s : null };
   }
+  /// A value that is no secret goes to the clipboard through the daemon all
+  /// the same, which clears it as it clears the rest.
+  async copyText(text: string): Promise<Copied> {
+    const s = await invoke<number>("copy_text", { value: text });
+    if (!Number.isInteger(s) || s < 0) throw new Error(`the daemon answered a copy with ${String(s)}`);
+    return { clearsIn: s > 0 ? s : null };
+  }
+  async openUrl(url: string): Promise<void> {
+    await invoke("open_link", { url });
+  }
   async reveal(ref: SecretRef) {
     let value: string | null = await invokeSecret("reveal_secret", { entryId: ref.itemId, field: field(ref) });
     return {

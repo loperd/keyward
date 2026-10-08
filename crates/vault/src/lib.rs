@@ -2194,7 +2194,6 @@ impl Vault {
                     status: MemberStatus::from_code(u.status),
                     two_factor: u.two_factor_enabled,
                     access_all: u.access_all,
-                    collections: u.collections.len(),
                     access: member_access(&u.collections),
                 }
             })

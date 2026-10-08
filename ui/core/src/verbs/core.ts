@@ -13,10 +13,14 @@ import { EdgeKind } from "../map/types";
 
 const k = (key: Key, args?: Record<string, string | number | Text>): Text => (args ? { key, args } : { key });
 const login = (n: Node | null) => n?.item?.kind === ItemKind.Login && !n.item.deleted;
-const inOrg = (n: Node | null) => !!n && n.home[0]?.startsWith("org:") === true && [NodeKind.Org, NodeKind.Section, NodeKind.Member, NodeKind.Collection].includes(n.kind);
 const nodeLead = (id: string): Lead => ({ tile: LeadTile.Node, id });
 const firstLogin = (dir: Directory) => dir.all().find((n) => login(n))?.id ?? null;
-const firstOrg = (dir: Directory) => dir.all().find((n) => n.kind === NodeKind.Org && dir.has(`${n.id}/members`))?.id ?? null;
+/// The address a site's change opens at: an http(s) URI as it is, a bare host
+/// as https; none for what is no address.
+const siteAddress = (uri: string | undefined): string | null => {
+  if (!uri || !hostOf(uri)) return null;
+  return /^[a-z][a-z0-9+.-]*:/i.test(uri) ? (/^https?:/i.test(uri) ? uri : null) : `https://${uri}`;
+};
 /// A URI's host, or none: a Bitwarden URI is free text, not always an address.
 const hostOf = (uri: string | undefined) => (uri ? siteHost(uri) : null);
 
@@ -53,7 +57,7 @@ function rotate(dir: Directory, obj: string): Preview {
     stays,
     go: k("verb.rotate"),
     note: k("verb.fingerprint"),
-    effect: { none: true },
+    effect: { rotate: { itemId: it.id, site: siteAddress(it.uris[0]) } },
   };
 }
 
@@ -75,41 +79,6 @@ function copy(what: SecretField.Password | SecretField.Totp | SecretField.Userna
       ...(what === SecretField.Username ? {} : { note: k("verb.fingerprint") }),
       effect: { copy: ref },
     };
-  };
-}
-
-const orgOfNode = (dir: Directory, obj: string) => {
-  const o = dir.orgOf(obj);
-  if (!o) throw new Error(`"${obj}" is not in an organisation`);
-  return o;
-};
-
-function require2fa(dir: Directory, obj: string): Preview {
-  const org = orgOfNode(dir, obj);
-  const ms = dir.catalog.members.filter((m) => `org:${m.orgId}` === org);
-  const off = ms.filter((m) => m.twoFactor === false);
-  const on = ms.filter((m) => m.twoFactor === true);
-  return {
-    kind: PreviewKind.Ready,
-    target: org,
-    title: k("verb.require2fa.title", { org: dir.node(org).name }),
-    lede: k("verb.require2fa.lede", { org: dir.node(org).name }),
-    steps: [
-      { title: k("verb.require2fa.s1"), sub: k("verb.require2fa.s1sub") },
-      { title: k("verb.require2fa.s2"), sub: k("verb.require2fa.s2sub") },
-    ],
-    changes: {
-      rows: [
-        ...off.map(
-          (m): Delta => ({ lead: nodeLead(`member:${m.id}`), name: { raw: m.name ?? m.email }, from: { level: Level.Warning, text: k("map.noTwoFactor") }, to: { level: Level.Unknown, text: k("verb.require2fa.awaits") } }),
-        ),
-        { lead: { tile: LeadTile.Plain, icon: "policy" }, name: k("verb.require2fa.policy"), from: { level: Level.Action, text: k("verb.require2fa.optional") }, to: { level: Level.Healthy, text: k("verb.require2fa.required") } },
-      ],
-    },
-    stays: [{ level: Level.Healthy, title: k("verb.require2fa.staysOn", { n: on.length }), sub: k("verb.require2fa.staysOnSub") }],
-    go: k("verb.require2fa.go"),
-    note: k("verb.reversible"),
-    effect: { none: true },
   };
 }
 
@@ -171,7 +140,6 @@ export const CORE_VERBS: Verb[] = [
   { id: "copy username", name: k("verb.copyUsername"), applies: login, preview: copy(SecretField.Username), example: firstLogin },
   { id: "copy number", name: k("verb.copyNumber"), applies: (n) => n?.item?.kind === ItemKind.Card, preview: copy(SecretField.CardNumber), example: (d) => d.all().find((n) => n.item?.kind === ItemKind.Card)?.id ?? null },
   ...ORG_VERBS,
-  { id: "require 2fa", name: k("verb.require2fa"), applies: inOrg, preview: require2fa, example: firstOrg },
   { id: "trash", name: k("verb.trash"), applies: (n) => !!n?.item && !n.item.deleted, preview: trash },
   { id: "restore", name: k("verb.restore"), applies: (n) => !!n?.item?.deleted, preview: restore },
   { id: "lock", name: k("verb.lock"), applies: () => true, preview: lock },
