@@ -55,15 +55,6 @@ pub enum Language {
     En,
 }
 
-/// Which page the desktop window opens: the old window (`index.html`) or the
-/// new one on the shared core (`app.html`), while both live side by side.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Interface {
-    Old,
-    New,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -114,10 +105,8 @@ pub struct Settings {
     #[serde(default)]
     pub accent_color: Option<String>,
     pub language: Language,
-    /// The desktop window's page; `KEYWARD_UI=new|old` overrides it at launch.
-    /// The column window is the approved design and the default; the old one
-    /// stays reachable until the new one has everything it had.
-    pub interface: Interface,
+    // An `interface` field that settings.json kept while two windows lived
+    // side by side is passed over on reading: there is one window now.
 }
 
 impl Default for Settings {
@@ -143,8 +132,6 @@ impl Default for Settings {
             theme: Theme::System,
             accent_color: None,
             language: Language::Auto,
-            // The new window is a beta: it is opened by choice, not by default.
-            interface: Interface::New,
         }
     }
 }
@@ -214,6 +201,13 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_file_from_two_windows_ago_still_reads() {
+        // settings.json kept the choice of window while there were two.
+        let s: Settings = serde_json::from_str(r#"{"lock_timeout":{"kind":"never"},"touch_id_on_launch":true,"touch_id_for_secrets":false,"clipboard_clear_seconds":30,"show_website_icons":true,"hide_on_copy":false,"keep_in_dock":false,"allow_screen_capture":false,"start_on_login":true,"theme":"dark","language":"ru","interface":"old"}"#).unwrap();
+        assert_eq!(s.lock_timeout, LockTimeout::Never);
+    }
 
     #[test]
     fn defaults_are_safe_without_being_annoying() {

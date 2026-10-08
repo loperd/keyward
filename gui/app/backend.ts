@@ -27,7 +27,6 @@ import {
   OrgRole,
   MemberStatus,
   ChangeKind,
-  InterfaceChoice,
   enumParser,
   parseItemKind,
   parseMemberStatus,
@@ -875,10 +874,5 @@ export class DaemonBackend implements Backend {
   }
   async unpairExtension(key: string): Promise<BrowserExtensions> {
     return extensionsOf(await invoke<unknown>("extension_unpair", { key }));
-  }
-
-  /// Saved in the settings; the window reloads into the other page.
-  async setInterface(ui: InterfaceChoice) {
-    await invoke("set_interface", { ui });
   }
 }

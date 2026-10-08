@@ -104,11 +104,6 @@ export enum ChangeKind {
 export const parseChangeKind = enumParser(ChangeKind, "a change");
 export type Change = { kind: ChangeKind.Session } | { kind: ChangeKind.Catalog } | { kind: ChangeKind.Item; id: string };
 
-/// The desktop app's two windows, while they live side by side.
-export enum InterfaceChoice {
-  New = "new",
-  Old = "old",
-}
 
 export interface Backend {
   readonly caps: Capabilities;
@@ -265,8 +260,4 @@ export interface Backend {
   pairExtension?(key: string): Promise<BrowserExtensions>;
   unpairExtension?(key: string): Promise<BrowserExtensions>;
 
-  /// The desktop app's choice of window, while the old one and this one live
-  /// side by side: saves it and reloads the window into that page. Absent
-  /// where there is no other window to go to.
-  setInterface?(ui: InterfaceChoice): Promise<void>;
 }

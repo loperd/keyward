@@ -656,7 +656,6 @@
   "ui.syncNow": "Сейчас",
   "ui.syncAgo": "{n} мин",
   "ui.account": "{name} · Меню",
-  "ui.newInterface": "Новый интерфейс (бета)",
   "ui.previewLead": "Предпросмотр · ничего не произойдёт до ↵",
   "ui.noVerb": "Нет действия «{verb}»",
   "ui.thereAre": "Есть: {list}.",
@@ -1043,7 +1042,6 @@
   "scr.refuse": "Не доверять",
   "scr.trust": "Доверять",
   "plugin.openSettings": "Настройки плагина",
-
   "err.sessionNotRead": "Файл сессии не читается ({file}): {reason}",
   "err.sessionKeyMissing": "Файл сессии зашифрован, но его ключа больше нет в связке ключей. Выход не выполнен: верните элемент «keyward-session» в связку или удалите аккаунт и войдите заново",
   "err.sessionKeyUnavailable": "Связка ключей не отдала ключ сессии: {reason}",

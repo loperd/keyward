@@ -1,5 +1,4 @@
-/* The core's theme: the app's palette (the same tokens as gui/src/theme.css,
-   both themes, a theme chosen by hand overruling the system's), the base
+/* The core's theme: the app's palette (both themes, a theme chosen by hand overruling the system's), the base
    rules every screen stands on, and the layout system of the window. Every
    size a component uses comes from here; no rule uses a stray number.
 

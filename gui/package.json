@@ -13,8 +13,6 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@tauri-apps/api": "^2",
-    "@types/qrcode": "^1.5.6",
-    "qrcode": "^1.5.4",
     "react": "^19",
     "react-dom": "^19"
   },

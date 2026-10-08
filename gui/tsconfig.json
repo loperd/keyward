@@ -24,27 +24,10 @@
       ],
       "@keyward/core": [
         "../ui/core/src/index.ts"
-      ],
-      "@keyward/*": [
-        "src/*"
-      ],
-      "@plugin/hashicorp/*": [
-        "../crates/plugins/hashicorp/*"
-      ],
-      "@plugin/kube/*": [
-        "../crates/plugins/kube/*"
-      ],
-      "@plugin/ssh/*": [
-        "../crates/plugins/ssh/*"
-      ],
-      "@plugin/vaultwarden/*": [
-        "../crates/plugins/vaultwarden/*"
       ]
     }
   },
   "include": [
-    "src",
-    "app",
-    "../crates/plugins/*/ui"
+    "app"
   ]
 }

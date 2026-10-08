@@ -265,8 +265,6 @@ export type AppSettings = {
   theme: "system" | "dark" | "light";
   accent_color: string | null;
   language: "auto" | "ru" | "en";
-  /// The desktop window's page: the old window or the new one (beta).
-  interface: "old" | "new";
 };
 
 // -- The Bitwarden account (a mirror of crates/core/src/account.rs) --------

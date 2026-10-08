@@ -103,7 +103,6 @@ const TRACKED: Record<string, Busy> = {
   logout: Busy.Call,
   lock: Busy.Call,
   verifyReprompt: Busy.Call,
-  setInterface: Busy.Call,
   // Writes (writes.ts): every change of a vault, and a fresh value.
   create: Busy.Call,
   update: Busy.Call,

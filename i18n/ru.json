@@ -630,8 +630,6 @@
   "settings.keepInDockHint": "Вкл — значок остаётся в Dock после крестика. Выкл — уходит из Dock вместе с окном и возвращается, когда окно открывается",
   "settings.screenCapture": "Разрешить снимки экрана",
   "settings.screenCaptureHint": "По умолчанию окно чернеет в скриншотах, записи экрана и демонстрации в Zoom.",
-  "settings.newInterface": "Новый интерфейс (бета)",
-  "settings.newInterfaceHint": "Окно перезагрузится в новый интерфейс. Вернуться — в меню аккаунта. KEYWARD_UI=new|old при запуске важнее этой настройки",
   "settings.appearance": "Внешний вид",
   "settings.saved": "Сохранено",
   "nav.sections": "Разделы",

@@ -6,8 +6,7 @@
     "gui",
     "ui/core",
     "ui/stand",
-    "web",
-    "crates/plugins/*/ui"
+    "web"
   ],
   "scripts": {
     "dev": "npm -w keyward-gui run dev",

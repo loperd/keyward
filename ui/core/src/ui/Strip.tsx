@@ -2,7 +2,7 @@
 // the sync state, the theme, and the account menu with sections, language
 // and lock.
 import { forwardRef, useEffect, useState } from "react";
-import { type Account, InterfaceChoice } from "../backend";
+import type { Account } from "../backend";
 import { currentLang, setLang, t, text, Lang } from "../i18n";
 import { usePath } from "../path/store";
 import { initials } from "../map/model";
@@ -117,18 +117,6 @@ function AccountMenu({ name, onClose }: { name: string; onClose: () => void }) {
         <div className="kw-mh">{t("lang")}</div>
         {langRow(Lang.Ru, t("ui.lang.ru"))}
         {langRow(Lang.En, t("ui.lang.en"))}
-        {core.backend.setInterface && (
-          // The new window is a beta: on here, and turned off back into the old one.
-          <div className="kw-mrow" onClick={() => core.backend.setInterface?.(InterfaceChoice.Old).catch(core.report)}>
-            <span className="kw-ic">
-              <Icon name="refresh" />
-            </span>
-            <span className="kw-lb">{t("ui.newInterface")}</span>
-            <span className="kw-ck">
-              <Icon name="check" />
-            </span>
-          </div>
-        )}
         <div className="kw-mh">{t("account")}</div>
         {several && accounts === null && (
           <div className="kw-mrow kw-sk-mrow kw-sk-late" role="status" aria-label={t("load.accounts")}>

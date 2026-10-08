@@ -61,7 +61,7 @@ fn every_raised_key_is_in_the_dictionary() {
         known.extend(dictionary(&path).into_keys());
     }
     let mut files = Vec::new();
-    for dir in ["crates", "gui/src", "gui/src-tauri/src", "extension"] {
+    for dir in ["crates", "gui/src-tauri/src", "extension"] {
         sources(&root.join(dir), &mut files);
     }
     let mut missing = Vec::new();

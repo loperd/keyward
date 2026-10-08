@@ -1,6 +1,5 @@
-// The desktop app's new window: the shared core (ui/core) over the daemon.
-// It is a second entry beside the old window (src/main.tsx, index.html); the
-// Tauri window opens it when the interface is "new" — see app/README.md.
+// The desktop app's window: the shared core (ui/core) over the daemon, on
+// the one page the Tauri window opens (app.html) — see app/README.md.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "@keyward/core";

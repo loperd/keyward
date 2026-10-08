@@ -17,7 +17,7 @@ use keyward_core::detail::{ItemDetail, SecretField};
 use keyward_core::edits::{ItemEdit, PendingEdit};
 use keyward_core::items::{Catalog, OrgMember};
 use keyward_core::merge::{MergeComparison, MergePlan};
-use keyward_core::settings::{Interface, Settings as AppSettings};
+use keyward_core::settings::Settings as AppSettings;
 use keyward_core::proto::AccountView;
 use keyward_core::proto::{Request, Response, Status};
 use keyward_core::two_factor::TwoFactorProvider;
@@ -1328,38 +1328,9 @@ async fn apply_window_prefs(app: tauri::AppHandle) -> Result<(), String> {
     app.run_on_main_thread(move || apply_prefs(&handle)).map_err(|e| e.to_string())
 }
 
-/// The page the window opens for a choice of interface: the old window or the
-/// new one on the shared core, while both live side by side.
-fn interface_page(ui: Interface) -> &'static str {
-    match ui {
-        Interface::Old => "index.html",
-        Interface::New => "app.html",
-    }
-}
-
-fn parse_interface(value: &str) -> Result<Interface, String> {
-    match value {
-        "new" => Ok(Interface::New),
-        "old" => Ok(Interface::Old),
-        other => Err(format!("expected \"new\" or \"old\", got {other:?}")),
-    }
-}
-
-/// Which interface the window opens at launch: `KEYWARD_UI=new|old` wins over
-/// the setting, so the new window can be tried without touching the settings.
-/// Any other value stops the launch rather than being guessed at.
-fn launch_interface() -> Result<Interface, String> {
-    match std::env::var("KEYWARD_UI") {
-        Ok(value) => parse_interface(&value).map_err(|e| format!("KEYWARD_UI: {e}")),
-        Err(std::env::VarError::NotPresent) => Ok(AppSettings::load().interface),
-        Err(e) => Err(format!("KEYWARD_UI: {e}")),
-    }
-}
-
 /// The main window is described in tauri.conf.json (`"create": false`) and
-/// built here, so that it opens the chosen page from the first frame instead
-/// of loading the old one and navigating away.
-fn open_main_window(app: &tauri::App, ui: Interface) -> Result<(), Box<dyn std::error::Error>> {
+/// built here, on the window's one page.
+fn open_main_window(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let mut config = app
         .config()
         .app
@@ -1368,25 +1339,9 @@ fn open_main_window(app: &tauri::App, ui: Interface) -> Result<(), Box<dyn std::
         .find(|w| w.label == "main")
         .ok_or("tauri.conf.json describes no \"main\" window")?
         .clone();
-    config.url = tauri::WebviewUrl::App(interface_page(ui).into());
+    config.url = tauri::WebviewUrl::App("app.html".into());
     tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.build()?;
     Ok(())
-}
-
-/// Saves the choice of interface and reloads the window into that page, with
-/// no restart. The page reopens its sealed channel (`window_seal_open`) on its
-/// first secret, as after any reload.
-#[tauri::command]
-async fn set_interface(window: tauri::WebviewWindow, ui: String) -> Result<(), String> {
-    let ui = parse_interface(&ui)?;
-    let mut settings = get_settings().await?;
-    settings.interface = ui;
-    set_settings(settings).await?;
-    let mut url = window.url().map_err(|e| e.to_string())?;
-    url.set_path(&format!("/{}", interface_page(ui)));
-    url.set_query(None);
-    url.set_fragment(None);
-    window.navigate(url).map_err(|e| e.to_string())
 }
 
 /// Quitting the application altogether: the daemon dies, the keys are
@@ -1474,7 +1429,6 @@ pub fn run() {
             pin_clear,
             pin_unlock,
             apply_window_prefs,
-            set_interface,
             daemon_status,
             daemon_probe,
             plugins,
@@ -1571,7 +1525,7 @@ pub fn run() {
         ])
         .setup(|app| {
             // First of all: the rest of the setup reaches for the "main" window.
-            open_main_window(app, launch_interface()?)?;
+            open_main_window(app)?;
 
             {
                 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt as _, Modifiers, Shortcut};

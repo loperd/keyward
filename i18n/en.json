@@ -630,8 +630,6 @@
   "settings.keepInDockHint": "On — the icon stays in the Dock after the close button. Off — it leaves the Dock with the window and comes back when the window opens",
   "settings.screenCapture": "Allow screen capture",
   "settings.screenCaptureHint": "By default the window is black in screenshots, screen recordings and Zoom sharing.",
-  "settings.newInterface": "New interface (beta)",
-  "settings.newInterfaceHint": "The window reloads into the new interface. To come back, use the account menu. KEYWARD_UI=new|old at launch overrides this setting",
   "settings.appearance": "Appearance",
   "settings.saved": "Saved",
   "nav.sections": "Sections",

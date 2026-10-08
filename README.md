@@ -184,7 +184,7 @@ cargo test --workspace --locked
 make run
 ```
 
-For UI work, [`gui/preview.html`](gui/preview.html) runs the full interface against rich, fake fixtures—no daemon or vault connection required. It is also the source of the images above.
+For UI work, the stand in [`ui/stand`](ui/stand) (`npm -w @keyward/stand run dev`) runs the full interface against rich, fake fixtures—no daemon or vault connection required.
 
 ## Licence
 

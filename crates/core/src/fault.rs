@@ -4,7 +4,8 @@
 //! Russian ask the same socket, and the CLI may be piped into a log nobody
 //! reads — so the daemon never phrases a sentence. It names what happened and
 //! hands over the values that fill the blanks; the interface looks the name up
-//! in its dictionary (`gui/src/i18n`) and writes the sentence.
+//! in its dictionary (`i18n/`, which the window reads as well) and writes the
+//! sentence.
 //!
 //! The wire form is the key, optionally followed by a JSON object:
 //!
