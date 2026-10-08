@@ -20,6 +20,9 @@ use serde_json::Value;
 pub mod agent;
 pub mod places;
 pub mod terminal;
+pub mod ui;
+#[cfg(test)]
+mod stand;
 
 pub use keyward_ssh_client::{glob, mapping};
 use keyward_ssh_client::table;
@@ -408,7 +411,7 @@ impl Plugin for SshPlugin {
                 Permission::Network,
             ],
             probe: false,
-            declared: false,
+            declared: true,
             places: true,
         }
     }

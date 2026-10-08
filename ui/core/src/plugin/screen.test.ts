@@ -100,6 +100,21 @@ describe("a plugin's reply", () => {
     expect(r).toMatchObject({ go: "cluster/b", drawer: { title: { raw: "pod" } }, closeDialog: true, closeDrawer: false, toast: { ext: "kube.open" }, refresh: true, data: null });
   });
 
+  it("asks a stream's question, and keeps a cursor as the plugin gave it", () => {
+    const rd = read();
+    const c = rd.chunk({ data: "", cursor: { at: 3, version: 1 }, state: "verify", ask: { text: { key: "open" }, code: "SHA256:x" } }, "term_read");
+    expect(c).toMatchObject({ state: StreamState.Verify, cursor: { at: 3, version: 1 }, ask: { text: { ext: "kube.open" }, code: "SHA256:x" } });
+    expect(() => rd.chunk({ cursor: 0, state: "verify" }, "term_read")).toThrow(/a question with nothing asked/);
+    const page = rd.page({ title: { key: "pods" }, body: [{ type: "terminal", open: { op: "attach", payload: { session: "s1" } }, read: "r", write: "w", resize: "z", close: "c", trust: "t", keep: true }] }, "host/x:22");
+    expect(page.body[0]).toMatchObject({ type: ScreenNodeType.Terminal, trust: "t", keep: true });
+  });
+
+  it("names the fields a daemon fills in, and never their values", () => {
+    const p = read().page({ title: { key: "pods" }, actions: [{ label: { key: "open" }, title: { key: "open" }, action: { op: "ui_unseal", fill: { entry_id: "n1", fields: ["share 1"], into: "shares" } } }], body: [] }, "conn/n1");
+    expect(p.actions[0]!.action.fill).toEqual({ entryId: "n1", fields: ["share 1"], into: "shares" });
+    expect(() => read().page({ title: { key: "pods" }, actions: [{ label: { key: "open" }, title: { key: "open" }, action: { op: "x", fill: { entry_id: "n1", fields: [], into: "s" } } }], body: [] }, "r")).toThrow(/nothing to fill in/);
+  });
+
   it("carries a stream and its output, and refuses a state it does not know", () => {
     const rd = read();
     expect(rd.stream({ stream: "s1" }, "shell_open")).toBe("s1");

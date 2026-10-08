@@ -10,7 +10,7 @@ import { enumParser } from "./model/enum";
 import type { AccountProfile, AppSettings, BrowserExtensions, SettingsPatch, TwoFactorStatus, UnlockState } from "./settings/types";
 import type { AccountWrite } from "./verbs/spec";
 import type { FillContext, FillMode } from "./verbs/fill";
-import type { PluginLane } from "./plugin/screen";
+import type { ActionFill, PluginLane } from "./plugin/screen";
 import type { InstalledPlugin, PluginAdminWrite, PluginOffer } from "./plugin/admin";
 
 /// What a session is doing: the state of the app's session, and of each of
@@ -187,6 +187,12 @@ export interface Backend {
   /// plugin's sealed link: a form may hold a secret, a reply a log. `lane`:
   /// a long poll (a terminal's output) rides the output lane.
   pluginRun?(plugin: string, op: { op: string; payload: unknown; form: Readonly<Record<string, string>> | null }, lane: PluginLane): Promise<unknown>;
+  /// One of a plugin's operations that needs values of a vault item's
+  /// fields the plugin may not read (`ActionFill`): the backend has them read
+  /// where the keys are and put into the payload, and they never reach the
+  /// window; the reply as it rides the wire. What a form held comes in the
+  /// payload's `form`.
+  pluginFill?(plugin: string, op: { op: string; payload: Readonly<Record<string, unknown>>; fill: ActionFill }): Promise<unknown>;
 
   /// The plugins installed here, on or off; present where plugins are
   /// managed from the window (the desktop app). With it, Settings has a

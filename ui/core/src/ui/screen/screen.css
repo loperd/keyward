@@ -172,3 +172,13 @@ details.kw-ssec[open] > summary .kw-fold { transform: rotate(90deg); }
 .kw-ssec > .kw-sec-h .kw-h2 { white-space: nowrap; flex: none; }
 /* a tab's first section sits under the tabs, not a section's gap away */
 .kw-stabbar + .kw-sec { margin-top: var(--u); }
+/* tabs after a section stand a section's gap below it */
+.kw-sbody > .kw-sec + .kw-stabs, .kw-sbody > .kw-salert + .kw-stabs { margin-top: var(--sec-gap); }
+.kw-sdanger.kw-more { margin-top: var(--u); }
+/* a stream kept: closed by the person, from its corner */
+.kw-term-close { position: absolute; top: var(--u); right: var(--u); z-index: 2; }
+/* a question the stream asks: the words, the value to compare, the answer */
+.kw-term-ask { flex-direction: column; gap: var(--u2); background: color-mix(in srgb, var(--tier-lo) 92%, transparent); padding: var(--u3); text-align: center; }
+.kw-term-ask .kw-mk { white-space: normal; }
+.kw-term-code { color: var(--text); overflow-wrap: anywhere; }
+.kw-term-acts { display: flex; gap: var(--u); }

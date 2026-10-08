@@ -79,9 +79,16 @@ removed once every blocker below is in the new one. Tick a line when it is in
       the terminal over the plugin's sealed link; a reply's `go`, drawer,
       dialogue, toast and refresh, a verb's too. Kube opens its catalogue and
       its clusters this way.
-- [ ] **Plugins moved to Rust pages:** ssh, hashicorp and vaultwarden go from
+- [x] **Plugins moved to Rust pages:** ssh, hashicorp and vaultwarden go from
       `crates/plugins/*/ui` to pages declared in Rust, like kube; their
-      settings sections too.
+      settings sections too (`Places.settings`, opened from Settings ›
+      Plugins). Left out on purpose or for later: hashicorp shows no secret
+      value in the window (copied through the core instead), issues a token
+      to the clipboard rather than on screen, edits policies in the checked
+      editor without the HCL studio's lint and templates, and has no custom
+      metadata editor; vaultwarden's "who may create organisations" is text
+      rather than a picker; the ssh terminal has no search in its output.
+      `crates/plugins/*/ui` goes with the old window.
 
 ### Phase 2 — important
 - [x] Account profile (name, fingerprint), deauthorise, purge, delete the

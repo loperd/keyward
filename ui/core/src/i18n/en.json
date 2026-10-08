@@ -984,6 +984,12 @@
   "scr.connecting": "Connecting…",
   "scr.ended": "The session ended",
   "scr.again": "Open again",
+  "scr.pickItem": "Pick an item",
+  "scr.closeSession": "Close the session",
+  "scr.authenticating": "Waiting for your fingerprint…",
+  "scr.refuse": "Do not trust",
+  "scr.trust": "Trust",
+  "plugin.openSettings": "The plugin's settings",
 
   "err.sessionNotRead": "The session file does not read ({file}): {reason}",
   "err.sessionKeyMissing": "The session file is sealed, but its key is gone from the keychain. Nothing was signed out: restore the keychain item “keyward-session”, or remove the account and log in again",

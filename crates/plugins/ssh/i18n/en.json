@@ -156,5 +156,20 @@
   "path.ssh.keyWhy": "{name}: {status}",
   "path.ssh.map": "Topology",
   "path.ssh.mapSub": "Which key gets in where",
-  "path.ssh.hostFinding": "{host}: {status}"
+  "path.ssh.hostFinding": "{host}: {status}",
+  "ssh.allBound": "Every key is bound",
+  "ssh.bound": "Bound",
+  "ssh.noSessions": "No session is open",
+  "ssh.noShellsHere": "No session with this host",
+  "ssh.routesN": "Routes: {n}",
+  "ssh.save": "Save",
+  "ssh.saved": "Saved",
+  "ssh.sessions": "Sessions",
+  "ssh.sessionsN": "Open: {n}",
+  "ssh.socketsN": "Sockets: {n}",
+  "ssh.unbound": "No hosts",
+  "ssh.unmappedN": "With no hosts: {n}",
+  "ssh.verify": "The first connection to {host}: compare the {algorithm} key's fingerprint with what the server shows",
+  "ssh.verifyOthers": "{host} is known by keys of another kind: the server may have changed its key. Compare the {algorithm} fingerprint",
+  "err.sshExit": "The shell exited with code {code}"
 }

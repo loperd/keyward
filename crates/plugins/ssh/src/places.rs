@@ -172,6 +172,8 @@ pub fn declare(report: &Report) -> Places {
         root.short = Some(word_of(kh.status));
     }
     root.kids = vec![Kid::Place { id: "hosts".into(), sub: None }, Kid::Place { id: "keys".into(), sub: None }, Kid::Gap, Kid::Place { id: "map".into(), sub: None }];
+    // The sessions: the shells open now, attached again where they were.
+    root.screen = Some(String::new());
 
     let loud_hosts: Vec<&Host> = hosts.iter().filter(|h| loud(h.level()).is_some()).collect();
     let healthy = hosts.iter().filter(|h| h.level() == Level::Healthy).count();
@@ -205,6 +207,8 @@ pub fn declare(report: &Report) -> Places {
     kp.count = Some(report.keys.len());
     kp.wide = true;
     kp.kids = report.keys.iter().map(|kh| Kid::Item { id: kh.entry_id.clone(), sub: Some(word_of(kh.status)) }).collect();
+    // Which key goes where: the routes, edited.
+    kp.screen = Some("keys".into());
     kp.page = Some(Doc {
         primary: Some(CHECK.into()),
         sections: vec![Section {
@@ -237,6 +241,8 @@ pub fn declare(report: &Report) -> Places {
         }));
         p.mono = true;
         p.sub_mono = true;
+        // Its shells: the host's id is its screen's route.
+        p.screen = Some(h.id.clone());
         p.why = Some(why_of(st));
         p.short = Some(word_of(st));
         let aliases: BTreeSet<&str> = h.checks.iter().flat_map(|(_, _, c)| c.aliases.iter().map(String::as_str)).collect();
@@ -319,48 +325,18 @@ pub fn declare(report: &Report) -> Places {
     out.verbs = vec![verb];
     out.topology = Some(topology);
     out.refresh_ms = Some(if report.running { RUNNING_MS } else { IDLE_MS });
+    out.settings = Some("settings".into());
     out
 }
 
 impl crate::SshPlugin {
     /// The vault's keys and routes as the terminal reads them, and `~/.ssh/config`.
-    async fn with_view<T>(&self, f: impl FnOnce(crate::terminal::View<'_>) -> T) -> anyhow::Result<T> {
+    pub(crate) async fn with_view<T>(&self, f: impl FnOnce(crate::terminal::View<'_>) -> T) -> anyhow::Result<T> {
         let inner = self.inner.lock().await;
         let (entries, table) = (inner.entries.clone(), inner.table.clone());
         drop(inner);
         let ssh = crate::terminal::sshconfig::shared().await?;
         Ok(f(crate::terminal::View { entries: &entries, table: &table, ssh: &ssh }))
-    }
-}
-
-#[async_trait::async_trait]
-impl keyward_ui::Ui for crate::SshPlugin {
-    /// The section's screens are the window's own TypeScript for now; only the
-    /// path is declared.
-    async fn view(&self, _host: &dyn keyward_plugin::Host, route: &str) -> anyhow::Result<keyward_ui::Page> {
-        anyhow::bail!("the ssh plugin declares no screen \"{route}\": only its places")
-    }
-
-    async fn act(&self, host: &dyn keyward_plugin::Host, op: &str, payload: Value, _form: Value) -> anyhow::Result<keyward_ui::Reply> {
-        match op {
-            CHECK_OP => {
-                let inner = self.inner.lock().await;
-                let (entries, table) = (inner.entries.clone(), inner.table.clone());
-                drop(inner);
-                let ssh = crate::terminal::sshconfig::shared().await?;
-                let view = crate::terminal::View { entries: &entries, table: &table, ssh: &ssh };
-                match self.terminals.call(host, self.core(), view, "health_run", payload).await {
-                    Some(answer) => answer.map(|_| keyward_ui::Reply::refresh()),
-                    None => anyhow::bail!("the terminal no longer checks keys"),
-                }
-            }
-            other => anyhow::bail!("the ssh plugin's places have no action \"{other}\""),
-        }
-    }
-
-    async fn places(&self, _host: &dyn keyward_plugin::Host) -> anyhow::Result<Places> {
-        let report = self.with_view(|view| self.terminals.health(&view)).await?;
-        Ok(declare(&report))
     }
 }
 
@@ -463,11 +439,11 @@ mod tests {
         assert_eq!(opened["root"]["title"], json!({ "key": "plugin.ssh.title" }));
         assert_eq!(opened["verbs"][0]["id"], CHECK);
 
-        // A screen is not declared: asked for, it is refused in words.
+        // A screen travels sealed too.
         let sealed = input.seal(br#"{"kind":"view","route":""}"#);
         let answer = p.call(&host, "ui", json!({ "link": link, "lane": "input", "sealed": sealed })).await.unwrap();
-        let opened = String::from_utf8_lossy(&input.open(answer["sealed"].as_str().unwrap())).to_string();
-        assert!(opened.contains("only its places"), "{opened}");
+        let opened: Value = serde_json::from_slice(&input.open(answer["sealed"].as_str().unwrap())).unwrap();
+        assert!(opened.get("body").is_some(), "{opened}");
 
         p.on_event(&host, HostEvent::Locked).await;
         let sealed = input.seal(br#"{"kind":"places"}"#);

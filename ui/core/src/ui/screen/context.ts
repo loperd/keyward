@@ -85,8 +85,18 @@ export function useScreenCtx(node: string, plugin: string, epoch: number): Scree
   const run = useCallback(
     async (a: ScreenAction, form: Readonly<Record<string, string>> | null = null): Promise<ScreenReply | null> => {
       try {
-        if (!backend.pluginRun) throw new Error(`this app cannot carry out the plugin "${plugin}"'s actions`);
-        const r = reader.reply(await backend.pluginRun(plugin, { op: a.op, payload: a.payload, form }, PluginLane.Input), a.op);
+        let raw: unknown;
+        if (a.fill) {
+          // What is filled in is read where the keys are; this window only
+          // names the fields.
+          if (!backend.pluginFill) throw new Error(`this app cannot fill in the plugin "${plugin}"'s fields`);
+          const payload = { ...((a.payload as Record<string, unknown> | null) ?? {}), ...(form ? { form } : {}) };
+          raw = await backend.pluginFill(plugin, { op: a.op, payload, fill: a.fill });
+        } else {
+          if (!backend.pluginRun) throw new Error(`this app cannot carry out the plugin "${plugin}"'s actions`);
+          raw = await backend.pluginRun(plugin, { op: a.op, payload: a.payload, form }, PluginLane.Input);
+        }
+        const r = reader.reply(raw, a.op);
         applyReply(now.current, node, plugin, r);
         return r;
       } catch (e) {

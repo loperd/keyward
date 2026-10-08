@@ -481,6 +481,8 @@ pub(crate) fn object(cluster: &str, kind: Kind, namespace: Option<String>, name:
                 load: None,
                 refresh_ms: None,
                 body: vec![Node::Terminal {
+                    trust: None,
+                    keep: false,
                     open: Action::with("shell_open", json!({ "cluster": cluster, "namespace": namespace, "pod": name, "container": containers.first() })),
                     read: "shell_read".into(),
                     write: "shell_write".into(),

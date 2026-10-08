@@ -79,8 +79,14 @@ function permissions(ps: readonly PluginPermission[], added: readonly PluginPerm
 const lead = (icon: string) => ({ tile: LeadTile.Icon as const, icon, hue: Hue.Cyan });
 const home = [SETTINGS_ID, PLUGINS_PAGE];
 
-export function installedDoc(p: InstalledPlugin): DocSpec {
+/// `settings`: the route of the plugin's own settings screen, where it has
+/// one (and is on: a plugin that is off answers nothing).
+export function installedDoc(p: InstalledPlugin, settings?: string): DocSpec {
   const state = pluginState(p);
+  const more = [
+    ...(settings !== undefined && p.enabled ? [{ icon: "settings", label: k("plugin.openSettings"), act: { screen: { node: installedId(p.id), plugin: p.id, route: settings } } }] : []),
+    ...(p.origin === PluginOrigin.External ? [{ icon: "trash", label: k("plug.verb.uninstall"), act: { verb: PluginVerb.Uninstall } }] : []),
+  ];
   return {
     hero: {
       lead: lead(p.icon),
@@ -89,7 +95,7 @@ export function installedDoc(p: InstalledPlugin): DocSpec {
       what: k(p.origin === PluginOrigin.Builtin ? "plug.what.builtin" : "plug.what.external", { version: p.version }),
       state,
       primary: p.enabled ? { icon: "close", label: k("plug.verb.disable"), act: { verb: PluginVerb.Disable } } : { icon: "check", label: k("plug.verb.enable"), act: { verb: PluginVerb.Enable } },
-      ...(p.origin === PluginOrigin.External ? { more: [{ icon: "trash", label: k("plug.verb.uninstall"), act: { verb: PluginVerb.Uninstall } }] } : {}),
+      ...(more.length ? { more } : {}),
     },
     sections: [
       permissions(p.permissions, p.added),

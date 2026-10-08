@@ -18,7 +18,7 @@ export const PLUGIN_WORDS: Record<string, { ru: string; en: string }> = {
 const INSTALLED: InstalledPlugin[] = [
   { id: "ssh", title: "SSH", icon: "terminal", version: "0.2.0", description: d("plugSsh"), origin: PluginOrigin.Builtin, enabled: true, permissions: [P.Entries, P.ItemsWrite, P.Notices, P.SshSign, P.Network], unverified: false, added: [], revoked: null },
   { id: "kube", title: "Kubernetes", icon: "cube", version: "0.2.0", description: d("plugKube"), origin: PluginOrigin.Builtin, enabled: true, permissions: [P.Entries, P.Items, P.ItemsWrite, P.Secrets, P.Notices, P.SshSign, P.Network], unverified: false, added: [], revoked: null },
-  { id: "hashicorp", title: "HashiCorp Vault", icon: "vault", version: "0.2.0", description: d("plugVault"), origin: PluginOrigin.Builtin, enabled: false, permissions: [P.Entries, P.Items, P.ItemsWrite, P.Secrets, P.Notices, P.Network, P.Clipboard], unverified: false, added: [], revoked: null },
+  { id: "hashicorp", title: "HashiCorp Vault", icon: "vault", version: "0.2.0", description: d("plugVault"), origin: PluginOrigin.Builtin, enabled: true, permissions: [P.Entries, P.Items, P.ItemsWrite, P.Secrets, P.Notices, P.Network, P.Clipboard], unverified: false, added: [], revoked: null },
   { id: "notes-sync", title: "Notes sync", icon: "note", version: "1.3.0", description: d("plugNotes"), origin: PluginOrigin.External, enabled: false, permissions: [P.Items, P.ItemsWrite, P.Network], unverified: true, added: [P.Network], revoked: null },
 ];
 

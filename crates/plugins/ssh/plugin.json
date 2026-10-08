@@ -5,6 +5,7 @@
   "description": "plugin.ssh.description",
   "section": true,
   "needs_unlocked": true,
+  "declared": true,
   "permissions": ["entries", "items_write", "notices", "ssh_sign", "network"],
   "protocol": 2,
   "exec": "keyward-plugin-ssh",

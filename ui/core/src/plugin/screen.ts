@@ -55,6 +55,13 @@ export enum FieldKind {
   Select = "select",
   /// On or off: sent as "true" or "false".
   Toggle = "toggle",
+  /// One of the vault's items, picked from what the window holds.
+  Item = "item",
+}
+
+/// What kind of item a field picks.
+export enum ItemPick {
+  Note = "note",
 }
 
 /// The two lanes of a plugin's sealed link: a long poll (a terminal's
@@ -67,13 +74,21 @@ export enum PluginLane {
 /// Where a terminal's stream stands.
 export enum StreamState {
   Connecting = "connecting",
+  /// A question to answer before it goes on: an unknown host's key.
+  Verify = "verify",
+  /// Waiting for the person's finger.
+  Authenticating = "authenticating",
   Open = "open",
   Closed = "closed",
 }
 
 /// What pressing something does: one of the plugin's operations. `confirm`:
 /// the person types this word first; `twice`: a first press arms it.
-export type ScreenAction = { op: string; payload: unknown; confirm?: string; twice?: true };
+/// `fill`: fields of a vault item the daemon reads (behind the person's
+/// finger) and puts into the payload under `into`; the window never sees
+/// them. Such an action rides the plugin's plain road.
+export type ActionFill = { entryId: string; fields: string[]; into: string };
+export type ScreenAction = { op: string; payload: unknown; confirm?: string; twice?: true; fill?: ActionFill };
 export type ScreenButton = { label?: Text; icon?: string; title: Text; tone: Tone; primary: boolean; disabled: boolean; busy: boolean; action: ScreenAction };
 export type ScreenChip = { label: Text; tone: Tone; icon?: string; title?: Text; dot: boolean };
 export type ScreenRow = {
@@ -109,10 +124,13 @@ export type ScreenFieldSpec =
   | { kind: FieldKind.Area }
   | { kind: FieldKind.Number; min: number; max: number }
   | { kind: FieldKind.Select; options: [string, Text][] }
-  | { kind: FieldKind.Toggle };
+  | { kind: FieldKind.Toggle }
+  | { kind: FieldKind.Item; pick: ItemPick };
 export type ScreenField = { id: string; label: Text; spec: ScreenFieldSpec; hint?: Text; value?: string };
 export type ScreenTab = { id: string; title: Text; icon?: string; load?: ScreenAction; refreshMs?: number; body: ScreenNode[] };
-export type TerminalOps = { open: ScreenAction; read: string; write: string; resize: string; close: string };
+/// `trust`: where the answer to a stream's question goes; `keep`: the
+/// stream outlives the terminal on the screen and is closed by the person.
+export type TerminalOps = { open: ScreenAction; read: string; write: string; resize: string; close: string; trust?: string; keep: boolean };
 
 export type ScreenNode =
   | { type: ScreenNodeType.Section; title: Text; icon: string; tone: Tone; count?: number; folded: boolean; hint?: Text; body: ScreenNode[] }
@@ -162,7 +180,9 @@ export type ScreenReply = {
 };
 
 /// A terminal's output since `cursor`.
-export type Chunk = { data: string; cursor: number; state: StreamState; error: string | null };
+/// `cursor` is the plugin's and goes back as it came; `ask` is the question
+/// a `verify` state asks, with a value to compare (a fingerprint).
+export type Chunk = { data: string; cursor: unknown; state: StreamState; error: string | null; ask?: { text: Text; code?: string } };
 
 export type ScreenOptions = {
   /// The plugin's dictionary; every key it says must be in it.
@@ -210,7 +230,17 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
     if (!op) fail(`an empty operation for ${where}`);
     const confirm = optStr(a.confirm, `the word to type for ${where}`);
     if (confirm === "") fail(`an empty word to type for ${where}`);
-    return { op, payload: a.payload ?? null, ...(confirm !== undefined ? { confirm } : {}), ...(flag(a.twice, where) ? { twice: true as const } : {}) };
+    const fill = a.fill === undefined || a.fill === null ? undefined : fillOf(a.fill, where);
+    if (fill && a.payload !== undefined && a.payload !== null && (typeof a.payload !== "object" || Array.isArray(a.payload))) fail(`an action whose payload cannot take what is filled in, for ${where}`);
+    return { op, payload: a.payload ?? null, ...(confirm !== undefined ? { confirm } : {}), ...(flag(a.twice, where) ? { twice: true as const } : {}), ...(fill ? { fill } : {}) };
+  };
+  const fillOf = (v: unknown, where: string): ActionFill => {
+    const f = obj(v, `what is filled in for ${where}`);
+    const fields = list(f.fields, where).map((x) => str(x, `a field to fill in for ${where}`));
+    if (!fields.length) fail(`nothing to fill in for ${where}`);
+    const into = str(f.into, where);
+    if (!into) fail(`no place to fill in for ${where}`);
+    return { entryId: str(f.entry_id, `the item to fill in from for ${where}`), fields, into };
   };
   const optAction = (v: unknown, where: string): ScreenAction | undefined => (v === undefined || v === null ? undefined : action(v, where));
 
@@ -321,6 +351,11 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
       case FieldKind.Toggle:
         spec = { kind: FieldKind.Toggle };
         break;
+      // boundary: the kind of item a field picks.
+      case FieldKind.Item:
+        spec = { kind: FieldKind.Item, pick: isEnumValue(ItemPick, k.item_kind) ? k.item_kind : fail(`a field that picks items of the kind "${String(k.item_kind)}" in ${w}`) };
+        break;
+
       case FieldKind.Select: {
         const os = options(k.options, w);
         if (!os.length) fail(`a choice with nothing to choose in ${w}`);
@@ -420,6 +455,8 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
           write: str(n.write, where),
           resize: str(n.resize, where),
           close: str(n.close, where),
+          ...(n.trust !== undefined && n.trust !== null ? { trust: str(n.trust, where) } : {}),
+          keep: flag(n.keep, where),
         };
       case ScreenNodeType.Danger: {
         const b = button(n.button, `the danger zone of ${where}`, true);
@@ -507,7 +544,13 @@ export function screenReader(plugin: string, opts: ScreenOptions = {}) {
     chunk: (data: unknown, op: string): Chunk => {
       const d = obj(data, `the data of "${op}"`);
       const state = isEnumValue(StreamState, d.state) ? d.state : fail(`the stream state "${String(d.state)}" to "${op}"`);
-      return { data: d.data === undefined || d.data === null ? "" : str(d.data, `the output of "${op}"`), cursor: num(d.cursor, `the cursor of "${op}"`), state, error: optStr(d.error, `the error of "${op}"`) ?? null };
+      if (d.cursor === undefined || d.cursor === null) fail(`no cursor to "${op}"`);
+      const a = d.ask === undefined || d.ask === null ? undefined : obj(d.ask, `the question of "${op}"`);
+      if (state === StreamState.Verify && !a) fail(`a question with nothing asked to "${op}"`);
+      const code = a ? optStr(a.code, `the question of "${op}"`) : undefined;
+      const ask = a ? { text: words(a.text, `the question of "${op}"`), ...(code !== undefined ? { code } : {}) } : undefined;
+      return { data: d.data === undefined || d.data === null ? "" : str(d.data, `the output of "${op}"`), cursor: d.cursor, state, error: optStr(d.error, `the error of "${op}"`) ?? null, ...(ask ? { ask } : {}) };
+
     },
   };
 }

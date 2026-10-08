@@ -127,6 +127,9 @@ export type Contribution = {
   /// The routes of its declared screens its places open, each to its node:
   /// where a screen's "go" steps to.
   screens?: Record<string, string>;
+  /// The route of its own settings screen, opened from its page under
+  /// Settings › Plugins.
+  settings?: string;
 };
 
 export const isStep = (e: Entry): e is Step => "id" in e;
@@ -325,7 +328,7 @@ export class Directory {
     this.add({ id: PLUGINS_PAGE, kind: NodeKind.SettingsPage, slug: `${SETTINGS_ID}-${SettingsPage.Plugins}`, name: { key: PAGE_NAME[SettingsPage.Plugins] }, icon: PAGE_ICON[SettingsPage.Plugins], level: Level.Unknown, home, wide: true, kids: () => pluginsKids(a), doc: () => pluginsDoc(a) });
     for (const p of a.installed) {
       const st = pluginState(p);
-      this.add({ id: installedId(p.id), kind: NodeKind.InstalledPlugin, slug: this.freeSlug(`plugin-${p.id}`), name: { raw: p.title }, icon: p.icon, sub: { raw: p.version }, level: st.level, why: st.text, short: st.text, home: [...home, installedId(p.id)], plugin: p, doc: () => installedDoc(p) });
+      this.add({ id: installedId(p.id), kind: NodeKind.InstalledPlugin, slug: this.freeSlug(`plugin-${p.id}`), name: { raw: p.title }, icon: p.icon, sub: { raw: p.version }, level: st.level, why: st.text, short: st.text, home: [...home, installedId(p.id)], plugin: p, doc: () => installedDoc(p, this.contributions.find((c) => c.id === p.id)?.settings) });
     }
     for (const o of offered(a)) {
       const st = offerState(o);

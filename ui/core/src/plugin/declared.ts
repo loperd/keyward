@@ -100,6 +100,8 @@ export type DeclaredPlaces = {
   topology?: DeclaredTopology;
   /// Ask again in this many milliseconds.
   refresh_ms?: number;
+  /// The route of the plugin's own settings screen.
+  settings?: string;
 };
 
 export type DeclaredOptions = {
@@ -446,6 +448,7 @@ export function contributionOf(plugin: string, d: DeclaredPlaces, opts: Declared
     ...(verbs.size ? { verbs: [...verbs.values()] } : {}),
     ...(words ? { words } : {}),
     ...(screens.size ? { screens: Object.fromEntries(screens) } : {}),
+    ...(d.settings !== undefined ? { settings: typeof d.settings === "string" ? d.settings : fail("a settings screen that is not a route") } : {}),
   };
 }
 

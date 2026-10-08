@@ -7,10 +7,11 @@
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t, text } from "../../i18n";
-import { type TerminalOps, PluginLane, StreamState } from "../../plugin/screen";
+import { type Chunk, type TerminalOps, PluginLane, StreamState } from "../../plugin/screen";
+import { Level } from "../../model/types";
 import { ThemeChoice } from "../../settings/types";
 import { Icon } from "../Icons";
-import { Spinner } from "../marks";
+import { IconButton, Mark, Spinner } from "../marks";
 import { useScreen } from "./context";
 
 function b64(text: string): string {
@@ -78,7 +79,11 @@ function onTheme(change: () => void): () => void {
 export function Terminal({ ops: given }: { ops: TerminalOps }) {
   const { call, reader, refusal } = useScreen();
   const host = useRef<HTMLDivElement>(null);
+  // The stream the terminal is attached to: its question and its close are
+  // answered outside the loop that reads it.
+  const stream = useRef<string | null>(null);
   const [state, setState] = useState(StreamState.Connecting);
+  const [ask, setAsk] = useState<Chunk["ask"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   // The same terminal declared again (its page asked again) is the same
@@ -88,9 +93,10 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
 
   useEffect(() => {
     let alive = true;
-    let stream: string | null = null;
     let cleanup: (() => void) | null = null;
+    stream.current = null;
     setState(StreamState.Connecting);
+    setAsk(null);
     setError(null);
     const fail = (e: unknown) => {
       if (!alive) return;
@@ -111,13 +117,16 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
       fit.fit();
 
       const pump = async () => {
-        let cursor = 0;
-        while (alive && stream) {
-          const r = reader.chunk((await call(ops.read, { stream, cursor, wait_ms: WAIT_MS }, PluginLane.Output)).data, ops.read);
+        // The plugin's own cursor, sent back as it came; a stream attached
+        // again starts from its beginning and replays what it kept.
+        let cursor: unknown = 0;
+        while (alive && stream.current) {
+          const r = reader.chunk((await call(ops.read, { stream: stream.current, cursor, wait_ms: WAIT_MS }, PluginLane.Output)).data, ops.read);
           if (!alive) return;
           if (r.data) term.write(unb64(r.data));
           cursor = r.cursor;
           setState(r.state);
+          setAsk(r.state === StreamState.Verify ? (r.ask ?? null) : null);
           if (r.state === StreamState.Closed) {
             if (r.error) setError(text(refusal(r.error)));
             return;
@@ -127,21 +136,26 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
 
       call(ops.open.op, { ...((ops.open.payload as Record<string, unknown> | null) ?? {}), cols: term.cols, rows: term.rows }, PluginLane.Input)
         .then((r) => {
-          stream = reader.stream(r.data, ops.open.op);
+          const id = reader.stream(r.data, ops.open.op);
           if (!alive) {
-            void call(ops.close, { stream }, PluginLane.Input).catch(console.error);
+            if (!ops.keep) void call(ops.close, { stream: id }, PluginLane.Input).catch(console.error);
             return;
           }
+          stream.current = id;
+          // The size it has here, now that there is a stream to tell.
+          void call(ops.resize, { stream: id, cols: term.cols, rows: term.rows }, PluginLane.Input).catch(fail);
           return pump();
         })
         .catch(fail);
 
       const typing = term.onData((d) => {
-        if (stream) call(ops.write, { stream, data: b64(d) }, PluginLane.Input).catch(fail);
+        const id = stream.current;
+        if (id) call(ops.write, { stream: id, data: b64(d) }, PluginLane.Input).catch(fail);
       });
       const observer = new ResizeObserver(() => {
         fit.fit();
-        if (stream) call(ops.resize, { stream, cols: term.cols, rows: term.rows }, PluginLane.Input).catch(fail);
+        const id = stream.current;
+        if (id) call(ops.resize, { stream: id, cols: term.cols, rows: term.rows }, PluginLane.Input).catch(fail);
       });
       observer.observe(el);
       term.focus();
@@ -155,28 +169,68 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
 
     return () => {
       alive = false;
-      if (stream) void call(ops.close, { stream }, PluginLane.Input).catch(console.error);
+      // A stream kept outlives the terminal: it is attached again later.
+      if (stream.current && !ops.keep) void call(ops.close, { stream: stream.current }, PluginLane.Input).catch(console.error);
+      stream.current = null;
       cleanup?.();
     };
   }, [call, reader, refusal, ops, round]);
 
+  const answer = (yes: boolean) => {
+    const id = stream.current;
+    if (!id || !ops.trust) return;
+    setAsk(null);
+    call(ops.trust, { stream: id, answer: yes }, PluginLane.Input).catch((e: unknown) => {
+      setError(text(refusal(e)));
+      setState(StreamState.Closed);
+    });
+  };
+  const close = () => {
+    const id = stream.current;
+    if (!id) return;
+    call(ops.close, { stream: id }, PluginLane.Input).catch((e: unknown) => setError(text(refusal(e))));
+  };
+
   return (
     <div className="kw-term">
       <div className="kw-term-host" ref={host} />
-      {state === StreamState.Connecting && (
+      {ops.keep && state !== StreamState.Closed && (
+        <span className="kw-term-close">
+          <IconButton icon="close" tip={t("scr.closeSession")} onClick={close} className="kw-tip-l" />
+        </span>
+      )}
+      {(state === StreamState.Connecting || state === StreamState.Authenticating) && (
         <div className="kw-term-over">
           <Spinner />
-          {t("scr.connecting")}
+          {t(state === StreamState.Authenticating ? "scr.authenticating" : "scr.connecting")}
+        </div>
+      )}
+      {state === StreamState.Verify && ask && (
+        <div className="kw-term-over kw-term-ask" role="alertdialog" aria-label={text(ask.text)}>
+          <Mark level={Level.Warning} words={ask.text} />
+          {ask.code && <code className="kw-mono kw-term-code">{ask.code}</code>}
+          <span className="kw-term-acts">
+            <button type="button" className="kw-btn kw-quiet" onClick={() => answer(false)}>
+              <Icon name="close" />
+              {t("scr.refuse")}
+            </button>
+            <button type="button" className="kw-btn kw-solid" disabled={!ops.trust} onClick={() => answer(true)}>
+              <Icon name="check" />
+              {t("scr.trust")}
+            </button>
+          </span>
         </div>
       )}
       {state === StreamState.Closed && (
         <div className="kw-term-end">
           <Icon name={error ? "state" : "check"} />
           <span className="kw-term-why">{error ?? t("scr.ended")}</span>
-          <button type="button" className="kw-btn kw-quiet" onClick={() => setRound((n) => n + 1)}>
-            <Icon name="refresh" />
-            {t("scr.again")}
-          </button>
+          {!ops.keep && (
+            <button type="button" className="kw-btn kw-quiet" onClick={() => setRound((n) => n + 1)}>
+              <Icon name="refresh" />
+              {t("scr.again")}
+            </button>
+          )}
         </div>
       )}
     </div>

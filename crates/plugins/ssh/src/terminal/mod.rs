@@ -414,34 +414,9 @@ impl Terminals {
     ) -> Result<(Value, Option<String>)> {
         match op {
             InputOp::Open { target, cols, rows } => {
-                let mut plan = self.plan(view, target, cols, rows)?;
-                let core = core?;
-                let live = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?.values().filter(|s| !s.state().closed()).count();
-                if live >= MAX_SESSIONS {
-                    anyhow::bail!(keyward_core::fault!("err.sshTooManySessions", "max" => MAX_SESSIONS));
-                }
-                let recent = Arc::clone(&self.recent);
-                let save = std::mem::take(&mut plan.save);
-                let writer = Arc::clone(&core);
-                let on_open: session::OnOpen = Box::new(move |info: &Info| {
-                    remember(&recent, info);
-                    if save.is_empty() {
-                        return;
-                    }
-                    let entry_id = info.entry_id.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = writer.set_fields(&entry_id, save).await {
-                            tracing::error!(entry = %entry_id, error = %e, "the login and port that worked were not saved to the item");
-                        }
-                    });
-                });
-                let session = Session::start(plan, store, core, on_open);
+                let session = self.open(view, target, cols, rows, core, store)?;
                 let id = session.info.id.clone();
                 let answer = Attached { session: session.info.clone(), state: session.state() };
-                let mut sessions = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?;
-                // Closed sessions nobody looks at any more make room.
-                sessions.retain(|_, s| !s.state().closed());
-                sessions.insert(id.clone(), session);
                 Ok((serde_json::to_value(answer)?, Some(id)))
             }
             InputOp::Attach { session } => {
@@ -474,7 +449,100 @@ impl Terminals {
         }
     }
 
+    /// A shell started on a host, kept among the sessions.
+    fn open(&self, view: &View<'_>, target: Where, cols: u32, rows: u32, core: Result<Arc<dyn Host>>, store: hostkeys::Store) -> Result<Arc<Session>> {
+        let mut plan = self.plan(view, target, cols, rows)?;
+        let core = core?;
+        let live = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?.values().filter(|s| !s.state().closed()).count();
+        if live >= MAX_SESSIONS {
+            anyhow::bail!(keyward_core::fault!("err.sshTooManySessions", "max" => MAX_SESSIONS));
+        }
+        let recent = Arc::clone(&self.recent);
+        let save = std::mem::take(&mut plan.save);
+        let writer = Arc::clone(&core);
+        let on_open: session::OnOpen = Box::new(move |info: &Info| {
+            remember(&recent, info);
+            if save.is_empty() {
+                return;
+            }
+            let entry_id = info.entry_id.clone();
+            tokio::spawn(async move {
+                if let Err(e) = writer.set_fields(&entry_id, save).await {
+                    tracing::error!(entry = %entry_id, error = %e, "the login and port that worked were not saved to the item");
+                }
+            });
+        });
+        let session = Session::start(plan, store, core, on_open);
+        let mut sessions = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?;
+        // Closed sessions nobody looks at any more make room.
+        sessions.retain(|_, s| !s.state().closed());
+        sessions.insert(session.info.id.clone(), Arc::clone(&session));
+        Ok(session)
+    }
+
+    // -- The declared terminal: the window's own, over the plugin's sealed
+    // road, which names the session it means rather than binding a link to
+    // it (ui.rs).
+
+    /// Starts a shell on a host with the key the routes give it, or the one
+    /// named; its session's id.
+    #[allow(clippy::too_many_arguments)]
+    pub fn start(&self, view: &View<'_>, core: Result<Arc<dyn Host>>, host_dir: &Path, entry_id: Option<String>, host: String, port: Option<u16>, user: Option<String>) -> Result<Info> {
+        let target = Where { entry_id, host, port, user };
+        // The window tells its size once it is attached.
+        Ok(self.open(view, target, 80, 24, core, hostkeys::Store::new(host_dir))?.info.clone())
+    }
+
+    /// The sessions there are, with where each stands, the oldest first.
+    pub fn live(&self) -> Result<Vec<(Info, session::State)>> {
+        let sessions = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?;
+        let mut rows: Vec<(Info, session::State)> = sessions.values().map(|s| (s.info.clone(), s.state())).collect();
+        rows.sort_by_key(|(i, _)| i.opened_at);
+        Ok(rows)
+    }
+
+    /// A session by its id, to attach to.
+    pub fn attach(&self, id: &str) -> Result<Info> {
+        Ok(self.session(Some(id))?.info.clone())
+    }
+
+    /// Its output since the cursor, waiting a while for some.
+    pub async fn read(&self, id: &str, cursor: u64, version: u64, wait: Duration) -> Result<session::Chunk> {
+        let s = self.session(Some(id))?;
+        Ok(s.read(cursor, version, wait.min(READ_WAIT_MAX)).await)
+    }
+
+    /// Keystrokes, as base64.
+    pub fn write(&self, id: &str, data: &str) -> Result<()> {
+        let bytes = Zeroizing::new(b64().decode(data.as_bytes()).map_err(|_| anyhow::anyhow!("the keystrokes are not base64"))?);
+        self.session(Some(id))?.write(bytes)
+    }
+
+    pub fn resize(&self, id: &str, cols: u32, rows: u32) -> Result<()> {
+        self.session(Some(id))?.resize(cols, rows)
+    }
+
+    /// The person's answer about an unknown host's key.
+    pub fn trust(&self, id: &str, yes: bool) -> Result<()> {
+        self.session(Some(id))?.answer_trust(yes)
+    }
+
+    /// Closes a session and lets it go.
+    pub fn end(&self, id: &str) -> Result<()> {
+        let gone = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?.remove(id);
+        if let Some(s) = gone {
+            s.close();
+        }
+        Ok(())
+    }
+
+    /// Base64 of output bytes, for the window.
+    pub fn encode(bytes: &[u8]) -> String {
+        b64().encode(bytes)
+    }
+
     fn sessions(&self) -> Result<Value> {
+
         let sessions = self.sessions.lock().map_err(|_| keyward_core::fault!("err.sshTerminalBroken"))?;
         let mut rows: Vec<SessionRow> = sessions.values().map(|s| SessionRow { info: s.info.clone(), state: s.state() }).collect();
         rows.sort_by_key(|r| r.info.opened_at);

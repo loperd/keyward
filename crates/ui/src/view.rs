@@ -63,14 +63,34 @@ pub struct Action {
     /// pod a controller brings back.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub twice: bool,
+    /// Values of a vault item's fields the plugin may not read itself (the
+    /// shares of an unseal key a person keeps in a note): the daemon reads
+    /// them, behind the person's finger, and puts them into the payload —
+    /// the window never sees them. Such an action is the plugin's plain
+    /// operation, not the sealed road's, and answers with a `Reply`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fill: Option<Fill>,
+}
+
+/// Which fields of which item, and where in the payload their values go.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Fill {
+    pub entry_id: String,
+    pub fields: Vec<String>,
+    pub into: String,
 }
 
 impl Action {
     pub fn op(op: &str) -> Self {
-        Self { op: op.to_string(), payload: Value::Null, confirm: None, twice: false }
+        Self { op: op.to_string(), payload: Value::Null, confirm: None, twice: false, fill: None }
     }
     pub fn with(op: &str, payload: Value) -> Self {
-        Self { op: op.to_string(), payload, confirm: None, twice: false }
+        Self { op: op.to_string(), payload, confirm: None, twice: false, fill: None }
+    }
+    /// The daemon fills these fields' values into `payload[into]`.
+    pub fn filled(mut self, entry_id: impl Into<String>, fields: Vec<String>, into: &str) -> Self {
+        self.fill = Some(Fill { entry_id: entry_id.into(), fields, into: into.to_string() });
+        self
     }
     pub fn confirmed_by(mut self, word: impl Into<String>) -> Self {
         self.confirm = Some(word.into());
@@ -311,7 +331,18 @@ pub enum FieldKind {
     Select { options: Vec<(String, Text)> },
     /// On or off: the form sends `"true"` or `"false"`.
     Toggle,
+    /// One of the vault's items of a kind, picked from what the window
+    /// holds: the form sends its id. The plugin never sees the list.
+    Item { item_kind: ItemPick },
 }
+
+/// What kind of item a field picks.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemPick {
+    Note,
+}
+
 
 /// One node of a screen.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -375,8 +406,24 @@ pub enum Node {
     /// is `apply` offered.
     Editor { text: String, check: Action, apply: Action },
     /// A terminal: `open` gives a stream id; the window writes, reads,
-    /// resizes and closes through the ops named here.
-    Terminal { open: Action, read: String, write: String, resize: String, close: String },
+    /// resizes and closes through the ops named here. A read's chunk is
+    /// `{data, cursor, state, error?, ask?}`: `cursor` goes back as it came,
+    /// `state` is `connecting`, `verify` (a question in `ask` — an unknown
+    /// host's key — answered through `trust` with `{stream, answer}`),
+    /// `authenticating` (the person's finger), `open` or `closed`.
+    Terminal {
+        open: Action,
+        read: String,
+        write: String,
+        resize: String,
+        close: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        trust: Option<String>,
+        /// The stream outlives the terminal on the screen: it is closed only
+        /// when the person closes it, and attached again by `open`.
+        #[serde(skip_serializing_if = "std::ops::Not::not")]
+        keep: bool,
+    },
     /// What cannot be taken back: the person types `confirm` first.
     Danger { title: Text, hint: Text, button: Button },
     Chips { chips: Vec<Chip> },

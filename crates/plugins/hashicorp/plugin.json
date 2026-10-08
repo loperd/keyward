@@ -5,6 +5,8 @@
   "description": "plugin.hashicorp.description",
   "section": true,
   "needs_unlocked": true,
+  "declared": true,
+  "places": true,
   "permissions": ["entries", "items", "items_write", "secrets", "notices", "network", "clipboard"],
   "protocol": 2,
   "exec": "keyward-plugin-hashicorp"

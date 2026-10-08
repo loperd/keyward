@@ -54,7 +54,8 @@ import {
   KdfKind,
   parseKdfKind,
 } from "@keyward/core";
-import { PluginLane, type PluginAdminWrite, type PluginCall } from "@keyward/core";
+import { PluginLane, type ActionFill, type PluginAdminWrite, type PluginCall } from "@keyward/core";
+import { callWithFields } from "./plugins/call";
 import { pluginAdmin, pluginCatalog, pluginList, pluginSources } from "./plugins/admin";
 import { invokeSecret } from "./seal";
 import { pluginAct, pluginPlaces } from "./contributions";
@@ -656,6 +657,15 @@ export class DaemonBackend implements Backend {
     if (lane === PluginLane.Output) return actOut(plugin, op.op, op.payload);
     const r = await act(plugin, op.op, op.payload, op.form ? { ...op.form } : undefined);
     if (r.refresh) this.emit({ kind: ChangeKind.Catalog });
+    return r;
+  }
+
+  /// An operation that needs an item's fields the plugin may not read: the
+  /// daemon reads them, behind the person's finger, into the payload. The
+  /// values go from the daemon to the plugin; this window names the fields.
+  async pluginFill(plugin: string, op: { op: string; payload: Readonly<Record<string, unknown>>; fill: ActionFill }) {
+    const r = await callWithFields<{ refresh?: unknown }>(plugin, op.op, { ...op.payload }, { entryId: op.fill.entryId, fields: [...op.fill.fields], into: op.fill.into });
+    if (r?.refresh === true) this.emit({ kind: ChangeKind.Catalog });
     return r;
   }
 

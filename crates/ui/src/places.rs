@@ -413,11 +413,15 @@ pub struct Places {
     /// Ask again in this many milliseconds: a round filling in.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refresh_ms: Option<u64>,
+    /// The route of the plugin's own settings (`view`): the window opens it
+    /// from the plugin's page under Settings › Plugins.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<String>,
 }
 
 impl Places {
     pub fn new(root: Place) -> Self {
-        Self { root, places: Vec::new(), marks: Vec::new(), lines: Vec::new(), verbs: Vec::new(), topology: None, refresh_ms: None }
+        Self { root, places: Vec::new(), marks: Vec::new(), lines: Vec::new(), verbs: Vec::new(), topology: None, refresh_ms: None, settings: None }
     }
 
     /// Whether the declaration holds together: the root is the root, every id

@@ -922,9 +922,12 @@ export class DemoBackend implements Backend {
     await this.wait();
     const demo = demoContributions();
     if (!this.opts.records) return demo;
+    // A real plugin's record stands in the place of the demo's made-up SSH:
+    // both are the root `plugin:ssh`.
+    const ours = this.opts.records.has("ssh") ? demo.filter((c) => c.root.id !== "plugin:ssh") : demo;
     // A recorded plugin's verbs may not shadow the window's or the demo's.
-    const taken = new Set([...withWriteVerbs(CORE_VERBS).map((v) => v.id), ...DOCUMENT_VERBS, ...demo.flatMap((c) => (c.verbs ?? []).map((v) => v.id))]);
-    return [...demo, ...this.opts.records.contributions(taken)];
+    const taken = new Set([...withWriteVerbs(CORE_VERBS).map((v) => v.id), ...DOCUMENT_VERBS, ...ours.flatMap((c) => (c.verbs ?? []).map((v) => v.id))]);
+    return [...ours, ...this.opts.records.contributions(taken)];
   }
   /// The demo's plugins as Settings › Plugins manages them.
   private plugins = new DemoPlugins();

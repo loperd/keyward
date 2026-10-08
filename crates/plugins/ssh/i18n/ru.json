@@ -156,5 +156,20 @@
   "path.ssh.keyWhy": "{name}: {status}",
   "path.ssh.map": "Топология",
   "path.ssh.mapSub": "Какой ключ куда пускают",
-  "path.ssh.hostFinding": "{host}: {status}"
+  "path.ssh.hostFinding": "{host}: {status}",
+  "ssh.allBound": "Все ключи привязаны",
+  "ssh.bound": "Привязан",
+  "ssh.noSessions": "Открытых сеансов нет",
+  "ssh.noShellsHere": "С этим хостом сеансов нет",
+  "ssh.routesN": "Маршрутов: {n}",
+  "ssh.save": "Сохранить",
+  "ssh.saved": "Сохранено",
+  "ssh.sessions": "Сеансы",
+  "ssh.sessionsN": "Открыто: {n}",
+  "ssh.socketsN": "Сокетов: {n}",
+  "ssh.unbound": "Без хостов",
+  "ssh.unmappedN": "Без хостов: {n}",
+  "ssh.verify": "Первое подключение к {host}: сверьте отпечаток ключа {algorithm} с тем, что показывает сервер",
+  "ssh.verifyOthers": "{host} уже известен по ключам другого вида: сервер мог сменить ключ. Сверьте отпечаток {algorithm}",
+  "err.sshExit": "Оболочка завершилась с кодом {code}"
 }

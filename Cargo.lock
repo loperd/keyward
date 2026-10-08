@@ -3416,6 +3416,7 @@ dependencies = [
  "keyward-core",
  "keyward-plugin",
  "keyward-plugin-stdio",
+ "keyward-ui",
  "percent-encoding",
  "reqwest 0.12.28",
  "serde",

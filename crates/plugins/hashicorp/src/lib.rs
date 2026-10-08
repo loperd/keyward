@@ -14,6 +14,9 @@ pub mod broker;
 pub mod link;
 pub mod model;
 mod store;
+pub mod ui;
+#[cfg(test)]
+mod stand;
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
@@ -38,6 +41,8 @@ enum Stage {
 #[derive(Default)]
 pub struct HashicorpPlugin {
     notified: Mutex<HashSet<(String, Stage)>>,
+    /// The sealed road to the window's declared screens (ui.rs).
+    ui: keyward_ui::UiServer,
 }
 
 impl HashicorpPlugin {
@@ -143,18 +148,30 @@ impl Plugin for HashicorpPlugin {
                 Permission::Clipboard,
             ],
             probe: false,
-            declared: false,
-            places: false,
+            declared: true,
+            places: true,
         }
     }
 
     async fn call(&self, host: &dyn Host, op: &str, payload: Value) -> Result<Value> {
-        dispatch(host, op, payload).await
+        match op {
+            "ui_link" | "ui" => match self.ui.call(self, host, op, payload).await {
+                Some(answer) => answer,
+                None => anyhow::bail!("the hashicorp plugin's sealed road does not know \"{op}\""),
+            },
+            // What the daemon filled in with an item's fields comes here, past
+            // the sealed road, and answers as it does.
+            "ui_unseal" | "ui_generate_root" => self.filled(host, op, payload).await,
+            _ => dispatch(host, op, payload).await,
+        }
     }
 
     async fn on_event(&self, host: &dyn Host, event: HostEvent) {
-        if event == HostEvent::Tick {
-            self.tick(host).await;
+        match event {
+            HostEvent::Tick => self.tick(host).await,
+            // The links to the window were made while the vault was open.
+            HostEvent::Locked => self.ui.lock(),
+            _ => {}
         }
     }
 }

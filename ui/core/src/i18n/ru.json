@@ -1037,6 +1037,12 @@
   "scr.connecting": "Подключение…",
   "scr.ended": "Сеанс завершён",
   "scr.again": "Открыть снова",
+  "scr.pickItem": "Выберите запись",
+  "scr.closeSession": "Закрыть сеанс",
+  "scr.authenticating": "Ждём отпечаток пальца…",
+  "scr.refuse": "Не доверять",
+  "scr.trust": "Доверять",
+  "plugin.openSettings": "Настройки плагина",
 
   "err.sessionNotRead": "Файл сессии не читается ({file}): {reason}",
   "err.sessionKeyMissing": "Файл сессии зашифрован, но его ключа больше нет в связке ключей. Выход не выполнен: верните элемент «keyward-session» в связку или удалите аккаунт и войдите заново",

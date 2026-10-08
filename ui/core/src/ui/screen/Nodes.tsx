@@ -21,11 +21,14 @@ import {
   type ScreenTableRow,
   CellType,
   FieldKind,
+  ItemPick,
   ScreenNodeType,
   Tone,
 } from "../../plugin/screen";
+import { ItemKind } from "../../model/types";
 import { Icon } from "../Icons";
-import { BtnIcon, Mark, Spinner, useLang } from "../marks";
+import { BtnIcon, Mark, Spinner, useCore, useLang } from "../marks";
+
 import { Phase } from "../feedback";
 import { SecretInput, type SecretInputHandle } from "../secret-input";
 import { useScreen } from "./context";
@@ -431,6 +434,8 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
       );
     case FieldKind.Toggle:
       return <ToggleControl label={label} initial={f.value === "true"} keep={keep(f.id)} />;
+    case FieldKind.Item:
+      return <ItemControl label={label} pick={spec.pick} initial={f.value} keep={keep(f.id)} />;
     case FieldKind.Number:
       return (
         <span className="kw-fin">
@@ -444,6 +449,31 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
         </span>
       );
   }
+}
+
+/// The kind of item each pick offers.
+const PICKED: Record<ItemPick, ItemKind> = { [ItemPick.Note]: ItemKind.SecureNote };
+
+/// One of the vault's items, from the window's own catalogue: the plugin is
+/// sent the id of the one picked, and never sees the list.
+function ItemControl({ label, pick, initial, keep }: { label: string; pick: ItemPick; initial: string | undefined; keep: (el: HTMLSelectElement | null) => void }) {
+  const { dir } = useCore();
+  const items = dir.catalog.items.filter((i) => i.kind === PICKED[pick] && !i.deleted).sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <span className="kw-fin kw-ssel-in">
+      <select ref={keep} aria-label={label} defaultValue={initial ?? ""}>
+        <option value="" disabled>
+          {t("scr.pickItem")}
+        </option>
+        {items.map((i) => (
+          <option key={i.id} value={i.id}>
+            {i.name}
+          </option>
+        ))}
+      </select>
+      <Icon name="chev" className="kw-fin-ic kw-down" />
+    </span>
+  );
 }
 
 /// A switch of a form: the window's own, its state read at sending from the
@@ -579,16 +609,19 @@ function EditorView({ text: initial, check, apply }: { text: string; check: Scre
 
 /// What cannot be taken back: at the end of the screen, in its colour, with
 /// what it does; a word asked for is typed before the button wakes.
-function DangerView({ title, hint, button }: { title: Text; hint: Text; button: ScreenButton }) {
+function DangerView({ title, hint, button, more }: { title: Text; hint: Text; button: ScreenButton; more: boolean }) {
   const { run } = useScreen();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const word = button.action.confirm;
   return (
-    <section className="kw-sec kw-sdanger">
-      <div className="kw-sec-h">
-        <h2 className="kw-h2">{t("scr.danger")}</h2>
-      </div>
+    <section className={`kw-sec kw-sdanger${more ? " kw-more" : ""}`}>
+      {/* One heading over the zone: the next of its rows says nothing again. */}
+      {!more && (
+        <div className="kw-sec-h">
+          <h2 className="kw-h2">{t("scr.danger")}</h2>
+        </div>
+      )}
       <div className="kw-sdanger-row">
         <span className="kw-sdanger-t">
           <b>{say(title)}</b>
@@ -657,7 +690,7 @@ function SectionView({ node }: { node: Extract<ScreenNode, { type: ScreenNodeTyp
   );
 }
 
-export function NodeView({ node }: { node: ScreenNode }): ReactNode {
+export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode | undefined }): ReactNode {
   switch (node.type) {
     case ScreenNodeType.Section:
       return <SectionView node={node} />;
@@ -692,7 +725,7 @@ export function NodeView({ node }: { node: ScreenNode }): ReactNode {
     case ScreenNodeType.Terminal:
       return <Terminal ops={node} />;
     case ScreenNodeType.Danger:
-      return <DangerView title={node.title} hint={node.hint} button={node.button} />;
+      return <DangerView title={node.title} hint={node.hint} button={node.button} more={after?.type === ScreenNodeType.Danger} />;
     case ScreenNodeType.Chips:
       return (
         <div className="kw-schips">
@@ -733,7 +766,7 @@ export function Nodes({ nodes }: { nodes: ScreenNode[] }) {
     <>
       {nodes.map((n, i) => (
         <Fragment key={i}>
-          <NodeView node={n} />
+          <NodeView node={n} after={nodes[i - 1]} />
         </Fragment>
       ))}
     </>
