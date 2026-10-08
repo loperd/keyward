@@ -262,11 +262,17 @@ impl Tab {
 }
 
 /// Starts a health round and waits for it to finish: the answer comes at
-/// once, with the hosts marked as being checked, and the board fills in.
+/// once, with the hosts marked as being checked, and the board fills in. A
+/// round over a server on this machine may be over before the answer goes
+/// out; the answer then says so, with every host checked.
 async fn health(p: &SshPlugin, core: &Core) -> Value {
     let started = p.call(core, "health_run", Value::Null).await.unwrap();
-    assert_eq!(started["running"], true, "{started}");
-    assert!(started["keys"][0]["checks"].as_array().unwrap().iter().all(|c| c["checking"] == true), "{started}");
+    let checks = started["keys"][0]["checks"].as_array().unwrap();
+    if started["running"] == false {
+        assert!(checks.iter().all(|c| c["checking"] == false && c["checked_at"].is_u64()), "a round said over before it checked: {started}");
+        return started;
+    }
+    assert!(checks.iter().all(|c| c["checking"] == true), "{started}");
     for _ in 0..500 {
         let report = p.call(core, "health", Value::Null).await.unwrap();
         if report["running"] == false {
