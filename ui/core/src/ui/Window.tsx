@@ -2,6 +2,7 @@
 // walk the columns, typing anywhere goes to the line, ⌘K opens it, ⌘[ ⌘] walk
 // the history, Space looks quickly, Esc steps back out of a preview, a map or
 // a look.
+import { faultWords } from "./fault";
 import type { SecretFormHandle } from "./SecretForm";
 import { secretsProblem, withSecrets } from "../verbs/account";
 import { SETTINGS_ID } from "../settings/pages";
@@ -125,7 +126,7 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
         if (movesOn(e)) core.toast(ToastKind.Ok, t("ui.toast.done", { what: text(ready.title) }));
         setRun((r) => (r.line === at ? { line: at, state: { phase: RunPhase.Done, changed } } : r));
       },
-      (err: unknown) => setRun((r) => (r.line === at ? { line: at, state: { phase: RunPhase.Failed, reason: err instanceof Error ? err.message : String(err) } } : r)),
+      (err: unknown) => setRun((r) => (r.line === at ? { line: at, state: { phase: RunPhase.Failed, reason: faultWords(err) } } : r)),
     );
     return true;
   }, [core, perform, writes, runState.phase, snap.line]);

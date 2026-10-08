@@ -2,6 +2,7 @@
 // person, read when the page opens — the email and whether it is verified,
 // the name, how the master password is stretched, two-step login, and the
 // account key's five words to compare with another client's.
+import { faultWords } from "./fault";
 import { useEffect, useState } from "react";
 import { currentLang, t } from "../i18n";
 import { type AccountProfile, KdfKind } from "../settings/types";
@@ -31,7 +32,7 @@ export function ProfileView({ version }: { version: number }) {
     let live = true;
     backend.profile().then(
       (x) => live && (setP(x), setFailed(null)),
-      (e: unknown) => live && setFailed(e instanceof Error ? e.message : String(e)),
+      (e: unknown) => live && setFailed(faultWords(e)),
     );
     return () => {
       live = false;

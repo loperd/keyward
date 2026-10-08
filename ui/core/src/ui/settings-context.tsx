@@ -3,6 +3,7 @@
 // again after every change; a change is sent at once and what the backend
 // answers is what stands — a refused one leaves the row as it was and says
 // why.
+import { faultWords } from "./fault";
 import { createContext, useContext, useState } from "react";
 import "./edit.css";
 import "./settings.css";
@@ -105,7 +106,7 @@ function ValueRow({ row, report }: { row: Extract<SettingRow, { kind: RowKind.To
     setBusy(true);
     hold
       .patch(p)
-      .catch((e: unknown) => report(new Error(t("set.saveFailed", { reason: e instanceof Error ? e.message : String(e) }))))
+      .catch((e: unknown) => report(new Error(t("set.saveFailed", { reason: faultWords(e) }))))
       .finally(() => setBusy(false));
   };
   const hint = row.hint ? t(row.hint(s)) : null;

@@ -8,6 +8,7 @@
 // (a lock, a logout) everything of the vault is let go at once: the
 // catalogue, the graph, the query, the path and its history, the places held
 // in memory (see SessionHold).
+import { faultWords } from "./fault";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import "./theme.css";
 import "./base.css";
@@ -109,7 +110,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
   const [revealTick, setRevealTick] = useState(0);
 
   const report = useCallback((e: unknown) => {
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = faultWords(e);
     console.error(e);
     toasts.push(ToastKind.Error, msg);
   }, [toasts]);
@@ -127,7 +128,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
       (e: unknown) => {
         if (!live) return;
         console.error(e);
-        setSettingsFailed(e instanceof Error ? e.message : String(e));
+        setSettingsFailed(faultWords(e));
       },
     );
     return () => {
@@ -232,7 +233,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     });
   }, [backend, hold, readUnlock, screens, readCatalog, readSources, report]);
   const boot = useCallback(() => {
-    load().catch((e: unknown) => setFailure(e instanceof Error ? e.message : String(e)));
+    load().catch((e: unknown) => setFailure(faultWords(e)));
   }, [load]);
   useEffect(() => {
     boot();
@@ -362,7 +363,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
             for (const id of ids) next.delete(id);
             return next;
           });
-          report(new Error(t(del ? "ui.trashFailed" : "ui.restoreFailed", { reason: err instanceof Error ? err.message : String(err) })));
+          report(new Error(t(del ? "ui.trashFailed" : "ui.restoreFailed", { reason: faultWords(err) })));
           throw err;
         }
         toasts.push(ToastKind.Ok, t(del ? "ui.toast.trashed" : "ui.toast.restored"));

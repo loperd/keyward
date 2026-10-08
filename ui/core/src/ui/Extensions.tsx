@@ -4,6 +4,7 @@
 // on the Browsers page and the prompt over the window both read the backend
 // on a timer, so a browser that asks while the window is open shows up
 // without a reload.
+import { faultWords } from "./fault";
 import { useCallback, useEffect, useState } from "react";
 import "./reprompt.css";
 import "./extensions.css";
@@ -45,7 +46,7 @@ export function ExtensionsList() {
         setList(l);
         setFailed(null);
       },
-      (e: unknown) => setFailed(e instanceof Error ? e.message : String(e)),
+      (e: unknown) => setFailed(faultWords(e)),
     );
   }, [b]);
   useEffect(() => {
@@ -173,7 +174,7 @@ export function PairPrompt() {
         setAsking(null);
         core.toast(ToastKind.Ok, t("ext.pairedToast"));
       })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => setError(faultWords(e)))
       .finally(() => setBusy(false));
   };
   return (

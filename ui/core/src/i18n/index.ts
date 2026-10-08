@@ -14,13 +14,17 @@ import ruReprompt from "./reprompt.ru.json";
 import enReprompt from "./reprompt.en.json";
 import ruSettings from "./settings.ru.json";
 import enSettings from "./settings.en.json";
+import ruDaemon from "./daemon.ru.json";
+import enDaemon from "./daemon.en.json";
 import ruPlugins from "./plugins.ru.json";
 import enPlugins from "./plugins.en.json";
 
 // The dictionaries are kept in files by area (the map's words apart, the
-// re-prompt's apart, the settings' apart, the plugins' apart), and read as one.
-const ru = { ...ruCore, ...ruMap, ...ruReprompt, ...ruSettings, ...ruPlugins };
-const en = { ...enCore, ...enMap, ...enReprompt, ...enSettings, ...enPlugins };
+// re-prompt's apart, the settings' apart, the plugins' apart, the daemon's
+// refusals apart — the same `err.*` words the app's `i18n/` holds), and read
+// as one.
+const ru = { ...ruDaemon, ...ruCore, ...ruMap, ...ruReprompt, ...ruSettings, ...ruPlugins };
+const en = { ...enDaemon, ...enCore, ...enMap, ...enReprompt, ...enSettings, ...enPlugins };
 
 export enum Lang {
   Ru = "ru",

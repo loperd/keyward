@@ -4,9 +4,10 @@
 // taken back with a word if the backend refuses; a new item or folder is
 // stepped onto once the catalogue has it. Without writes the window offers
 // none of this.
+import { faultWords } from "./fault";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_GENERATOR, draftOf, fillSecrets, problems, type Form } from "../edit/draft";
-import { isKey, t } from "../i18n";
+import { t } from "../i18n";
 import type { Directory } from "../path/directory";
 import { type Effect, FolderOp } from "../verbs/spec";
 import { runFolderWrite } from "../verbs/writes";
@@ -67,10 +68,7 @@ export const useWrites = () => useContext(WritesContext);
 
 
 /// A refusal's words: the dictionary's when it is one of its `err.*` keys.
-const reason = (e: unknown) => {
-  const m = e instanceof Error ? e.message : String(e);
-  return m.startsWith("err.") && isKey(m) ? t(m) : m;
-};
+const reason = faultWords;
 
 export function WritesProvider({ writes, children }: { writes: Writes | null; children: ReactNode }) {
   if (!writes) return <>{children}</>;

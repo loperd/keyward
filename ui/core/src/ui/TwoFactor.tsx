@@ -6,6 +6,7 @@
 // held in refs, never in React state, drawn while their step stands and
 // dropped when it goes; they are read off the screen, never put on the
 // clipboard, which nothing would clear.
+import { faultWords } from "./fault";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import QRCode from "qrcode";
 import "./sheet.css";
@@ -82,7 +83,7 @@ export function TwoFactorPanel() {
     let live = true;
     b.twoFactorStatus().then(
       (s) => live && setStatus(s),
-      (e: unknown) => live && setFailed(e instanceof Error ? e.message : String(e)),
+      (e: unknown) => live && setFailed(faultWords(e)),
     );
     return () => {
       live = false;
@@ -113,7 +114,7 @@ export function TwoFactorPanel() {
     setBusy(true);
     setError(null);
     work()
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => setError(faultWords(e)))
       .finally(() => setBusy(false));
   };
   const finish = (s: TwoFactorStatus, words: string) => {
@@ -388,7 +389,7 @@ export function EmailChange() {
     setBusy(true);
     setError(null);
     work()
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+      .catch((e: unknown) => setError(faultWords(e)))
       .finally(() => setBusy(false));
   };
   if (step === EmailStep.Idle)

@@ -1,6 +1,7 @@
 // A verb's preview: what will happen, step by step, what changes and what
 // stays — and nothing happens until ↵. The preview is the verb's own
 // (verbs/core.ts or a plugin's); this only draws it and runs its effect.
+import { faultWords } from "./fault";
 import { isKey, t, text, type Text } from "../i18n";
 import { previewOf } from "../verbs/core";
 import { type DeltaSide, type Effect, type Line, PreviewKind, type SecretAsk } from "../verbs/spec";
@@ -62,8 +63,8 @@ function Section({ title, count, children }: { title: string; count?: number | u
 /// A backend's refusal in the person's words: its `err.*` key when it has
 /// one, its message otherwise.
 function refusal(e: unknown): string {
-  const code = e && typeof e === "object" && "code" in e && typeof e.code === "string" ? e.code : (e instanceof Error ? e.message : String(e)).trim();
-  return code.startsWith("err.") && isKey(code) ? t(code) : code;
+  if (e && typeof e === "object" && "code" in e && typeof e.code === "string" && e.code.startsWith("err.") && isKey(e.code)) return t(e.code);
+  return faultWords(e);
 }
 
 /// The member's fingerprint phrase, as Bitwarden writes it (words joined by

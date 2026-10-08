@@ -89,7 +89,7 @@ removed once every blocker below is in the new one. Tick a line when it is in
       friends (an old `settings.json` that still has `interface` reads); the
       strip's "new interface" row and its words.
 - [ ] Drop the Tauri commands only the old window used.
-- [ ] The daemon's `err.*` words in the window's dictionary: most are only in
+- [x] The daemon's `err.*` words in the window's dictionary: most are only in
       `i18n/`, which the old window read.
 - [ ] README's screenshots: `scripts/readme-shots.mjs` still drives the old
       `preview.html`; make it drive the stand (`ui/stand`) and shoot anew.
