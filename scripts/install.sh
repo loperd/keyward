@@ -168,11 +168,11 @@ HOSTEOF
     note "$dir/$HOST_NAME.json"
   done < <(browser_dirs)
   [ "$any" = 1 ] || note "no Chromium browser found — the bridge is installed but no browser knows of it"
-  # The extension itself is loaded by a person: a browser takes an extension
-  # from outside its store only by hand, in developer mode, and that is as it
-  # should be.
-  note "the extension: chrome://extensions (arc://extensions) → Developer mode → Load unpacked →"
-  note "  $(cd "$(dirname "$0")/.." && pwd)/extension/chromium"
+  # The extension itself is added by a person, from the store; a browser takes
+  # one from outside its store only by hand, in developer mode — for working
+  # on the extension.
+  note "the extension: https://chromewebstore.google.com/detail/keyward/codlckblccbcnadacdnoieimkmdieajg"
+  note "  (to work on it: chrome://extensions → Developer mode → Load unpacked → $(cd "$(dirname "$0")/.." && pwd)/extension/chromium)"
 }
 
 do_install() {

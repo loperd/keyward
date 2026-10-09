@@ -110,6 +110,10 @@ make uninstall    # removes the app, CLI, and LaunchAgent
 make test         # Rust tests plus an SSH smoke test
 ```
 
+### Passkeys in the browser
+
+The [keyward extension](https://chromewebstore.google.com/detail/keyward/codlckblccbcnadacdnoieimkmdieajg) for Chrome and other Chromium browsers (Arc, Brave, Edge) lets sites sign in with the passkeys in your vault and save new ones there, with Touch ID each time. `make install` sets up the bridge it talks to; the first time a site asks, keyward shows the extension's five words to compare, and Settings › Browsers lists what is paired. The private key never leaves the app.
+
 ## First connection
 
 ```sh

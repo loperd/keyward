@@ -122,6 +122,9 @@ submission; do not use account data or production screenshots.
    The store id is `codlckblccbcnadacdnoieimkmdieajg`; both lists carry it.
 4. Submit for review.
 
+Published on 2026-10-09: https://chromewebstore.google.com/detail/keyward/codlckblccbcnadacdnoieimkmdieajg
+(0.1.0, with app 0.2.0 carrying its id).
+
 ## Changes log
 
 - 0.1.0 — first version: sign in and register passkeys; sealed bridge to the
