@@ -455,9 +455,14 @@ export function columns(q: Query, segs: Segment[], map: MapRef | null): Column[]
 /// column is a spine; a spine is never between open ones, because opening a
 /// spine shortens the path back to it (`PathStore.expand`), so it becomes one
 /// of the last two.
-export function fold(n: number, opts: { map: boolean; narrow: boolean; fits: (open: number) => boolean; shown?: number | null }): boolean[] {
+/// `room`: whether the answer keeps the width it needs beside `open` columns
+/// — where it does not even beside one, that one folds too and the answer
+/// takes the stage (a small window); a column unfolded by hand stays open.
+export function fold(n: number, opts: { map: boolean; narrow: boolean; fits: (open: number) => boolean; shown?: number | null; room?: (open: number) => boolean }): boolean[] {
   let max = opts.map || opts.narrow ? 1 : 2;
   while (max > 1 && !opts.fits(max)) max--;
+  const unfolded = opts.shown !== null && opts.shown !== undefined && opts.shown >= 0 && opts.shown < n;
+  if (opts.room && !unfolded) while (max > 0 && !opts.room(max)) max--;
   // The open pair stays together: by default the last columns; a column
   // unfolded from a spine pulls the pair onto itself, from either side.
   let start = Math.max(0, n - max);

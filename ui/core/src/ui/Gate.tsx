@@ -7,6 +7,7 @@
 // GateMachine; a password lives in its field (uncontrolled, never in React
 // state nor in the DOM's value attribute) until the press that sends it,
 // which empties the field; it is never kept in the machine.
+import { WindowButtons } from "./WindowButtons";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode, type Ref } from "react";
 import "./gate.css";
 import { type Account, type Backend, type Session, TwoFactorProvider, SessionState } from "../backend";
@@ -91,11 +92,11 @@ export function Gate({ backend, session, onDone, autoBiometric = true }: GatePro
   const v = state.view;
   const formKey = `${v.step}:${"editing" in v ? v.editing : ""}:${"method" in v ? v.method : ""}:${"provider" in v ? v.provider : ""}`;
   return (
-    <div className="kw-gate">
+    <div className="gate">
       <GateStrip m={machine} s={state} />
-      <main className="kw-gate-stage">
-        <div className="kw-gate-sheet">
-          <div className="kw-gate-doc">
+      <main className="gate-stage">
+        <div className="gate-sheet">
+          <div className="gate-doc">
             {state.picking ? (
               <Accounts m={machine} s={state} />
             ) : (
@@ -106,7 +107,7 @@ export function Gate({ backend, session, onDone, autoBiometric = true }: GatePro
                 {v.step === GateStep.Unlock && <Unlock key={formKey} m={machine} s={state} v={v} />}
                 {v.step === GateStep.Damaged && <Damaged m={machine} s={state} v={v} />}
                 {(v.step === GateStep.Unlock || v.step === GateStep.SignIn) && machine.offersAccounts && (
-                  <button type="button" className="kw-btn kw-quiet kw-gate-other" onClick={() => machine.openAccounts()} disabled={state.busy !== null}>
+                  <button type="button" className="btn quiet gate-other" onClick={() => machine.openAccounts()} disabled={state.busy !== null}>
                     <Icon name="people" />
                     <span>{t("gate.account.other")}</span>
                   </button>
@@ -130,25 +131,26 @@ function GateStrip({ m, s }: { m: GateMachine; s: GateState }) {
   const crumb = s.picking ? { icon: "people", key: "gate.accounts" as Key } : STEP_CRUMB[v.step];
   const { email, server } = who(v);
   return (
-    <header className="kw-strip kw-gate-strip" data-tauri-drag-region="deep">
-      <div className="kw-nav">
+    <header className="strip gate-strip" data-tauri-drag-region="deep">
+      <WindowButtons />
+      <div className="nav">
         <IconButton icon="back" tip={`${t("back")} Esc`} onClick={() => m.back()} disabled={!m.canBack} />
         <IconButton icon="fwd" tip={t("forward")} disabled />
       </div>
-      <div className="kw-qline kw-gate-line" aria-label={t("gate.path.signIn")}>
-        <span className="kw-crumbs">
-          <span className="kw-crumb">
+      <div className="qline gate-line" aria-label={t("gate.path.signIn")}>
+        <span className="crumbs">
+          <span className="crumb">
             <Icon name="vault" />
             <span>{t("root")}</span>
           </span>
-          <span className="kw-sep">›</span>
-          <span className="kw-crumb kw-last">
+          <span className="sep">›</span>
+          <span className="crumb last">
             <Icon name={crumb.icon} />
             <span>{t(crumb.key)}</span>
           </span>
         </span>
-        <span className="kw-gate-line-fill" />
-        {server && <span className="kw-qmeta">{host(server)}</span>}
+        <span className="gate-line-fill" />
+        {server && <span className="qmeta">{host(server)}</span>}
       </div>
       <IconButton icon="lang" tip={lang === Lang.Ru ? t("ui.lang.en") : t("ui.lang.ru")} onClick={() => setLang(lang === Lang.Ru ? Lang.En : Lang.Ru)} />
       <IconButton
@@ -160,8 +162,8 @@ function GateStrip({ m, s }: { m: GateMachine; s: GateState }) {
         }}
       />
       {email && (
-        <span className="kw-gate-me kw-tip-l" data-tip={server ? `${email} · ${host(server)}` : email} aria-label={email}>
-          <span className="kw-ava">{markOf(email)}</span>
+        <span className="gate-me tip-l" data-tip={server ? `${email} · ${host(server)}` : email} aria-label={email}>
+          <span className="ava">{markOf(email)}</span>
         </span>
       )}
     </header>
@@ -175,7 +177,7 @@ type StepProps<S extends GateView["step"]> = { m: GateMachine; s: GateState; v: 
 function Form({ title, sub, onSubmit, busy, children }: { title: string; sub?: ReactNode; onSubmit: () => void; busy: boolean; children: ReactNode }) {
   return (
     <form
-      className="kw-gate-form"
+      className="gate-form"
       aria-busy={busy}
       noValidate
       onSubmit={(e: FormEvent) => {
@@ -183,11 +185,11 @@ function Form({ title, sub, onSubmit, busy, children }: { title: string; sub?: R
         onSubmit();
       }}
     >
-      <div className="kw-gate-head">
+      <div className="gate-head">
         <h1>{title}</h1>
         {sub && <p>{sub}</p>}
       </div>
-      <div className="kw-gate-rows">{children}</div>
+      <div className="gate-rows">{children}</div>
     </form>
   );
 }
@@ -197,25 +199,25 @@ function Form({ title, sub, onSubmit, busy, children }: { title: string; sub?: R
 /// `group`: the control is a set of buttons, not a field a label may focus.
 /// `text`: a line of words, as tall as its text rather than a control.
 function Row({ label, children, group, text: words }: { label?: string; children: ReactNode; group?: boolean; text?: boolean }) {
-  const cls = words ? "kw-gate-row kw-text" : "kw-gate-row";
+  const cls = words ? "gate-row text" : "gate-row";
   if (!label)
     return (
       <div className={cls}>
         <span />
-        <div className="kw-gate-val">{children}</div>
+        <div className="gate-val">{children}</div>
       </div>
     );
   if (group)
     return (
       <div className={cls} role="group" aria-label={label}>
-        <span className="kw-gate-lbl">{label}</span>
-        <span className="kw-gate-val">{children}</span>
+        <span className="gate-lbl">{label}</span>
+        <span className="gate-val">{children}</span>
       </div>
     );
   return (
     <label className={cls}>
-      <span className="kw-gate-lbl">{label}</span>
-      <span className="kw-gate-val">{children}</span>
+      <span className="gate-lbl">{label}</span>
+      <span className="gate-val">{children}</span>
     </label>
   );
 }
@@ -224,7 +226,7 @@ function Secret({ handle, onFilled, label, disabled, autoFocus, numeric }: { han
   const [shown, setShown] = useState(false);
   return (
     <Row label={label}>
-      <span className="kw-gin kw-gin-secret">
+      <span className="gin gin-secret">
         <SecretInput
           ref={handle}
           onFilled={onFilled}
@@ -234,7 +236,7 @@ function Secret({ handle, onFilled, label, disabled, autoFocus, numeric }: { han
           autoFocus={autoFocus}
           disabled={disabled}
         />
-        <IconButton icon="eye" className={shown ? "kw-on kw-tip-l" : "kw-tip-l"} tip={shown ? t("gate.hidePassword") : t("gate.showPassword")} onClick={() => setShown(!shown)} />
+        <IconButton icon="eye" className={shown ? "on tip-l" : "tip-l"} tip={shown ? t("gate.hidePassword") : t("gate.showPassword")} onClick={() => setShown(!shown)} />
       </span>
     </Row>
   );
@@ -242,7 +244,7 @@ function Secret({ handle, onFilled, label, disabled, autoFocus, numeric }: { han
 
 function TextInput({ value, onChange, type = "text", placeholder, autoComplete, autoFocus, disabled }: { value: string; onChange: (v: string) => void; type?: "text" | "email" | "url"; placeholder?: string; autoComplete: string; autoFocus: boolean; disabled: boolean }) {
   return (
-    <span className="kw-gin">
+    <span className="gin">
       <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} spellCheck={false} autoCapitalize="off" autoComplete={autoComplete} autoFocus={autoFocus} disabled={disabled} />
     </span>
   );
@@ -256,12 +258,12 @@ function Progress({ s }: { s: GateState }) {
   if (!what) return null;
   return (
     <Row>
-      <div className={`kw-gate-progress kw-gate-progress-${s.busy}`} role="status" aria-live="polite">
-        <span className="kw-gate-pulse" aria-hidden="true">
+      <div className={`gate-progress gate-progress-${s.busy}`} role="status" aria-live="polite">
+        <span className="gate-pulse" aria-hidden="true">
           <Icon name={s.busy === GateAction.Biometric ? "finger" : "lock"} />
         </span>
         <span>{t(what)}</span>
-        <span className="kw-gate-bar" aria-hidden="true" />
+        <span className="gate-bar" aria-hidden="true" />
       </div>
     </Row>
   );
@@ -271,7 +273,7 @@ function ErrorLine({ s }: { s: GateState }) {
   if (!s.error) return null;
   return (
     <Row>
-      <div className="kw-gate-err" role="alert">
+      <div className="gate-err" role="alert">
         <Mark level={Level.Critical} words={text(s.error)} />
       </div>
     </Row>
@@ -280,8 +282,8 @@ function ErrorLine({ s }: { s: GateState }) {
 
 function Submit({ label, busyLabel, busy, disabled }: { label: Key; busyLabel: Key; busy: boolean; disabled: boolean }) {
   return (
-    <button type="submit" className="kw-btn kw-solid kw-gate-go" disabled={disabled}>
-      {busy && <span className="kw-gate-spin" aria-hidden="true" />}
+    <button type="submit" className="btn solid gate-go" disabled={disabled}>
+      {busy && <span className="gate-spin" aria-hidden="true" />}
       {t(busy ? busyLabel : label)}
       {!busy && <Kbd>↵</Kbd>}
     </button>
@@ -292,14 +294,14 @@ function Submit({ label, busyLabel, busy, disabled }: { label: Key; busyLabel: K
 function Actions({ children }: { children: ReactNode }) {
   return (
     <Row>
-      <div className="kw-gate-acts">{children}</div>
+      <div className="gate-acts">{children}</div>
     </Row>
   );
 }
 
 function Back({ m, disabled }: { m: GateMachine; disabled: boolean }) {
   return (
-    <button type="button" className="kw-btn" onClick={() => m.back()} disabled={disabled}>
+    <button type="button" className="btn" onClick={() => m.back()} disabled={disabled}>
       {t("gate.back")}
       <Kbd>Esc</Kbd>
     </button>
@@ -309,7 +311,7 @@ function Back({ m, disabled }: { m: GateMachine; disabled: boolean }) {
 function Note({ children, faint }: { children: ReactNode; faint?: boolean }) {
   return (
     <Row text>
-      <p className={faint ? "kw-gate-note kw-faint" : "kw-gate-note"}>{children}</p>
+      <p className={faint ? "gate-note faint" : "gate-note"}>{children}</p>
     </Row>
   );
 }
@@ -340,9 +342,9 @@ function SignIn({ m, s, v }: StepProps<GateStep.SignIn>) {
       {v.editing && choose && (
         <>
           <Row label={t("gate.server")} group>
-            <span className="kw-seg" role="radiogroup" aria-label={t("gate.server")}>
+            <span className="seg" role="radiogroup" aria-label={t("gate.server")}>
               {REGION_ORDER.map((r) => (
-                <button key={r} type="button" role="radio" aria-checked={r === region} className={r === region ? "kw-on" : ""} disabled={busy} onClick={() => setRegion(r)}>
+                <button key={r} type="button" role="radio" aria-checked={r === region} className={r === region ? "on" : ""} disabled={busy} onClick={() => setRegion(r)}>
                   {t(REGION_WORD[r])}
                 </button>
               ))}
@@ -371,12 +373,12 @@ function SignIn({ m, s, v }: StepProps<GateStep.SignIn>) {
       <Actions>
         <Submit label="gate.submit" busyLabel="gate.signingIn" busy={s.busy === GateAction.SignIn} disabled={busy || !ready} />
         {!v.editing && (
-          <button type="button" className="kw-btn" onClick={() => m.edit()} disabled={busy}>
+          <button type="button" className="btn" onClick={() => m.edit()} disabled={busy}>
             {t(choose ? "gate.change" : "gate.changeEmail")}
           </button>
         )}
         {v.editing && choose && region === Region.Self && (
-          <button type="button" className={advanced ? "kw-btn kw-on" : "kw-btn"} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)} disabled={busy}>
+          <button type="button" className={advanced ? "btn on" : "btn"} aria-expanded={advanced} onClick={() => setAdvanced(!advanced)} disabled={busy}>
             <Icon name="tune" />
             {t("gate.advanced")}
           </button>
@@ -409,9 +411,9 @@ function TwoFactor({ m, s, v }: StepProps<GateStep.TwoFactor>) {
     <Form title={t("gate.twoFactor.title")} sub={v.email} busy={busy} onSubmit={() => !busy && hasCode && code.current && void m.code(code.current.take(), remember)}>
       {usable.length > 1 && (
         <Row label={t("gate.method")} group>
-          <span className="kw-seg" role="radiogroup" aria-label={t("gate.method")}>
+          <span className="seg" role="radiogroup" aria-label={t("gate.method")}>
             {usable.map((p) => (
-              <button key={p} type="button" role="radio" aria-checked={p === provider} className={p === provider ? "kw-on" : ""} disabled={busy} onClick={() => m.choose(p)}>
+              <button key={p} type="button" role="radio" aria-checked={p === provider} className={p === provider ? "on" : ""} disabled={busy} onClick={() => m.choose(p)}>
                 {t(PROVIDER_NAME[p])}
               </button>
             ))}
@@ -419,12 +421,12 @@ function TwoFactor({ m, s, v }: StepProps<GateStep.TwoFactor>) {
         </Row>
       )}
       <Row label={t("gate.code")}>
-        <span className="kw-gin">
+        <span className="gin">
           <SecretInput
             ref={code}
             onFilled={setHasCode}
             shown
-            className="kw-mono"
+            className="mono"
             inputMode={provider === TwoFactorProvider.Authenticator || provider === TwoFactorProvider.Email ? "numeric" : "text"}
             autoComplete="one-time-code"
             autoFocus
@@ -434,7 +436,7 @@ function TwoFactor({ m, s, v }: StepProps<GateStep.TwoFactor>) {
       </Row>
       {prompt && <Note faint>{t(prompt, { email: v.email })}</Note>}
       <Row>
-        <label className="kw-gate-check">
+        <label className="gate-check">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} disabled={busy} />
           <span>{t("gate.remember")}</span>
         </label>
@@ -452,7 +454,7 @@ function TwoFactor({ m, s, v }: StepProps<GateStep.TwoFactor>) {
 
 function SendCode({ m, s, sent, email }: { m: GateMachine; s: GateState; sent: boolean; email: string }) {
   return (
-    <button type="button" className="kw-btn" onClick={() => void m.send()} disabled={s.busy !== null} data-tip={sent ? t("gate.sent", { email }) : undefined}>
+    <button type="button" className="btn" onClick={() => void m.send()} disabled={s.busy !== null} data-tip={sent ? t("gate.sent", { email }) : undefined}>
       <Icon name="mail" />
       {t(s.busy === GateAction.Send ? "gate.sending" : sent ? "gate.resend" : "gate.send")}
     </button>
@@ -466,8 +468,8 @@ function NewDevice({ m, s, v }: StepProps<GateStep.NewDevice>) {
   return (
     <Form title={t("gate.newDevice.title")} sub={v.email} busy={busy} onSubmit={() => !busy && hasCode && code.current && void m.code(code.current.take(), false)}>
       <Row label={t("gate.code")}>
-        <span className="kw-gin">
-          <SecretInput ref={code} onFilled={setHasCode} shown className="kw-mono" inputMode="numeric" autoComplete="one-time-code" autoFocus disabled={busy} />
+        <span className="gin">
+          <SecretInput ref={code} onFilled={setHasCode} shown className="mono" inputMode="numeric" autoComplete="one-time-code" autoFocus disabled={busy} />
         </span>
       </Row>
       <Note faint>{t("gate.newDevice.lede", { email: v.email })}</Note>
@@ -495,7 +497,7 @@ function Unlock({ m, s, v }: StepProps<GateStep.Unlock>) {
     <Form title={t("gate.unlock.title")} sub={`${v.email} · ${host(v.server)}`} busy={busy} onSubmit={submit}>
       {v.pinReset && (
         <Row>
-          <div className="kw-gate-err" role="status">
+          <div className="gate-err" role="status">
             <Mark level={Level.Warning} words={t("err.pinReset")} />
           </div>
         </Row>
@@ -506,13 +508,13 @@ function Unlock({ m, s, v }: StepProps<GateStep.Unlock>) {
       <Actions>
         <Submit label="gate.unlock.submit" busyLabel="gate.unlocking" busy={s.busy === GateAction.Unlock} disabled={busy || !hasSecret} />
         {m.canBiometric && (
-          <button type="button" className="kw-btn" onClick={() => void m.biometric()} disabled={busy}>
+          <button type="button" className="btn" onClick={() => void m.biometric()} disabled={busy}>
             <Icon name="finger" />
             {t("gate.biometric")}
           </button>
         )}
         {v.pin && (
-          <button type="button" className="kw-btn" onClick={() => m.usePin(!pin)} disabled={busy}>
+          <button type="button" className="btn" onClick={() => m.usePin(!pin)} disabled={busy}>
             {t(pin ? "gate.usePassword" : "gate.usePin")}
             {pin && <Kbd>Esc</Kbd>}
           </button>
@@ -532,7 +534,7 @@ function Damaged({ m, s, v }: StepProps<GateStep.Damaged>) {
     <Form title={t(v.canReset ? "gate.damaged.title" : "gate.off.title")} sub={sub} busy={busy} onSubmit={() => void (v.canReset ? m.reset() : m.retry())}>
       <Note>{t(v.canReset ? "gate.damaged.lede" : "gate.off.lede")}</Note>
       <Row>
-        <div className="kw-gate-err" role="status">
+        <div className="gate-err" role="status">
           <Mark level={Level.Warning} words={text(v.reason)} />
         </div>
       </Row>
@@ -542,7 +544,7 @@ function Damaged({ m, s, v }: StepProps<GateStep.Damaged>) {
         {v.canReset ? (
           <>
             <Submit label="gate.damaged.reset" busyLabel="gate.signingIn" busy={s.busy === GateAction.Reset} disabled={busy} />
-            <button type="button" className="kw-btn" onClick={() => void m.retry()} disabled={busy}>
+            <button type="button" className="btn" onClick={() => void m.retry()} disabled={busy}>
               <Icon name="refresh" />
               {t("gate.damaged.retry")}
             </button>
@@ -562,20 +564,20 @@ function Accounts({ m, s }: { m: GateMachine; s: GateState }) {
   if (!m.canAccounts || !list || list.length === 0) return null;
   const busy = s.busy !== null;
   return (
-    <section className="kw-gate-accounts" aria-label={t("gate.accounts")}>
-      <div className="kw-gate-head">
+    <section className="gate-accounts" aria-label={t("gate.accounts")}>
+      <div className="gate-head">
         <h1>{t("gate.accounts")}</h1>
         <p>{t("gate.accounts.hint")}</p>
       </div>
       {s.error && (
-        <div className="kw-gate-err" role="alert">
+        <div className="gate-err" role="alert">
           <Mark level={Level.Critical} words={text(s.error)} />
         </div>
       )}
       {list.map((a) => (
         <div
           key={a.id}
-          className={`kw-row kw-two${a.active ? " kw-gate-here" : ""}`}
+          className={`row two${a.active ? " gate-here" : ""}`}
           role={a.active ? undefined : "button"}
           tabIndex={a.active || busy ? -1 : 0}
           aria-disabled={busy || undefined}
@@ -587,30 +589,30 @@ function Accounts({ m, s }: { m: GateMachine; s: GateState }) {
             }
           }}
         >
-          <span className="kw-lead">
-            <span className="kw-ava">{markOf(a.email)}</span>
+          <span className="lead">
+            <span className="ava">{markOf(a.email)}</span>
           </span>
-          <span className="kw-lbl">
-            <span className="kw-t">{a.email}</span>
-            <span className="kw-s">
+          <span className="lbl">
+            <span className="t">{a.email}</span>
+            <span className="s">
               {host(a.server)} · {t(STATE_WORD[a.state])}
             </span>
           </span>
-          <span className="kw-side">
+          <span className="side">
             {a.active ? (
               <>
-                <span className="kw-n">{t("gate.account.current")}</span>
-                <IconButton icon="logout" className="kw-tip-l" tip={t("gate.account.signOut")} onClick={() => void m.signOut()} disabled={busy} />
+                <span className="n">{t("gate.account.current")}</span>
+                <IconButton icon="logout" className="tip-l" tip={t("gate.account.signOut")} onClick={() => void m.signOut()} disabled={busy} />
               </>
             ) : (
-              <Icon name="chev" className="kw-faint" />
+              <Icon name="chev" className="faint" />
             )}
           </span>
         </div>
       ))}
       {m.canAdd && (
         <div
-          className="kw-row"
+          className="row"
           role="button"
           tabIndex={busy ? -1 : 0}
           onClick={() => void m.addAccount()}
@@ -621,11 +623,11 @@ function Accounts({ m, s }: { m: GateMachine; s: GateState }) {
             }
           }}
         >
-          <span className="kw-lead">
+          <span className="lead">
             <Icon name="plus" />
           </span>
-          <span className="kw-lbl">
-            <span className="kw-gate-add">{t("gate.account.add")}</span>
+          <span className="lbl">
+            <span className="gate-add">{t("gate.account.add")}</span>
           </span>
         </div>
       )}

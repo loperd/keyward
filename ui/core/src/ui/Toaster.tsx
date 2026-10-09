@@ -11,11 +11,11 @@ export function Toaster({ toasts }: { toasts: Toasts }) {
   const list = useToasts(toasts);
   if (!list.length) return null;
   return (
-    <div className="kw-toasts">
+    <div className="toasts">
       {list.map((x) => (
         <div
           key={x.id}
-          className={`kw-toast kw-t-${x.kind}${x.leaving ? " kw-leave" : ""}`}
+          className={`toast t-${x.kind}${x.leaving ? " leave" : ""}`}
           role={x.kind === ToastKind.Error ? "alert" : "status"}
           onClick={() => toasts.dismiss(x.id)}
           title={t("ui.toast.dismiss")}

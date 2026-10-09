@@ -16,7 +16,7 @@ keyward-core.workspace = true
 keyward-vault.workspace = true
 libc = "0.2.189"
 objc2 = "0.6.4"
-objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSResponder", "NSWorkspace", "NSRunningApplication", "NSApplication"] }
+objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSResponder", "NSWorkspace", "NSRunningApplication", "NSApplication", "NSButton", "NSControl", "NSView"] }
 anyhow.workspace = true
 core-graphics = "0.24"
 core-foundation = "0.10"

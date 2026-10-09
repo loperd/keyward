@@ -119,7 +119,7 @@
   "ext.pair": "Pair",
   "ext.unpair": "Unpair",
   "ext.none": "No browser paired",
-  "ext.noneHint": "Try a passkey in the browser: the extension shows up here with its five words",
+  "ext.noneHint": "Install the keyward extension in the browser and try a passkey on a site: the browser shows up here with its five words.",
   "ext.since": "Since {date}",
   "ext.failed": "The extensions could not be read: {reason}",
   "ext.unpaired": "Unpaired",
@@ -294,6 +294,22 @@
   "fill.stays": "The item does not change",
   "fill.staysSub": "Filling only reads it",
   "fill.go": "Fill",
-  "fill.from": "Autofill for “{app}”: pick an item and > fill",
-  "fill.noAccess": "Accessibility access is needed: turn keyward on in System Settings › Privacy › Accessibility and try again"
+  "fill.noAccess": "Accessibility access is needed: turn keyward on in System Settings › Privacy › Accessibility and try again",
+  "ext.install": "Install the extension",
+  "ext.another": "Another browser",
+  "ext.anotherHint": "Install the extension in it — it shows up here with its words.",
+  "ext.rowSub": "Passkeys in Chrome, Arc, Brave and Edge",
+  "ext.rowNone": "Extension not installed",
+  "ext.rowPaired": {
+    "one": "{n} paired",
+    "other": "{n} paired"
+  },
+  "ext.rowAsking": {
+    "one": "{n} asks to be paired",
+    "other": "{n} ask to be paired"
+  },
+  "ext.askingFrom": "{browser} asks to be paired",
+  "ext.used": "Last request {when}",
+  "ext.unknownBrowser": "The browser is not named: it was paired before keyward kept that",
+  "fill.from": "Autofill for “{app}”: pick an item and > fill"
 }

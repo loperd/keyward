@@ -42,10 +42,10 @@ function useSettingsHold(): SettingsHold {
 /// A row while what it shows is on its way, or could not be read.
 function Waiting({ title, failed }: { title: string; failed: string | null }) {
   return (
-    <div className="kw-set kw-set-wait" role="status" aria-label={failed ? t("set.readFailed", { reason: failed }) : t("set.loading")}>
-      <span className="kw-set-t">
+    <div className="set set-wait" role="status" aria-label={failed ? t("set.readFailed", { reason: failed }) : t("set.loading")}>
+      <span className="set-t">
         <b>{title}</b>
-        {failed && <span className="kw-set-h">{t("set.readFailed", { reason: failed })}</span>}
+        {failed && <span className="set-h">{t("set.readFailed", { reason: failed })}</span>}
       </span>
     </div>
   );
@@ -53,9 +53,9 @@ function Waiting({ title, failed }: { title: string; failed: string | null }) {
 
 function Words({ title, hint }: { title: string; hint: string | null }) {
   return (
-    <span className="kw-set-t">
+    <span className="set-t">
       <b>{title}</b>
-      {hint && <span className="kw-set-h">{hint}</span>}
+      {hint && <span className="set-h">{hint}</span>}
     </span>
   );
 }
@@ -74,7 +74,7 @@ function VerbButtons({ verbs }: { verbs: MethodVerb[] }) {
   return (
     <>
       {verbs.map((v) => (
-        <button key={v.verb} type="button" className={`kw-btn${v.quiet ? " kw-quiet" : " kw-solid"}${v.danger ? " kw-danger-q" : ""}`} onClick={() => store.verb(v.verb)}>
+        <button key={v.verb} type="button" className={`btn${v.quiet ? " quiet" : " solid"}${v.danger ? " danger-q" : ""}`} onClick={() => store.verb(v.verb)}>
           <BtnIcon icon={v.icon} phase={Phase.Idle} />
           {t(v.label)}
         </button>
@@ -87,9 +87,9 @@ function VerbButtons({ verbs }: { verbs: MethodVerb[] }) {
 /// that opens its preview.
 function ActionRow({ row }: { row: Extract<SettingRow, { kind: RowKind.Action }> }) {
   return (
-    <div className="kw-set">
+    <div className="set">
       <Words title={t(row.title)} hint={t(row.hint)} />
-      <span className="kw-set-acts">
+      <span className="set-acts">
         <VerbButtons verbs={row.verbs} />
       </span>
     </div>
@@ -113,18 +113,18 @@ function ValueRow({ row, report }: { row: Extract<SettingRow, { kind: RowKind.To
   if (row.kind === RowKind.Toggle) {
     const on = row.on(s);
     return (
-      <div className="kw-set" aria-busy={busy || undefined}>
+      <div className="set" aria-busy={busy || undefined}>
         <Words title={title} hint={hint} />
-        <button type="button" role="switch" aria-checked={on} aria-label={title} title={t(on ? "set.on" : "set.off")} className={`kw-switch${on ? " kw-on" : ""}`} disabled={busy} onClick={() => send(row.patch(!on))} />
+        <button type="button" role="switch" aria-checked={on} aria-label={title} title={t(on ? "set.on" : "set.off")} className={`switch${on ? " on" : ""}`} disabled={busy} onClick={() => send(row.patch(!on))} />
       </div>
     );
   }
   return (
-    <div className="kw-set kw-set-choice" aria-busy={busy || undefined}>
+    <div className="set set-choice" aria-busy={busy || undefined}>
       <Words title={title} hint={hint} />
-      <span className="kw-chips kw-set-chips" role="radiogroup" aria-label={title}>
+      <span className="chips set-chips" role="radiogroup" aria-label={title}>
         {row.choices(s).map((c, i) => (
-          <button key={i} type="button" role="radio" aria-checked={c.on} className={`kw-chip kw-sans${c.on ? " kw-on" : ""}`} disabled={busy} onClick={c.on ? undefined : () => send(c.patch)}>
+          <button key={i} type="button" role="radio" aria-checked={c.on} className={`chip sans${c.on ? " on" : ""}`} disabled={busy} onClick={c.on ? undefined : () => send(c.patch)}>
             {text(c.label)}
           </button>
         ))}
@@ -142,10 +142,10 @@ function MethodRow({ row }: { row: Extract<SettingRow, { kind: RowKind.Method }>
   if (!u) return <Waiting title={title} failed={null} />;
   const on = row.on(u);
   return (
-    <div className="kw-set">
+    <div className="set">
       <Words title={title} hint={text(row.hint(u))} />
-      <span className="kw-set-acts">
-        <span className={`kw-set-state${on ? " kw-on" : ""}`}>{t(on ? "set.on" : "set.off")}</span>
+      <span className="set-acts">
+        <span className={`set-state${on ? " on" : ""}`}>{t(on ? "set.on" : "set.off")}</span>
         {row.available(u) && <VerbButtons verbs={row.verbs(u)} />}
       </span>
     </div>

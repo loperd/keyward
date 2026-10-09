@@ -5,17 +5,17 @@ import { PreviewKind } from "../verbs/spec";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t, text, type Text } from "../i18n";
 import { type Act, type Action, type Block, type DocSpec, type Hero, type Lead, type MarkSpec, type Section, LeadTile, LiveBlock } from "../doc/spec";
-import { type Member, MemberStatus, Level, SecretField as SecretFieldKind } from "../model/types";
+import { type Member, MemberStatus, Level } from "../model/types";
 import { fieldLabel } from "../doc/build";
 import { Icon } from "./Icons";
 import { BtnIcon, Glyph, IconButton, Mark, Spinner, Tile, nodeLead, useCore } from "./marks";
 import { useAct } from "./act";
 import { useFeedback, Phase } from "./feedback";
 import { useRowMotion, withGone } from "./row-motion";
-import { dotsFor, TotpCode, useReportUnlessLocked, useReveal } from "./secret";
+import { dotsFor, useReportUnlessLocked, useReveal } from "./secret";
 import { BlockSkeleton } from "./Loading";
 import { SettingRowView } from "./settings-context";
-import { ExtensionsList } from "./Extensions";
+import { BrowsersRow, ExtensionsList } from "./Extensions";
 import { ProfileView } from "./Profile";
 import { EmailChange, TwoFactorPanel } from "./TwoFactor";
 import { useSettingsMaybe } from "./settings-context";
@@ -43,7 +43,7 @@ function ActButton({ act, icon, className, children }: { act: Act; icon?: string
   return (
     <button
       type="button"
-      className={`${className}${phase === Phase.Done ? " kw-done" : ""}`}
+      className={`${className}${phase === Phase.Done ? " done" : ""}`}
       aria-busy={phase === Phase.Busy || undefined}
       disabled={phase === Phase.Busy}
       onClick={(e) => {
@@ -61,7 +61,7 @@ export function Place({ ids, what }: { ids: string[]; what?: Text | undefined })
   const { dir, store } = useCore();
   const parts: ReactNode[] = [];
   ids.forEach((id, i) => {
-    if (i) parts.push(<span key={`s${i}`} className="kw-sl">›</span>);
+    if (i) parts.push(<span key={`s${i}`} className="sl">›</span>);
     parts.push(
       <a key={id} onClick={() => store.go(id)}>
         {text(dir.node(id).name)}
@@ -69,10 +69,10 @@ export function Place({ ids, what }: { ids: string[]; what?: Text | undefined })
     );
   });
   if (what) {
-    if (ids.length) parts.push(<span key="dot" className="kw-sl">·</span>);
+    if (ids.length) parts.push(<span key="dot" className="sl">·</span>);
     parts.push(<span key="what">{say(what)}</span>);
   }
-  return <div className="kw-place">{parts}</div>;
+  return <div className="place">{parts}</div>;
 }
 
 /// The verbs a node offers beyond the buttons its page already shows: not a
@@ -112,16 +112,16 @@ function MoreMenu({ tip, verbs }: { tip: string; verbs: ReturnType<typeof menuVe
     };
   }, [open]);
   return (
-    <span className="kw-more" ref={box}>
-      <IconButton icon="more" tip={tip} onClick={() => setOpen(!open)} className={open ? "kw-on" : undefined} />
+    <span className="more" ref={box}>
+      <IconButton icon="more" tip={tip} onClick={() => setOpen(!open)} className={open ? "on" : undefined} />
       {open && (
-        <span className="kw-more-menu" role="menu">
+        <span className="more-menu" role="menu">
           {verbs.map((v) => (
             <button
               key={v.id}
               type="button"
               role="menuitem"
-              className="kw-mrow"
+              className="mrow"
               onClick={() => {
                 // The menu closes first: the page fading out under the
                 // preview keeps no open menu in its picture.
@@ -129,10 +129,10 @@ function MoreMenu({ tip, verbs }: { tip: string; verbs: ReturnType<typeof menuVe
                 requestAnimationFrame(() => store.verb(v.id));
               }}
             >
-              <span className="kw-ic">
+              <span className="ic">
                 <Icon name={v.icon ?? "verb"} />
               </span>
-              <span className="kw-lb">{say(v.name)}</span>
+              <span className="lb">{say(v.name)}</span>
             </button>
           ))}
         </span>
@@ -158,20 +158,20 @@ function HeroView({ hero }: { hero: Hero }) {
   // "More" with nothing more to offer is not drawn.
   const more = hero.more?.filter((a) => offered(a) && (!("menu" in a.act) || extra.length > 0));
   return (
-    <header className="kw-hero">
+    <header className="hero">
       <Tile lead={lead} xl />
-      <div className="kw-hero-t">
-        <h1 className={`kw-h1${hero.mono ? " kw-mono" : ""}`}>{say(hero.title)}</h1>
+      <div className="hero-t">
+        <h1 className={`h1${hero.mono ? " mono" : ""}`}>{say(hero.title)}</h1>
         <Place ids={hero.place} what={hero.what} />
         {hero.state && (
-          <div className="kw-state">
+          <div className="state">
             <Mark level={hero.state.level} words={hero.state.text} />
           </div>
         )}
         {(primary || more?.length) && (
-          <div className="kw-acts">
+          <div className="acts">
             {primary && (
-              <ActButton act={primary.act} icon={primary.icon} className="kw-btn kw-solid">
+              <ActButton act={primary.act} icon={primary.icon} className="btn solid">
                 {say(primary.label)}
               </ActButton>
             )}
@@ -198,16 +198,16 @@ function SectionView({ s }: { s: Section }) {
   const waiting = s.blocks.some((b) => "skeleton" in b);
   if (waiting) waited.current = true;
   return (
-    <section className={`kw-sec${!waiting && waited.current ? " kw-arrived" : ""}`}>
-      <div className="kw-sec-h">
-        <h2 className="kw-h2">{say(s.title)}</h2>
-        {s.count !== undefined && <span className="kw-n">{typeof s.count === "number" ? s.count : say(s.count)}</span>}
+    <section className={`sec${!waiting && waited.current ? " arrived" : ""}`}>
+      <div className="sec-h">
+        <h2 className="h2">{say(s.title)}</h2>
+        {s.count !== undefined && <span className="n">{typeof s.count === "number" ? s.count : say(s.count)}</span>}
         {s.aside && (
-          <span className="kw-aside">
+          <span className="aside">
             {"none" in s.aside.act ? (
               say(s.aside.label)
             ) : s.aside.icon ? (
-              <ActButton act={s.aside.act} icon={s.aside.icon} className="kw-btn">
+              <ActButton act={s.aside.act} icon={s.aside.icon} className="btn">
                 {say(s.aside.label)}
               </ActButton>
             ) : (
@@ -246,13 +246,13 @@ function SecretField({ b }: { b: Extract<Block, { secret: unknown }> }) {
   const f = b.secret;
   const tip = backend.caps.biometric ? t("ui.revealBiometric") : t("ui.reveal");
   return (
-    <div className="kw-f">
-      <span className="kw-k">{say(fieldLabel(f))}</span>
-      <span className="kw-v">{r.value !== null ? <span className="kw-shown">{r.value}</span> : <span>
-            <span className="kw-dots">{dotsFor(f.key)}</span>
-            {b.tail && <span className="kw-mono"> {b.tail}</span>}
+    <div className="f">
+      <span className="k">{say(fieldLabel(f))}</span>
+      <span className="v">{r.value !== null ? <span className="shown">{r.value}</span> : <span>
+            <span className="dots">{dotsFor(f.key)}</span>
+            {b.tail && <span className="mono"> {b.tail}</span>}
           </span>}</span>
-      <span className={`kw-fa${r.value !== null ? " kw-held" : ""}`}>
+      <span className={`fa${r.value !== null ? " held" : ""}`}>
         <IconButton icon="eye" tip={r.value !== null ? t("ui.hide") : tip} onClick={r.toggle} phase={r.busy ? Phase.Busy : Phase.Idle} />
         {f.secret && <ActIconButton icon="copy" tip={copyTip()} act={{ copy: f.secret }} />}
       </span>
@@ -268,12 +268,12 @@ function RefView({ b }: { b: Extract<Block, { ref: string | null }> }) {
     else if (b.ref) store.go(b.ref);
   };
   return (
-    <div className={`kw-ref${b.off ? " kw-off" : ""}${b.nest ? " kw-nest" : ""}`} onClick={click}>
+    <div className={`ref${b.off ? " off" : ""}${b.nest ? " nest" : ""}`} onClick={click}>
       <Tile lead={b.lead} />
-      <span className={`kw-rt${b.mono ? " kw-mono" : ""}`}>{say(b.title)}</span>
-      <span className="kw-rc">{b.context ? say(b.context) : ""}</span>
-      <span className="kw-rs">
-        {b.perm && <span className="kw-perm">{say(b.perm)}</span>}
+      <span className={`rt${b.mono ? " mono" : ""}`}>{say(b.title)}</span>
+      <span className="rc">{b.context ? say(b.context) : ""}</span>
+      <span className="rs">
+        {b.perm && <span className="perm">{say(b.perm)}</span>}
         {b.glyph && <Glyph level={b.glyph.level} words={b.glyph.text} />}
         {b.mark && <Mark level={b.mark.level} words={b.mark.text} />}
       </span>
@@ -287,14 +287,14 @@ function SigView({ b }: { b: Extract<Block, { sig: unknown }> }) {
   // A way out the window has no verb for is not offered.
   const action = b.action && (!("verb" in b.action.act) || query.verbs.some((v) => "verb" in b.action!.act && v.id === b.action!.act.verb)) ? b.action : undefined;
   return (
-    <div className="kw-sig" onClick={b.go ? () => run(b.go!) : undefined}>
+    <div className="sig" onClick={b.go ? () => run(b.go!) : undefined}>
       <Glyph level={b.sig} />
-      <span className="kw-tx">
-        <b className={b.mono ? "kw-mono" : undefined}>{say(b.title)}</b>
+      <span className="tx">
+        <b className={b.mono ? "mono" : undefined}>{say(b.title)}</b>
         {b.sub && <span>{say(b.sub)}</span>}
       </span>
       {action ? (
-        <ActButton act={action.act} className="kw-btn kw-quiet">
+        <ActButton act={action.act} className="btn quiet">
           {say(action.label)}
         </ActButton>
       ) : (
@@ -320,7 +320,7 @@ function MembersTable({ members }: { members: Member[] }) {
   const drawn = withGone(members, motion.gone).filter((r) => !r.gone || dir.has(`member:${r.item.id}`));
   return (
     <>
-      <div className="kw-mt-h">
+      <div className="mt-h">
         <span />
         <span>{t("ui.th.name")}</span>
         <span>{t("ui.th.role")}</span>
@@ -331,28 +331,28 @@ function MembersTable({ members }: { members: Member[] }) {
       {drawn.map(({ item: m, gone }) => {
         const st = statusMark(m);
         const tf = tfaMark(m);
-        const move = gone ? " kw-leave" : motion.fresh(m.id) ? " kw-arrive" : "";
+        const move = gone ? " leave" : motion.fresh(m.id) ? " arrive" : "";
         return (
           <div
             key={`${gone ? "gone:" : ""}${m.id}`}
-            className={`kw-mt-r kw-calm${move}`}
+            className={`mt-r calm${move}`}
             onClick={gone ? undefined : () => store.go(`member:${m.id}`)}
             onAnimationEnd={(e) => {
               if (move && e.target === e.currentTarget) motion.settle(m.id);
             }}
           >
             <Tile lead={{ tile: LeadTile.Node, id: `member:${m.id}` }} />
-            <span className="kw-who">
+            <span className="who">
               <b>
                 {m.name ?? m.email}
-                {m.isYou && <span className="kw-me-tag">{t("ui.you")}</span>}
+                {m.isYou && <span className="me-tag">{t("ui.you")}</span>}
               </b>
               <span>{m.email}</span>
             </span>
-            <span className="kw-role">{t(`role.${m.role}`)}</span>
+            <span className="role">{t(`role.${m.role}`)}</span>
             <Mark level={st.level} words={st.text} />
             <Mark level={tf.level} words={tf.text} />
-            <span className={`kw-all${m.accessAll ? "" : " kw-no"}`}>{t(m.accessAll ? "ui.accessAll" : "ui.accessAssigned")}</span>
+            <span className={`all${m.accessAll ? "" : " no"}`}>{t(m.accessAll ? "ui.accessAll" : "ui.accessAssigned")}</span>
           </div>
         );
       })}
@@ -365,30 +365,18 @@ function BlockView({ b }: { b: Block }) {
   const { report } = useCore();
   const profileTick = useSettingsMaybe()?.accountTick ?? 0;
   if ("setting" in b) return <SettingRowView setting={b.setting} report={report} />;
-  if ("live" in b) return b.live === LiveBlock.Extensions ? <ExtensionsList /> : b.live === LiveBlock.TwoFactor ? <TwoFactorPanel /> : b.live === LiveBlock.Email ? <EmailChange /> : <ProfileView version={profileTick} />;
+  if ("live" in b) return b.live === LiveBlock.Extensions ? <ExtensionsList /> : b.live === LiveBlock.TwoFactor ? <TwoFactorPanel /> : b.live === LiveBlock.Email ? <EmailChange /> : b.live === LiveBlock.Browsers ? <BrowsersRow /> : <ProfileView version={profileTick} />;
   if ("secret" in b) return <SecretField b={b} />;
-  if ("totp" in b)
-    return (
-      <div className="kw-f">
-        <span className="kw-k">{t("field.totp")}</span>
-        <span className="kw-v">
-          <TotpCode itemId={b.totp} />
-        </span>
-        <span className="kw-fa">
-          <ActIconButton icon="copy" tip={copyTip()} act={{ copy: { itemId: b.totp, field: SecretFieldKind.Totp } }} />
-        </span>
-      </div>
-    );
   if ("field" in b)
     return (
-      <div className="kw-f">
-        <span className="kw-k">{say(b.field)}</span>
-        <span className="kw-v">
-          {say(b.value) !== "" && <span className={b.mono ? "kw-mono" : b.dim ? "kw-dim" : undefined}>{say(b.value)}</span>}
-          {b.faint && <span className="kw-faint">{say(b.faint)}</span>}
+      <div className="f">
+        <span className="k">{say(b.field)}</span>
+        <span className="v">
+          {say(b.value) !== "" && <span className={b.mono ? "mono" : b.dim ? "dim" : undefined}>{say(b.value)}</span>}
+          {b.faint && <span className="faint">{say(b.faint)}</span>}
           {b.mark && <Mark level={b.mark.level} words={b.mark.text} />}
         </span>
-        <span className="kw-fa">
+        <span className="fa">
           {b.copy && <ActIconButton icon="copy" tip={copyTip()} act={b.copy as Act} />}
           {b.open && <IconButton icon="ext" tip={t("ui.open")} />}
         </span>
@@ -398,7 +386,7 @@ function BlockView({ b }: { b: Block }) {
   if ("sig" in b) return <SigView b={b} />;
   if ("marks" in b)
     return (
-      <div className="kw-marks">
+      <div className="marks">
         {b.marks.map((m, i) => (
           <Mark key={i} level={m.level} words={m.text} />
         ))}
@@ -408,21 +396,21 @@ function BlockView({ b }: { b: Block }) {
   if ("skeleton" in b) return <BlockSkeleton kind={b.skeleton} rows={b.rows} words={b.words} />;
   if ("mapdoor" in b)
     return (
-      <div className="kw-mapdoor" onClick={() => run({ map: b.mapdoor })}>
-        <span className="kw-ic">
+      <div className="mapdoor" onClick={() => run({ map: b.mapdoor })}>
+        <span className="ic">
           <Icon name="map" />
         </span>
-        <span className="kw-tx">
+        <span className="tx">
           <b>{say(b.title)}</b>
           <span>{say(b.sub)}</span>
         </span>
-        <button type="button" className="kw-btn kw-quiet">
+        <button type="button" className="btn quiet">
           <Icon name="map" />
           {t("ui.openMap")}
         </button>
       </div>
     );
-  return <p className="kw-para">{say(b.para)}</p>;
+  return <p className="para">{say(b.para)}</p>;
 }
 
 export function DocumentView({ doc }: { doc: DocSpec }) {
@@ -433,13 +421,13 @@ export function DocumentView({ doc }: { doc: DocSpec }) {
         <SectionView key={i} s={s} />
       ))}
       {doc.note && (
-        <p className="kw-note">
+        <p className="note">
           <Icon name="info" />
           <span>{say(doc.note)}</span>
         </p>
       )}
       {doc.history && (
-        <div className="kw-hist">
+        <div className="hist">
           <Icon name="clock" />
           <span>{say(doc.history)}</span>
         </div>

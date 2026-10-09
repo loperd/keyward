@@ -1,27 +1,27 @@
 /* `> merge`: the records to choose the kept one from, and the values the
    others hold, one row each, with their choices as icons. */
-.kw-merge-keep { display: flex; flex-direction: column; gap: var(--half); }
-.kw-merge-rec { display: grid; grid-template-columns: auto minmax(0, 1fr) var(--ic); align-items: center; gap: var(--lead-gap); min-height: var(--row-1);
+.merge-keep { display: flex; flex-direction: column; gap: var(--half); }
+.merge-rec { display: grid; grid-template-columns: auto minmax(0, 1fr) var(--ic); align-items: center; gap: var(--lead-gap); min-height: var(--row-1);
   padding: 0 var(--u); border: 0; border-radius: var(--r-ctl); background: transparent; color: var(--dim); text-align: left; cursor: pointer;
   transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out); }
-.kw-merge-rec:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
-.kw-merge-rec.kw-on { background: var(--pill); color: var(--text); box-shadow: var(--sh-1), inset 0 0 0 1px var(--pill-edge); }
-.kw-merge-rec-tx { display: flex; gap: var(--u); align-items: baseline; min-width: 0; }
-.kw-merge-rec-tx b { font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kw-merge-rec-tx span { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kw-merge-rec-mk { position: relative; display: inline-flex; justify-content: center; color: var(--faint); }
-.kw-merge-rec.kw-on .kw-merge-rec-mk { color: var(--m-ok); }
+.merge-rec:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
+.merge-rec.on { background: var(--pill); color: var(--text); box-shadow: var(--sh-1), inset 0 0 0 1px var(--pill-edge); }
+.merge-rec-tx { display: flex; gap: var(--u); align-items: baseline; min-width: 0; }
+.merge-rec-tx b { font-weight: var(--w-name); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.merge-rec-tx span { color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.merge-rec-mk { position: relative; display: inline-flex; justify-content: center; color: var(--faint); }
+.merge-rec.on .merge-rec-mk { color: var(--m-ok); }
 
-.kw-merge-line { padding: var(--u) 0; }
-.kw-merge-line + .kw-merge-line { border-top: 1px solid var(--edge); }
-.kw-merge-field { display: flex; align-items: center; gap: var(--u); min-height: var(--row-1); }
-.kw-merge-field b { font-weight: var(--w-name); }
-.kw-merge-field .kw-icon { color: var(--faint); }
-.kw-merge-field .kw-faint { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kw-merge-seg { max-width: calc(var(--ctl) * 4); justify-self: end; width: 100%; }
-.kw-merge-seg button { display: inline-flex; align-items: center; justify-content: center; }
+.merge-line { padding: var(--u) 0; }
+.merge-line + .merge-line { border-top: 1px solid var(--edge); }
+.merge-field { display: flex; align-items: center; gap: var(--u); min-height: var(--row-1); }
+.merge-field b { font-weight: var(--w-name); }
+.merge-field .icon { color: var(--faint); }
+.merge-field .faint { margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.merge-seg { max-width: calc(var(--ctl) * 4); justify-self: end; width: 100%; }
+.merge-seg button { display: inline-flex; align-items: center; justify-content: center; }
 
-.kw-merge-same { display: flex; flex-wrap: wrap; gap: var(--u); }
-.kw-merge-chip { display: inline-flex; align-items: center; gap: var(--half); height: var(--chip); padding: 0 var(--u); border-radius: var(--r-in);
+.merge-same { display: flex; flex-wrap: wrap; gap: var(--u); }
+.merge-chip { display: inline-flex; align-items: center; gap: var(--half); height: var(--chip); padding: 0 var(--u); border-radius: var(--r-in);
   background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--dim); }
-.kw-merge-chip .kw-icon { color: var(--faint); }
+.merge-chip .icon { color: var(--faint); }

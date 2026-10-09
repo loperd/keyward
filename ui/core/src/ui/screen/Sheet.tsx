@@ -27,7 +27,7 @@ export function useScreenView(screens: ScreenStore, node: string | null): Screen
 }
 
 /// A value (a host, a namespace) is set in the machines' face; words are not.
-const valueClass = (t: Text) => ("raw" in t ? "kw-mono" : undefined);
+const valueClass = (t: Text) => ("raw" in t ? "mono" : undefined);
 
 /// The least a screen is asked again after, whatever it asks.
 const MIN_REFRESH_MS = 500;
@@ -81,9 +81,9 @@ function usePage(plugin: string, route: string, epoch: number) {
 /// A refusal said over what a screen still shows.
 function Refused({ error, retry }: { error: string; retry: () => void }) {
   return (
-    <div className="kw-salert kw-t-bad kw-srefused" role="alert">
+    <div className="salert t-bad srefused" role="alert">
       <Mark level={Level.Critical} words={error} />
-      <button type="button" className="kw-btn kw-quiet" onClick={retry}>
+      <button type="button" className="btn quiet" onClick={retry}>
         <Icon name="refresh" />
         {t("scr.retry")}
       </button>
@@ -103,27 +103,27 @@ export function ScreenSheet({ node, view }: { node: string; view: ScreenView & {
   const rest = page?.actions.filter((b) => b !== primary) ?? [];
   return (
     <ScreenContext.Provider value={ctx}>
-      <header className="kw-hero kw-shero">
+      <header className="hero shero">
         <Tile lead={{ tile: LeadTile.Node, id: node }} xl />
-        <div className="kw-hero-t">
-          <h1 className={`kw-h1${n.mono && !page?.title ? " kw-mono" : ""}`}>{text(title)}</h1>
-          <div className="kw-place">
+        <div className="hero-t">
+          <h1 className={`h1${n.mono && !page?.title ? " mono" : ""}`}>{text(title)}</h1>
+          <div className="place">
             <a onClick={close}>{text(n.name)}</a>
             {page?.subtitle && (
               <>
-                <span className="kw-sl">·</span>
+                <span className="sl">·</span>
                 <span className={valueClass(page.subtitle)}>{text(page.subtitle)}</span>
               </>
             )}
           </div>
           {page && page.chips.length > 0 && (
-            <div className="kw-state">
+            <div className="state">
               {page.chips.map((c, i) => (
                 <ChipView key={i} chip={c} />
               ))}
             </div>
           )}
-          <div className="kw-acts">
+          <div className="acts">
             {primary && <ButtonView b={primary} />}
             {page?.crumb && <IconButton icon="back" tip={text(page.crumb.label)} onClick={() => void ctx.run(page.crumb!.action)} />}
             {rest.map((b, i) => (
@@ -134,7 +134,7 @@ export function ScreenSheet({ node, view }: { node: string; view: ScreenView & {
         </div>
       </header>
       {error && <Refused error={error} retry={retry} />}
-      {page ? <div className="kw-sbody">{<Nodes nodes={page.body} />}</div> : !error && <DocSkeleton rows={4} />}
+      {page ? <div className="sbody">{<Nodes nodes={page.body} />}</div> : !error && <DocSkeleton rows={4} />}
     </ScreenContext.Provider>
   );
 }
@@ -143,20 +143,20 @@ export function ScreenSheet({ node, view }: { node: string; view: ScreenView & {
 /// actions, and the close.
 function OverHead({ page, onClose }: { page: ScreenPage; onClose: () => void }) {
   return (
-    <header className="kw-ohead">
-      {page.icon && <Icon name={page.icon} className="kw-ohead-ic" />}
-      <span className="kw-ohead-t">
+    <header className="ohead">
+      {page.icon && <Icon name={page.icon} className="ohead-ic" />}
+      <span className="ohead-t">
         <b>{page.title ? text(page.title) : ""}</b>
         {page.subtitle && <span className={valueClass(page.subtitle)}>{text(page.subtitle)}</span>}
       </span>
       {page.chips.map((c, i) => (
         <ChipView key={i} chip={c} />
       ))}
-      <span className="kw-ohead-a">
+      <span className="ohead-a">
         {page.actions.map((b, i) => (
           <ButtonView key={i} b={b} />
         ))}
-        <IconButton icon="close" tip={t("scr.close")} onClick={onClose} className="kw-tip-l" />
+        <IconButton icon="close" tip={t("scr.close")} onClick={onClose} className="tip-l" />
       </span>
     </header>
   );
@@ -169,18 +169,18 @@ export function ScreenOverlays({ node, view }: { node: string; view: ScreenView 
   return (
     <ScreenContext.Provider value={ctx}>
       {view.drawer && (
-        <aside className="kw-drawer" role="dialog" aria-label={view.drawer.title ? text(view.drawer.title) : undefined}>
+        <aside className="drawer" role="dialog" aria-label={view.drawer.title ? text(view.drawer.title) : undefined}>
           <OverHead page={view.drawer} onClose={() => screens.patch(node, view.plugin, { drawer: null })} />
-          <div className="kw-obody">
+          <div className="obody">
             <Nodes nodes={view.drawer.body} />
           </div>
         </aside>
       )}
       {view.dialog && (
-        <div className="kw-dveil" onMouseDown={(e) => e.target === e.currentTarget && screens.patch(node, view.plugin, { dialog: null })}>
-          <div className="kw-dialog" role="dialog" aria-modal="true" aria-label={view.dialog.title ? text(view.dialog.title) : undefined}>
+        <div className="dveil" onMouseDown={(e) => e.target === e.currentTarget && screens.patch(node, view.plugin, { dialog: null })}>
+          <div className="dialog" role="dialog" aria-modal="true" aria-label={view.dialog.title ? text(view.dialog.title) : undefined}>
             <OverHead page={view.dialog} onClose={() => screens.patch(node, view.plugin, { dialog: null })} />
-            <div className="kw-obody">
+            <div className="obody">
               <Nodes nodes={view.dialog.body} />
             </div>
           </div>

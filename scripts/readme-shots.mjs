@@ -88,9 +88,9 @@ const SETTLE_JS = async () => {
   }
   mo.disconnect();
   for (const a of document.getAnimations()) if (a.effect?.getComputedTiming().endTime === Infinity) { a.pause(); a.currentTime = 0; }
-  if (!document.getElementById("kw-shots")) {
+  if (!document.getElementById("readme-shots-style")) {
     const st = document.createElement("style");
-    st.id = "kw-shots";
+    st.id = "readme-shots-style";
     st.textContent = "*, *::before, *::after { caret-color: transparent !important; }";
     document.head.append(st);
   }

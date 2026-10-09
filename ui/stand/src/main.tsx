@@ -4,7 +4,7 @@
 // concept; the flags below open the gate instead of the window.
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App, currentLang, onLang, setLang, type Item, type PlaceStore, Lang, LanguageChoice, SessionState } from "@keyward/core";
+import { App, currentLang, onLang, setLang, type Item, type PlaceStore, FillField, Lang, LanguageChoice, SessionState } from "@keyward/core";
 import { DEMO, DemoBackend, DemoWrites, DEMO_PLACES, RecordedPlugins, synthetic, type PluginRecord } from "@keyward/core/demo";
 import { ICONS, type Words } from "@keyward/core";
 
@@ -134,6 +134,10 @@ const backend = new DemoBackend({
 });
 
 if (flag(DemoFlag.Pair)) backend.askToPair();
+// ?fill=console.aws.amazon.com presses ⌘⇧L in Arc on that site, its
+// password field in front: the window on the site's items, > fill offered.
+const fillSite = qs.get("fill");
+if (fillSite !== null) backend.pressAutofill({ app: "Arc", domain: fillSite || null, loginPair: true, field: FillField.Password });
 // The demo's places are kept in the browser's storage, so a saved one
 // survives a reload of the stand. Only the stand does this: its vault is made
 // up. The real apps keep places in memory (see AppProps.placeStore). Storage

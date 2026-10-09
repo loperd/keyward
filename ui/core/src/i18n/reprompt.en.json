@@ -5,6 +5,5 @@
   "reprompt.confirm": "Confirm",
   "reprompt.checking": "Checking…",
   "reprompt.cancel": "Cancel",
-  "reprompt.show": "Show with the master password",
   "reprompt.failed": "The password was not checked: {reason}"
 }

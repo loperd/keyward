@@ -362,4 +362,15 @@ pub struct ExtensionRow {
     /// for a paired key.
     #[serde(default)]
     pub expires: u64,
+    /// The browser it was paired in, or is asking from; empty when keyward
+    /// does not know (paired before it kept that, or an unsigned build).
+    #[serde(default)]
+    pub browser: String,
+    /// The name of the Mac it was paired on; empty when not known.
+    #[serde(default)]
+    pub device: String,
+    /// Seconds since the epoch of its last request since the daemon started;
+    /// zero for none.
+    #[serde(default)]
+    pub used: u64,
 }

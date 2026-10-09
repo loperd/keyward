@@ -113,20 +113,20 @@ export function Inspector({
   }, [key]);
 
   let body: React.ReactNode;
-  let cls = "kw-doc kw-enter";
+  let cls = "doc enter";
   if (making) body = <NewDocument at={obj} verb={st.verb!} arg={st.arg} />;
   else if (merging) body = <MergeDocument itemId={dir.node(obj!).item!.id} />;
   else if (answer.kind === AnswerKind.Map) body = <MapSheet map={st.map!} hover={mapHover} onHover={onMapHover} />;
   else if (editing) body = detail ? <EditDocument nodeId={docId!} detail={detail} /> : <DocSkeleton rows={4} />;
   else if (answer.kind === AnswerKind.Verb) {
-    cls += " kw-act";
+    cls += " act";
     body = <VerbPreview run={run} onRun={onRun} secretForm={secretForm} />;
   } else if (screen) {
-    cls += " kw-wide";
+    cls += " wide";
     body = <ScreenSheet node={screen.node} view={screen.view} />;
   } else if (answer.kind === AnswerKind.List) {
 
-    cls += " kw-flat";
+    cls += " flat";
     body = <CalmList column={answer.column as Extract<Column, { type: ColumnType.Results }>} lsel={lsel} />;
   } else {
     // A saved edit the backend has not answered yet reads as saved.
@@ -134,12 +134,12 @@ export function Inspector({
     const shown = p && detail ? detailOf(p.draft, { ...detail.item, name: p.draft.name }, detail) : detail;
     const doc = buildDoc({ dir, detail: shown, server, places }, docId!);
     if (p) doc.hero = { ...doc.hero, title: { raw: p.draft.name } };
-    if (doc.wide) cls += " kw-wide";
+    if (doc.wide) cls += " wide";
     body = <DocumentView doc={doc} />;
   }
   return (
     <section
-      className={`kw-insp${answer.kind === AnswerKind.Map ? " kw-mapmode" : ""}`}
+      className={`insp${answer.kind === AnswerKind.Map ? " mapmode" : ""}`}
       ref={ref}
       onScroll={(e) => {
         scrolled.current = e.currentTarget.scrollTop;
@@ -154,17 +154,17 @@ export function Inspector({
 
 /// What may hold a value shown for a moment: a fading sheet never carries
 /// it on, it goes with the sheet the moment the sheet is let go.
-const HELD = ".kw-shown, .kw-code, .kw-fprint-words, input, textarea";
+const HELD = ".shown, .code, .fprint-words, input, textarea";
 
 /// The sheet that was let go, put back over the new one to fade out where it
 /// stood. It is the old sheet's own markup, emptied of every shown value and
 /// out of reach of the pointer, the keyboard and a screen reader; it leaves
 /// once its fade has played. A sheet still fading makes room for this one.
 function fadeAway(sheet: HTMLElement, old: HTMLDivElement, top: number) {
-  for (const g of sheet.querySelectorAll(":scope > .kw-ghost")) g.remove();
+  for (const g of sheet.querySelectorAll(":scope > .ghost")) g.remove();
   for (const n of old.querySelectorAll(HELD)) n.remove();
-  old.classList.remove("kw-enter");
-  old.classList.add("kw-ghost");
+  old.classList.remove("enter");
+  old.classList.add("ghost");
   old.setAttribute("aria-hidden", "true");
   old.inert = true;
   old.style.top = `${-top}px`;

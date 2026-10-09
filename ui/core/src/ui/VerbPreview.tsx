@@ -27,7 +27,7 @@ export type RunState = { phase: RunPhase.Idle } | { phase: RunPhase.Running } | 
 const say = (x: Text) => text(x);
 
 function Side({ s }: { s: DeltaSide }) {
-  if ("faint" in s) return <span className="kw-faint">{say(s.faint)}</span>;
+  if ("faint" in s) return <span className="faint">{say(s.faint)}</span>;
   return <Mark level={s.level} words={s.text} />;
 }
 
@@ -35,9 +35,9 @@ function Lines({ lines }: { lines: Line[] }) {
   return (
     <>
       {lines.map((l, i) => (
-        <div key={i} className="kw-sig">
+        <div key={i} className="sig">
           <Glyph level={l.level} />
-          <span className="kw-tx">
+          <span className="tx">
             <b>{say(l.title)}</b>
             {l.sub && <span>{say(l.sub)}</span>}
           </span>
@@ -50,10 +50,10 @@ function Lines({ lines }: { lines: Line[] }) {
 
 function Section({ title, count, children }: { title: string; count?: number | undefined; children: React.ReactNode }) {
   return (
-    <section className="kw-sec">
-      <div className="kw-sec-h">
-        <h2 className="kw-h2">{title}</h2>
-        {count !== undefined && <span className="kw-n">{count}</span>}
+    <section className="sec">
+      <div className="sec-h">
+        <h2 className="h2">{title}</h2>
+        {count !== undefined && <span className="n">{count}</span>}
       </div>
       {children}
     </section>
@@ -72,23 +72,23 @@ function refusal(e: unknown): string {
 function Fingerprint({ shown, compare }: { shown: ShownFingerprint | null; compare: Text }) {
   return (
     <Section title={t("verb.org.confirm.fingerprint")}>
-      <div className="kw-fprint" aria-live="polite">
+      <div className="fprint" aria-live="polite">
         {shown?.phase === FingerprintPhase.Shown ? (
-          <b className="kw-fprint-words" data-fingerprint="">{shown.words.join("-")}</b>
+          <b className="fprint-words" data-fingerprint="">{shown.words.join("-")}</b>
         ) : shown?.phase === FingerprintPhase.Failed ? (
           <Mark level={Level.Critical} words={t("verb.org.confirm.fingerprintFailed", { reason: refusal(shown.error) })} />
         ) : (
-          <span className="kw-sk-late kw-sk-fprint" role="status" aria-label={t("verb.org.confirm.fingerprintLoading")}>
-            <span className="kw-sk-line kw-sk-l" aria-hidden="true">
-              <span className="kw-sk kw-sk-phrase" />
+          <span className="sk-late sk-fprint" role="status" aria-label={t("verb.org.confirm.fingerprintLoading")}>
+            <span className="sk-line sk-l" aria-hidden="true">
+              <span className="sk sk-phrase" />
             </span>
-            <span className="kw-load-inline">
+            <span className="load-inline">
               <Turning />
               {t("verb.org.confirm.fingerprintLoading")}
             </span>
           </span>
         )}
-        <span className="kw-fprint-how">{say(compare)}</span>
+        <span className="fprint-how">{say(compare)}</span>
       </div>
     </Section>
   );
@@ -96,7 +96,7 @@ function Fingerprint({ shown, compare }: { shown: ShownFingerprint | null; compa
 
 function Lead() {
   return (
-    <div className="kw-vlead">
+    <div className="vlead">
       <Icon name="verb" />
       <span>{t("ui.previewLead")}</span>
     </div>
@@ -108,7 +108,7 @@ function Target({ id }: { id: string }) {
   const n = dir.node(id);
   const place = n.home.slice(0, -1).map((x) => text(dir.node(x).name)).join(" › ") || t("root");
   return (
-    <div className="kw-target">
+    <div className="target">
       <Tile lead={nodeLead(dir, id)} />
       <span>
         <b>{text(n.name)}</b> · {place}
@@ -136,21 +136,21 @@ export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: 
     return (
       <>
         <Lead />
-        <h1 className="kw-h1">{t("ui.noVerb", { verb })}</h1>
-        <p className="kw-lede">{t("ui.thereAre", { list: p.known.map(say).join(", ") })}</p>
+        <h1 className="h1">{t("ui.noVerb", { verb })}</h1>
+        <p className="lede">{t("ui.thereAre", { list: p.known.map(say).join(", ") })}</p>
       </>
     );
   if (p.kind === PreviewKind.Pick)
     return (
       <>
         <Lead />
-        <h1 className="kw-h1">{t("ui.onWhat", { verb: say(p.name) })}</h1>
-        <p className="kw-lede">{p.obj ? t("ui.doesNotFit", { name: text(dir.node(p.obj).name) }) : t("ui.pickFirst")}</p>
+        <h1 className="h1">{t("ui.onWhat", { verb: say(p.name) })}</h1>
+        <p className="lede">{p.obj ? t("ui.doesNotFit", { name: text(dir.node(p.obj).name) }) : t("ui.pickFirst")}</p>
         {p.example && (
-          <div className="kw-vbar">
+          <div className="vbar">
             <button
               type="button"
-              className="kw-btn kw-quiet"
+              className="btn quiet"
               onClick={() => store.commitState({ segs: dir.node(p.example!).home.map((x) => ({ id: x })), map: null, verb, arg: "" })}
             >
               <Icon name={dir.node(p.example).icon} />
@@ -161,7 +161,7 @@ export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: 
       </>
     );
   const steps = p.steps.length > 0 && (
-    <ol className="kw-steps">
+    <ol className="steps">
       {p.steps.map((s, i) => (
         <li key={i}>
           <div>
@@ -178,8 +178,8 @@ export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: 
     <>
       <Lead />
       {p.target && <Target id={p.target} />}
-      <h1 className="kw-h1">{say(p.title)}</h1>
-      <p className="kw-lede">{say(p.lede)}</p>
+      <h1 className="h1">{say(p.title)}</h1>
+      <p className="lede">{say(p.lede)}</p>
       {p.fingerprint && <Fingerprint shown={print} compare={p.fingerprint.compare} />}
       {p.form && <VerbForm form={p.form} onEnter={() => !p.blocked && !held && run.phase !== RunPhase.Running && onRun(p.effect)} />}
       {p.secrets && run.phase !== RunPhase.Done && <SecretForm ref={secretForm} asks={p.secrets} onFilled={setTyped} onEnter={() => !p.blocked && typed && run.phase !== RunPhase.Running && onRun(p.effect)} />}
@@ -192,13 +192,13 @@ export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: 
       {p.changes && p.changes.rows.length > 0 && (
         <Section title={t("ui.whatChanges")} count={p.changes.count}>
           {p.changes.rows.map((d, i) => (
-            <div key={i} className="kw-delta">
-              <span className="kw-nm">
+            <div key={i} className="delta">
+              <span className="nm">
                 <Tile lead={d.lead} />
-                <span className={d.mono ? "kw-mono" : undefined}>{say(d.name)}</span>
+                <span className={d.mono ? "mono" : undefined}>{say(d.name)}</span>
               </span>
               <Side s={d.from} />
-              <span className="kw-arrow">→</span>
+              <span className="arrow">→</span>
               <Side s={d.to} />
             </div>
           ))}
@@ -213,24 +213,24 @@ export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: 
         </Section>
       )}
       {run.phase === RunPhase.Done ? (
-        <div className="kw-vbar kw-resolved" role="status">
+        <div className="vbar resolved" role="status">
           <Mark level={Level.Healthy} words={t("ui.done")} />
-          <span className="kw-why">{t(run.changed ? "ui.doneChanged" : "ui.doneNothing")}</span>
-          <button type="button" className="kw-btn kw-quiet" onClick={close}>
+          <span className="why">{t(run.changed ? "ui.doneChanged" : "ui.doneNothing")}</span>
+          <button type="button" className="btn quiet" onClick={close}>
             {t("ui.close")}
             <Kbd>Esc</Kbd>
           </button>
         </div>
       ) : (
-        <div className="kw-vbar">
+        <div className="vbar">
           <button
             type="button"
-            className={`kw-btn kw-solid${p.danger ? " kw-danger" : ""}${shake ? " kw-shake" : ""}`}
+            className={`btn solid${p.danger ? " danger" : ""}${shake ? " shake" : ""}`}
             disabled={run.phase === RunPhase.Running || !!p.blocked || !!held || (!!p.secrets && !typed)}
             aria-busy={run.phase === RunPhase.Running || undefined}
             onClick={() => onRun(p.effect)}
             onAnimationEnd={(e) => {
-              if (e.animationName === "kw-shake") setShake(false);
+              if (e.animationName === "shake") setShake(false);
             }}
             data-confirm=""
           >
@@ -238,22 +238,22 @@ export function VerbPreview({ run, onRun, secretForm }: { run: RunState; onRun: 
             {say(p.go)}
             <Kbd>↵</Kbd>
           </button>
-          <button type="button" className="kw-btn kw-quiet" onClick={close}>
+          <button type="button" className="btn quiet" onClick={close}>
             {t("ui.cancel")}
             <Kbd>Esc</Kbd>
           </button>
           {run.phase === RunPhase.Failed ? (
-            <span className="kw-why kw-refused" role="alert">
+            <span className="why refused" role="alert">
               <Mark level={Level.Critical} words={t("ui.failed", { reason: run.reason })} />
             </span>
           ) : (
             p.blocked || held ? (
-              <span className="kw-why kw-held">
+              <span className="why held">
                 <Icon name="info" />
                 {p.blocked ? say(p.blocked) : held}
               </span>
             ) : p.note && (
-              <span className="kw-why">
+              <span className="why">
                 <Icon name="finger" />
                 {say(p.note)}
               </span>

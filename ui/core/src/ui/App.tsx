@@ -45,6 +45,7 @@ import { SettingsPage, SETTINGS_ID } from "../settings/pages";
 import type { AppSettings, SettingsPatch, UnlockState } from "../settings/types";
 import { ACCOUNT_VERBS } from "../verbs/account";
 import { type FillContext, fillVerb } from "../verbs/fill";
+import { WindowButtons, WindowControlsContext } from "./WindowButtons";
 import { applyLook } from "../settings/apply";
 import { screenReader } from "../plugin/screen";
 import { ScreenStore } from "./screen/store";
@@ -456,7 +457,7 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
   else if (closed)
     content = (
       <>
-        <div className="kw-gate-box" ref={holdGate}>
+        <div className="gate-box" ref={holdGate}>
           <Gate key={closed.state} backend={backend} session={closed} onDone={load} autoBiometric={autoBiometric} />
         </div>
         {toastEl}
@@ -480,10 +481,10 @@ export function App({ backend, line = "", onLine, places: extra = [], placeStore
     );
   }
   return (
-    <>
+    <WindowControlsContext.Provider value={backend.window ?? null}>
       {content}
       {veil}
-    </>
+    </WindowControlsContext.Provider>
   );
 }
 
@@ -496,7 +497,7 @@ const GATE_HELD = "input, textarea";
 function fadeGateAway(gate: Element) {
   if (!(gate instanceof HTMLElement)) return;
   for (const n of gate.querySelectorAll(GATE_HELD)) n.remove();
-  gate.classList.add("kw-gate-ghost");
+  gate.classList.add("gate-ghost");
   gate.setAttribute("aria-hidden", "true");
   gate.inert = true;
   const done = () => gate.remove();
@@ -532,15 +533,17 @@ function BootVeil({ on, phase }: { on: boolean; phase: LoadPhase }) {
 /// gutters and type — what failed, why, and one way on.
 function LoadFailed({ reason, onRetry }: { reason: string; onRetry: () => void }) {
   return (
-    <div className="kw-window">
-      <header className="kw-strip" data-tauri-drag-region="deep" />
-      <main className="kw-stage">
-        <section className="kw-insp">
-          <div className="kw-doc kw-enter kw-load-failed" role="alert">
-            <h1 className="kw-h1">{t("load.failedTitle")}</h1>
+    <div className="window">
+      <header className="strip" data-tauri-drag-region="deep">
+        <WindowButtons />
+      </header>
+      <main className="stage">
+        <section className="insp">
+          <div className="doc enter load-failed" role="alert">
+            <h1 className="h1">{t("load.failedTitle")}</h1>
             <p>{t("ui.loadFailed", { reason })}</p>
-            <div className="kw-acts">
-              <button type="button" className="kw-btn kw-solid" onClick={onRetry} autoFocus>
+            <div className="acts">
+              <button type="button" className="btn solid" onClick={onRetry} autoFocus>
                 <Icon name="refresh" />
                 {t("load.retry")}
               </button>

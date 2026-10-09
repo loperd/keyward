@@ -203,27 +203,27 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
 
   let group: string | null = null;
   return (
-    <div className="kw-qbox" ref={box}>
+    <div className="qbox" ref={box}>
       <div
-        className={`kw-qline${typing ? " kw-typing" : ""}`}
+        className={`qline${typing ? " typing" : ""}`}
         // The line is where typing starts, not a handle for the window.
         data-tauri-drag-region="false"
         onMouseDown={(e) => {
           const t0 = e.target as HTMLElement;
-          if (t0.closest(".kw-crumb") || t0.closest("[data-places]")) return;
+          if (t0.closest(".crumb") || t0.closest("[data-places]")) return;
           if (t0 !== input.current) {
             e.preventDefault();
             input.current?.focus();
           }
         }}
       >
-        <nav className="kw-crumbs" ref={crumbsEl}>
+        <nav className="crumbs" ref={crumbsEl}>
           {shown.map(({ c, n }, i) => (
             <span key={c.key} style={{ display: "contents" }}>
-              {i > 0 && <span className="kw-sep">›</span>}
+              {i > 0 && <span className="sep">›</span>}
               <button
                 type="button"
-                className={`kw-crumb${n === cs.length - 1 ? " kw-last" : ""}${seen.length && !seen.includes(c.key) ? " kw-enter" : ""}`}
+                className={`crumb${n === cs.length - 1 ? " last" : ""}${seen.length && !seen.includes(c.key) ? " enter" : ""}`}
                 title={c.title ?? c.name}
                 onClick={() => (n === cs.length - 1 ? input.current?.focus() : cutTo(c))}
               >
@@ -232,8 +232,8 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
               </button>
               {k > 0 && i === 0 && (
                 <>
-                  <span className="kw-sep">›</span>
-                  <button type="button" className={`kw-crumb kw-more${pop?.mode === PopMode.Hidden ? " kw-open" : ""}`} title={hidden.map((x) => x.name).join(" › ")} onClick={(e) => openHidden(e.currentTarget)}>
+                  <span className="sep">›</span>
+                  <button type="button" className={`crumb more${pop?.mode === PopMode.Hidden ? " open" : ""}`} title={hidden.map((x) => x.name).join(" › ")} onClick={(e) => openHidden(e.currentTarget)}>
                     <Icon name="more" />
                   </button>
                 </>
@@ -255,11 +255,11 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
           onChange={onChange}
           onKeyDown={onKey}
         />
-        {count !== null && <span className="kw-qmeta">{t("count.matches", { n: count })}</span>}
+        {count !== null && <span className="qmeta">{t("count.matches", { n: count })}</span>}
         <button
           type="button"
           data-places=""
-          className={`kw-btn kw-ico${place ? " kw-on" : ""}`}
+          className={`btn ico${place ? " on" : ""}`}
           data-tip={t("places")}
           aria-label={t("places")}
           onClick={(e) => {
@@ -272,7 +272,7 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
         <Kbd>⌘K</Kbd>
       </div>
       {pop?.mode === PopMode.Q && opts.length > 0 && (
-        <div className="kw-pop" onMouseDown={(e) => e.preventDefault()}>
+        <div className="pop" onMouseDown={(e) => e.preventDefault()}>
           <div>
             {opts.map((o, n) => {
               const g = text(o.group);
@@ -281,19 +281,19 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
               return (
                 <span key={n} style={{ display: "contents" }}>
                   {head}
-                  <button type="button" className={`kw-opt${n === cur.i ? " kw-on" : ""}${o.na ? " kw-na" : ""}`} onClick={() => apply(o)}>
-                    {o.level ? <Glyph level={o.level} /> : o.icon ? <Icon name={o.icon} /> : <span className="kw-blank" />}
-                    <span className="kw-lb">{text(o.label)}</span>
-                    <span className="kw-syn">{o.syn}</span>
-                    <span className="kw-d">{n === cur.i && <Kbd>Tab</Kbd>}</span>
+                  <button type="button" className={`opt${n === cur.i ? " on" : ""}${o.na ? " na" : ""}`} onClick={() => apply(o)}>
+                    {o.level ? <Glyph level={o.level} /> : o.icon ? <Icon name={o.icon} /> : <span className="blank" />}
+                    <span className="lb">{text(o.label)}</span>
+                    <span className="syn">{o.syn}</span>
+                    <span className="d">{n === cur.i && <Kbd>Tab</Kbd>}</span>
                   </button>
                 </span>
               );
             })}
           </div>
-          <div className="kw-crib">
+          <div className="crib">
             <h6>{t("ui.crib")}</h6>
-            <div className="kw-gram">
+            <div className="gram">
               <code>acme › members</code>
               <span>{t("ui.cr.path")}</span>
               <code>member:dana</code>
@@ -314,20 +314,20 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
         </div>
       )}
       {pop?.mode === PopMode.Places && (
-        <div className="kw-pop kw-one" onMouseDown={(e) => e.preventDefault()}>
+        <div className="pop one" onMouseDown={(e) => e.preventDefault()}>
           <div>
             <h6>{t("ui.placesHead")}</h6>
             {places.map((p) => (
-              <button key={p.id} type="button" className={`kw-opt${place?.id === p.id ? " kw-on" : ""}`} onClick={() => commit(p.line, false)}>
+              <button key={p.id} type="button" className={`opt${place?.id === p.id ? " on" : ""}`} onClick={() => commit(p.line, false)}>
                 {p.level ? <Glyph level={p.level} /> : <Icon name={p.icon!} />}
-                <span className="kw-lb">{text(p.name)}</span>
-                <span className="kw-d" />
+                <span className="lb">{text(p.name)}</span>
+                <span className="d" />
               </button>
             ))}
             <h6>{t("current")}</h6>
             <button
               type="button"
-              className="kw-opt"
+              className="opt"
               disabled={!st.segs.length || !!place}
               onClick={() => {
                 setPop(null);
@@ -335,21 +335,21 @@ export const PathLine = forwardRef<LineHandle, { onConfirm: () => boolean }>(fun
               }}
             >
               <Icon name="plus" />
-              <span className="kw-lb">{t("savePlace")}</span>
-              <span className="kw-d" />
+              <span className="lb">{t("savePlace")}</span>
+              <span className="d" />
             </button>
           </div>
         </div>
       )}
       {pop?.mode === PopMode.Hidden && (
-        <div className="kw-pop kw-one kw-at-left" style={{ left: pop.left }} onMouseDown={(e) => e.preventDefault()}>
+        <div className="pop one at-left" style={{ left: pop.left }} onMouseDown={(e) => e.preventDefault()}>
           <div>
             <h6>{t("hidden")}</h6>
             {hidden.map((c) => (
-              <button key={c.key} type="button" className="kw-opt" title={c.name} onClick={() => cutTo(c)}>
+              <button key={c.key} type="button" className="opt" title={c.name} onClick={() => cutTo(c)}>
                 <CrumbIcon c={c} />
-                <span className="kw-lb">{c.name}</span>
-                <span className="kw-d" />
+                <span className="lb">{c.name}</span>
+                <span className="d" />
               </button>
             ))}
           </div>

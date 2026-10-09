@@ -36,10 +36,10 @@ export function RepromptPrompt({ reprompt }: { reprompt: Reprompt }) {
     void reprompt.submit(field.current.take());
   };
   return (
-    <div className="kw-reprompt-veil" onClick={(e) => e.target === e.currentTarget && !ask.busy && reprompt.cancel()}>
+    <div className="reprompt-veil" onClick={(e) => e.target === e.currentTarget && !ask.busy && reprompt.cancel()}>
       <form
         key={ask.itemId}
-        className="kw-reprompt"
+        className="reprompt"
         role="dialog"
         aria-modal="true"
         aria-label={t("reprompt.title")}
@@ -50,12 +50,12 @@ export function RepromptPrompt({ reprompt }: { reprompt: Reprompt }) {
           submit();
         }}
       >
-        <div className="kw-reprompt-h">
+        <div className="reprompt-h">
           <Icon name="lock" />
           <span>{t("reprompt.title")}</span>
         </div>
         <p>{t("reprompt.lede")}</p>
-        <span className="kw-reprompt-in">
+        <span className="reprompt-in">
           <SecretInput ref={field} onFilled={setFilled} autoComplete="current-password" autoFocus disabled={ask.busy} aria-label={t("reprompt.password")} placeholder={t("reprompt.password")} />
         </span>
         {ask.error && (
@@ -63,11 +63,11 @@ export function RepromptPrompt({ reprompt }: { reprompt: Reprompt }) {
             <Mark level={Level.Critical} words={text(ask.error)} />
           </div>
         )}
-        <div className="kw-reprompt-go">
-          <button type="button" className="kw-btn" onClick={() => reprompt.cancel()} disabled={ask.busy}>
+        <div className="reprompt-go">
+          <button type="button" className="btn" onClick={() => reprompt.cancel()} disabled={ask.busy}>
             {t("reprompt.cancel")}
           </button>
-          <button type="submit" className="kw-btn kw-solid" disabled={ask.busy || !filled}>
+          <button type="submit" className="btn solid" disabled={ask.busy || !filled}>
             {t(ask.busy ? "reprompt.checking" : "reprompt.confirm")}
           </button>
         </div>

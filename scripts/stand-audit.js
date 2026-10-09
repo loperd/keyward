@@ -8,7 +8,7 @@
 // The audited containers default to the declared screens (.dv-screen,
 // .dv-drawer, .modal); a caller picks others by setting
 // `window.__kwAuditScope` to a CSS selector list before running it (the UI
-// check scopes it to the core's kw- containers).
+// check scopes it to the core's containers).
 (() => {
   const containers = window.__kwAuditScope ?? ".dv-screen, .dv-drawer, .modal";
   const scope = [...new Set(containers.split(",").flatMap((c) => [...document.querySelectorAll(`${c.trim()} *`)]))];

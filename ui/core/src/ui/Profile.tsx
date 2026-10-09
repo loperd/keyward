@@ -15,10 +15,10 @@ const kdfWords = (p: AccountProfile) =>
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="kw-f">
-      <span className="kw-k">{label}</span>
-      <span className="kw-v">{children}</span>
-      <span className="kw-fa" />
+    <div className="f">
+      <span className="k">{label}</span>
+      <span className="v">{children}</span>
+      <span className="fa" />
     </div>
   );
 }
@@ -41,8 +41,8 @@ export function ProfileView({ version }: { version: number }) {
   if (failed) return <Mark level={Level.Critical} words={t("prof.failed", { reason: failed })} />;
   if (!p)
     return (
-      <div className="kw-set kw-set-wait" role="status" aria-label={t("set.loading")}>
-        <span className="kw-set-t">
+      <div className="set set-wait" role="status" aria-label={t("set.loading")}>
+        <span className="set-t">
           <b>{t("set.loading")}</b>
         </span>
       </div>
@@ -50,10 +50,10 @@ export function ProfileView({ version }: { version: number }) {
   return (
     <>
       <Field label={t("prof.email")}>
-        <span className="kw-mono">{p.email}</span>
+        <span className="mono">{p.email}</span>
         <Mark level={p.emailVerified ? Level.Healthy : Level.Warning} words={t(p.emailVerified ? "prof.verified" : "prof.unverified")} />
       </Field>
-      <Field label={t("prof.name")}>{p.name ? <span>{p.name}</span> : <span className="kw-dim">{t("prof.noName")}</span>}</Field>
+      <Field label={t("prof.name")}>{p.name ? <span>{p.name}</span> : <span className="dim">{t("prof.noName")}</span>}</Field>
       <Field label={t("prof.kdf")}>
         <span>{kdfWords(p)}</span>
       </Field>
@@ -61,7 +61,7 @@ export function ProfileView({ version }: { version: number }) {
         <Mark level={p.twoFactor ? Level.Healthy : Level.Warning} words={t(p.twoFactor ? "set.on" : "set.off")} />
       </Field>
       <Field label={t("prof.fingerprint")}>
-        <span className="kw-ext-words">
+        <span className="ext-words">
           {p.fingerprint.map((w, i) => (
             <code key={i}>{w}</code>
           ))}

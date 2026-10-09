@@ -183,6 +183,7 @@
   --insp-wide: calc(var(--u) * 100);/* a document with a table: 800 */
   --insp-flat: calc(var(--u) * 130);/* the calm list: 1040 */
   --narrow: calc(var(--u) * 162);   /* below this window width one list stays open */
+  --insp-min: calc(var(--u) * 56);  /* the narrowest an answer takes beside a column: 448 */
   --first-line: var(--u3);          /* the first line of every sheet */
   --label-w: calc(var(--u) * 20);   /* a field's label column: 160 */
   --sec-gap: var(--u4);             /* between sections */
@@ -239,6 +240,9 @@
   --bar-c: var(--blue-hi);
   --dot: color-mix(in srgb, var(--edge) 90%, transparent);
   --m-crit: var(--rose); --m-act: var(--orange); --m-warn: var(--amber); --m-ok: var(--mint); --m-unk: var(--faint);
+  /* the window's own buttons: the palette's rose, amber and mint; in the
+     light theme lighter than the text's, which are darkened to be read */
+  --win-close: var(--rose); --win-min: var(--amber); --win-full: var(--mint);
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
@@ -254,6 +258,7 @@
     --line-edge: color-mix(in srgb, var(--edge) 70%, var(--faint));
     --bar-c: var(--blue);
     --dot: color-mix(in srgb, var(--edge) 100%, var(--shade) 8%);
+    --win-close: #ee5d6b; --win-min: #efb53d; --win-full: #3ac28f;
   }
 }
 :root[data-theme="light"] {
@@ -269,6 +274,7 @@
   --line-edge: color-mix(in srgb, var(--edge) 70%, var(--faint));
   --bar-c: var(--blue);
   --dot: color-mix(in srgb, var(--edge) 100%, var(--shade) 8%);
+  --win-close: #ee5d6b; --win-min: #efb53d; --win-full: #3ac28f;
 }
 :root[data-theme="dark"] {
   --tier-lo: var(--rail);
@@ -301,7 +307,7 @@ body {
   font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans);
   -webkit-font-smoothing: antialiased;
 }
-input, textarea, .kw-mono, .kw-selectable { -webkit-user-select: text; user-select: text; }
+input, textarea, .mono, .selectable { -webkit-user-select: text; user-select: text; }
 /* A browser's button has padding and a font of its own; both are zeroed, and
    set explicitly where they are wanted. */
 button { font: inherit; cursor: pointer; padding: 0; color: inherit; }
@@ -315,7 +321,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 1ms; --dur: 1ms; --dur-slow: 1ms; --stagger: 0ms; --travel: 0px; --nudge: 0px; }
   *, *::before, *::after { transition-property: opacity, color, background-color, border-color !important; animation-duration: 1ms !important; }
-  .kw-spin, .kw-turning, .kw-sync.kw-syncing svg, .kw-activity.kw-on::before { animation: kw-breathe var(--dur-loop) ease-in-out infinite !important; transform: none; translate: none; }
-  .kw-activity.kw-on::before { width: 100% !important; }
+  .spin, .turning, .sync.syncing svg, .activity.on::before { animation: breathe var(--dur-loop) ease-in-out infinite !important; transform: none; translate: none; }
+  .activity.on::before { width: 100% !important; }
 }
-@keyframes kw-breathe { 50% { opacity: 0.35; } }
+@keyframes breathe { 50% { opacity: 0.35; } }

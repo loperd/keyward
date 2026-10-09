@@ -6,9 +6,12 @@ import type { Args, Key, Text } from "../i18n";
 import { duplicatesOf, partnerName, placeOf as itemPlace, reusedWith, sameService, expiryText } from "../model/reasons";
 import { orgFindings } from "../model/findings";
 import { ago } from "../model/time";
-import { isLoud, policyLevel, type Directory, type Node, NodeKind, MapKind } from "../path/directory";
+import { EMPTY_FOLDERS, isLoud, policyLevel, type Directory, type Node, NodeKind, MapKind } from "../path/directory";
 import { type Field, type ItemDetail, Level, type Member, type Policy, ItemKind, MemberStatus, PolicyType, Permission, SecretField } from "../model/types";
-import { type Action, type Block, type DocSpec, type Lead, type MarkSpec, type Section, LeadTile, Hue, SkeletonKind } from "./spec";
+import { type Action, type Block, type DocSpec, type Lead, type MarkSpec, type Section, LeadTile, Hue, LiveBlock, SkeletonKind } from "./spec";
+import { pageId, SettingsPage } from "../settings/pages";
+
+const BROWSERS = pageId(SettingsPage.Browsers);
 import type { Place } from "../path/places";
 import { collectionActions, invite, memberActions, newCollection, verbOn } from "./org-actions";
 
@@ -71,6 +74,8 @@ export function buildDoc(ctx: DocContext, id: string): DocSpec {
       return personal(ctx);
     case NodeKind.Folder:
       return folder(ctx, n);
+    case NodeKind.EmptyFolders:
+      return emptyFolders(ctx, n);
     case NodeKind.Org:
       return org(ctx, n);
     case NodeKind.Collection:
@@ -123,15 +128,17 @@ function home(ctx: DocContext): DocSpec {
           return { ref: o, lead: nodeLead(o), title: on.name, context: ownerContext(dir, on), mark: isLoud(on.level) ? mark(on.level, k(`level.${on.level}` as Key)) : mark(Level.Healthy, k("level.healthy")) };
         }),
       ),
-      ...(plugins.length
+      ...(plugins.length || dir.has(BROWSERS)
         ? [
-            sec(
-              k("doc.connections"),
-              plugins.map((p) => {
+            sec(k("doc.connections"), [
+              ...plugins.map((p): Block => {
                 const pn = dir.node(p);
                 return { ref: p, lead: nodeLead(p), title: pn.name, ...(pn.sub ? { context: pn.sub } : {}), mark: isLoud(pn.level) ? mark(pn.level, pn.short ?? pn.why ?? k(`level.${pn.level}` as Key)) : mark(Level.Healthy, k("level.healthy")) };
               }),
-            ),
+              // The browsers sit with the other connections: where none is
+              // paired, the row says the extension is still to be installed.
+              ...(dir.has(BROWSERS) ? [{ live: LiveBlock.Browsers } as const] : []),
+            ]),
           ]
         : []),
       ...(ctx.places.length
@@ -177,10 +184,14 @@ function personal(ctx: DocContext): DocSpec {
       ...(loud.length ? [sec(k("doc.firstThis"), loud.map((x) => nodeRef(dir, x.id)))] : []),
       sec(
         k("doc.folders"),
-        folders.map((f) => {
-          const fn = dir.node(f);
-          return { ref: f, lead: { tile: LeadTile.Plain, icon: "folder" }, title: fn.name, context: k("count.items", { n: fn.count ?? 0 }), mark: stateMark(fn).level === Level.Healthy ? mark(Level.Healthy, k("level.healthy")) : mark(fn.level, k(`level.${fn.level}` as Key)) };
-        }),
+        [
+          ...folders.map((f): Block => {
+            const fn = dir.node(f);
+            return { ref: f, lead: { tile: LeadTile.Plain, icon: "folder" }, title: fn.name, context: k("count.items", { n: fn.count ?? 0 }), mark: stateMark(fn).level === Level.Healthy ? mark(Level.Healthy, k("level.healthy")) : mark(fn.level, k(`level.${fn.level}` as Key)) };
+          }),
+          // The empty ones, as one row after the rest.
+          ...(dir.has(EMPTY_FOLDERS) ? [{ ref: EMPTY_FOLDERS, lead: { tile: LeadTile.Plain, icon: "folder" }, title: dir.node(EMPTY_FOLDERS).name, context: k("folders.emptyWhat", { n: dir.kidIds(EMPTY_FOLDERS).length }) } as Block] : []),
+        ],
       ),
     ],
   };
@@ -200,6 +211,16 @@ function folder(ctx: DocContext, n: Node): DocSpec {
       more: [verb("edit", "doc.rename", "rename"), verb("trash", "verb.folder.delete", "delete")],
     },
     sections: [sec(k("doc.items"), ids.map((x) => nodeRef(ctx.dir, x)), { count: ids.length })],
+  };
+}
+
+/// The empty folders, together: each one a row to open, rename or delete.
+function emptyFolders(ctx: DocContext, n: Node): DocSpec {
+  const ids = ctx.dir.kidIds(n.id);
+  return {
+    hero: { lead: { tile: LeadTile.Icon, icon: "folder", hue: Hue.Dim }, title: n.name, place: n.home.slice(0, -1), what: k("folders.emptyWhat", { n: ids.length }) },
+    sections: [sec(k("doc.folders"), ids.map((x) => nodeRef(ctx.dir, x)), { count: ids.length })],
+    note: k("folders.emptyNote"),
   };
 }
 
@@ -550,7 +571,7 @@ export function fieldLabel(f: Field): Text {
   return { key };
 }
 /// The verb a field's copy button opens.
-const COPY_VERB: Record<string, string> = { username: "copy username", password: "copy password", totp: "copy totp", cardNumber: "copy number" };
+const COPY_VERB: Record<string, string> = { username: "copy username", password: "copy password", cardNumber: "copy number" };
 
 /// How many fields an item of a kind shows, near enough: the rows its
 /// skeleton stands with while the item is read.
@@ -567,10 +588,9 @@ function fieldBlocks(it: NonNullable<Node["item"]>, detail: ItemDetail | null): 
   if (detail.item.id !== it.id) throw new Error(`the opened item is "${detail.item.id}", the page is "${it.id}"`);
   const out: Block[] = [];
   for (const f of detail.fields) {
-    if (f.key === "totp") {
-      out.push({ totp: it.id, verb: COPY_VERB.totp! });
-      continue;
-    }
+    // The one-time code is set in the editor and typed by autofill; the page
+    // neither shows nor copies it.
+    if (f.key === "totp") continue;
     if (f.key === "privateKey") {
       // The private key is never shown or copied: it signs in the daemon.
       out.push({ field: fieldLabel(f), value: k("doc.privateKey"), dim: true });
@@ -590,7 +610,6 @@ function fieldBlocks(it: NonNullable<Node["item"]>, detail: ItemDetail | null): 
     }
     out.push({ field: fieldLabel(f), value: { raw: f.value }, mono: f.mono, ...(f.secret ? { copy: f.key && COPY_VERB[f.key] ? { verb: COPY_VERB[f.key]! } : { copy: f.secret } } : {}) });
   }
-  if (it.kind === ItemKind.Login && !it.hasTotp) out.splice(Math.min(out.length, 2), 0, { field: k("field.totp"), value: { raw: "" }, mark: mark(Level.Warning, k("doc.notSetUp")) });
   if (it.kind === ItemKind.Login && it.uris[0]) {
     const host = siteHost(it.uris[0]);
     out.push({ field: k("field.site"), value: { raw: host ?? it.uris[0] }, mono: true, ...(host ? { open: true } : {}) });
@@ -620,7 +639,6 @@ function item(ctx: DocContext, n: Node): DocSpec {
     const site = siteUrl(it.uris);
     more = [
       copyOf("user2", "verb.copyUsername", it.id, SecretField.Username),
-      ...(it.hasTotp ? [copyOf("hash", "verb.copyTotp", it.id, SecretField.Totp)] : []),
       verb("refresh", "verb.rotate", "rotate"),
       site ? act("ext", "doc.openSite", { open: site }) : off("ext", "doc.openSite", "doc.noSite"),
       relMap,

@@ -192,29 +192,29 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
   };
 
   return (
-    <div className="kw-term">
-      <div className="kw-term-host" ref={host} />
+    <div className="term">
+      <div className="term-host" ref={host} />
       {ops.keep && state !== StreamState.Closed && (
-        <span className="kw-term-close">
-          <IconButton icon="close" tip={t("scr.closeSession")} onClick={close} className="kw-tip-l" />
+        <span className="term-close">
+          <IconButton icon="close" tip={t("scr.closeSession")} onClick={close} className="tip-l" />
         </span>
       )}
       {(state === StreamState.Connecting || state === StreamState.Authenticating) && (
-        <div className="kw-term-over">
+        <div className="term-over">
           <Spinner />
           {t(state === StreamState.Authenticating ? "scr.authenticating" : "scr.connecting")}
         </div>
       )}
       {state === StreamState.Verify && ask && (
-        <div className="kw-term-over kw-term-ask" role="alertdialog" aria-label={text(ask.text)}>
+        <div className="term-over term-ask" role="alertdialog" aria-label={text(ask.text)}>
           <Mark level={Level.Warning} words={ask.text} />
-          {ask.code && <code className="kw-mono kw-term-code">{ask.code}</code>}
-          <span className="kw-term-acts">
-            <button type="button" className="kw-btn kw-quiet" onClick={() => answer(false)}>
+          {ask.code && <code className="mono term-code">{ask.code}</code>}
+          <span className="term-acts">
+            <button type="button" className="btn quiet" onClick={() => answer(false)}>
               <Icon name="close" />
               {t("scr.refuse")}
             </button>
-            <button type="button" className="kw-btn kw-solid" disabled={!ops.trust} onClick={() => answer(true)}>
+            <button type="button" className="btn solid" disabled={!ops.trust} onClick={() => answer(true)}>
               <Icon name="check" />
               {t("scr.trust")}
             </button>
@@ -222,11 +222,11 @@ export function Terminal({ ops: given }: { ops: TerminalOps }) {
         </div>
       )}
       {state === StreamState.Closed && (
-        <div className="kw-term-end">
+        <div className="term-end">
           <Icon name={error ? "state" : "check"} />
-          <span className="kw-term-why">{error ?? t("scr.ended")}</span>
+          <span className="term-why">{error ?? t("scr.ended")}</span>
           {!ops.keep && (
-            <button type="button" className="kw-btn kw-quiet" onClick={() => setRound((n) => n + 1)}>
+            <button type="button" className="btn quiet" onClick={() => setRound((n) => n + 1)}>
               <Icon name="refresh" />
               {t("scr.again")}
             </button>

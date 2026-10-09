@@ -5,6 +5,7 @@
 // and clears it there.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   type Account,
   type Backend,
@@ -49,6 +50,8 @@ import {
   type Revealed,
   type FillContext,
   FillMode,
+  FillField,
+  type WindowControls,
   type Kdf,
   KdfKind,
   parseKdfKind,
@@ -174,9 +177,22 @@ function extensionsOf(w: unknown): BrowserExtensions {
       x.words.length > 0 &&
       x.words.every((w) => typeof w === "string") &&
       Number.isInteger(x.at) &&
-      Number.isInteger(x.expires);
+      Number.isInteger(x.expires) &&
+      typeof x.browser === "string" &&
+      typeof x.device === "string" &&
+      Number.isInteger(x.used);
     if (!ok) throw new Error("a browser extension in the daemon's list does not read");
-    return { key: x.key as string, words: [...(x.words as string[])], at: x.at as number, expires: x.expires as number };
+    // The daemon says "not known" with an empty name and a zero time.
+    const name = (v: string) => (v === "" ? null : v);
+    return {
+      key: x.key as string,
+      words: [...(x.words as string[])],
+      at: x.at as number,
+      expires: x.expires as number,
+      browser: name(x.browser as string),
+      device: name(x.device as string),
+      used: x.used === 0 ? null : (x.used as number),
+    };
   };
   return { paired: o.paired.map(row), pending: o.pending.map(row) };
 }
@@ -236,9 +252,19 @@ function held(value: string): Revealed {
 
 /// boundary: what the window's Rust half saw in front at ⌘⇧L.
 function fillContextOf(w: unknown): FillContext {
-  const o = w as { app?: unknown; domain?: unknown; field?: { login?: unknown } | null } | null;
+  const o = w as { app?: unknown; domain?: unknown; field?: { login?: unknown; kind?: unknown } | null } | null;
   if (!o || typeof o.app !== "string" || (o.domain !== null && o.domain !== undefined && typeof o.domain !== "string")) throw new Error("what was in front at ⌘⇧L does not read");
-  return { app: o.app, domain: typeof o.domain === "string" && o.domain !== "" ? o.domain : null, loginPair: !!o.field?.login };
+  if (o.field && typeof o.field.kind !== "string") throw new Error("the field in front at ⌘⇧L has no kind");
+  return { app: o.app, domain: typeof o.domain === "string" && o.domain !== "" ? o.domain : null, loginPair: !!o.field?.login, field: FILL_FIELD[(o.field?.kind as string | undefined) ?? ""] ?? FillField.Other };
+}
+
+/// boundary: what the window's Rust half says the field in front is; `text`
+/// and `unknown` are any field.
+const FILL_FIELD: Readonly<Record<string, FillField>> = {
+  username: FillField.Username,
+  password: FillField.Password,
+  totp: FillField.Totp,
+  card: FillField.Card,
 }
 
 /// boundary: a fill's mode in the words of the window's Rust half.
@@ -431,7 +457,35 @@ const member = (orgId: string, m: OrgMember): Member => ({
   isYou: m.is_you,
 });
 
+/// The window's own buttons over Tauri's window. Closing goes through the
+/// same CloseRequested as the system's button did: hidden, or quit where
+/// nothing would bring the window back (src-tauri lib.rs).
+const WINDOW: WindowControls = {
+  close: () => getCurrentWindow().close(),
+  minimize: () => getCurrentWindow().minimize(),
+  fullscreen: async () => {
+    const w = getCurrentWindow();
+    await w.setFullscreen(!(await w.isFullscreen()));
+  },
+  zoom: () => getCurrentWindow().toggleMaximize(),
+  onFocus(cb) {
+    let off: (() => void) | null = null;
+    let gone = false;
+    void getCurrentWindow()
+      .onFocusChanged((e) => cb(e.payload))
+      .then((un) => {
+        if (gone) un();
+        else off = un;
+      }, console.error);
+    return () => {
+      gone = true;
+      off?.();
+    };
+  },
+};
+
 export class DaemonBackend implements Backend {
+  window = WINDOW;
   readonly caps: Capabilities = { chooseServer: true, accounts: true, biometric: true, plugins: true, clipboardClears: true };
   private readonly listeners = new Set<(c: Change) => void>();
   /// The login waits for the new device's code (the daemon's provider 100)

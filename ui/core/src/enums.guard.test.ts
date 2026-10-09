@@ -151,7 +151,7 @@ describe("every state is an enum", () => {
       'const y = { level: ok ? "healthy" : "warning" };',
       "// boundary: the daemon's words",
       'function parse(r: string) { return r === "x" ? 1 : r.kind === "y" ? 2 : 3; }',
-      'const z = <button type="button" className="kw-on" />;',
+      'const z = <button type="button" className="on" />;',
       'if (typeof v === "string" && s.state === SessionState.Locked) go();',
       'const w = t("level.critical");',
       'fail("err.itemKindUnknown", { kind: "draft" });',

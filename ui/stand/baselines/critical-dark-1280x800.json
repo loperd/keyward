@@ -2,19 +2,19 @@
   "url": "http://localhost:5190/?p=critical",
   "layout": "|insp",
   "pads": [
-    "kw-doc: 24 40 64 40 ×1",
-    "kw-lgrp: 0 0 8 0 ×2",
-    "kw-lrow: 0 8 0 8 ×5",
-    "kw-qline: 0 4 0 4 ×1",
-    "kw-strip: 0 16 0 80 ×1"
+    "doc: 24 40 64 40 ×1",
+    "lgrp: 0 0 8 0 ×2",
+    "lrow: 0 8 0 8 ×5",
+    "qline: 0 4 0 4 ×1",
+    "strip: 0 16 0 16 ×1"
   ],
   "type": [
     "12px/400 sans ×21  e.g. span \"Хранилище\"",
-    "12px/600 sans ×10  e.g. span.kw-g.kw-m-crit \"!\"",
+    "12px/600 sans ×10  e.g. span.g.m-crit \"!\"",
     "12px/500 sans ×5  e.g. span \"Состояние: Критично\"",
-    "12px/400 mono ×3  e.g. kbd.kw-kbd \"⌘K\"",
-    "20px/600 sans ls-0.2px ×1  e.g. h1.kw-h1 \"Состояние: Критично\"",
-    "12px/500 mono ×1  e.g. span.kw-t.kw-mono \"db-1.prod.demo.example\""
+    "12px/400 mono ×3  e.g. kbd.kbd \"⌘K\"",
+    "20px/600 sans ls-0.2px ×1  e.g. h1.h1 \"Состояние: Критично\"",
+    "12px/500 mono ×1  e.g. span.t.mono \"db-1.prod.demo.example\""
   ],
   "findings": {
     "audit": {},

@@ -130,18 +130,20 @@ async fn touch(peer: &Peer, reason: String) -> anyhow::Result<()> {
 pub(crate) async fn bridge(shared: &Shared, peer: &Peer, key: &str, signed: &str, sig: &str) -> Response {
     use keyward_core::passkey::BridgeAsk;
     let run = async {
-        browser(peer)?;
+        let from = browser(peer)?;
         let request = crate::extensions::verify(key, signed, sig)?;
         let (vault, _) = active(shared).await?;
         if !matches!(vault.state(), keyward_core::VaultState::Unlocked { .. }) {
             return Err(keyward_core::fault!("err.vaultLocked"));
         }
         if !crate::extensions::is_paired(&vault, key)? {
-            let (words, expires) = crate::extensions::asked(key);
+            // An unsigned build cannot tell the browser: it is kept unnamed.
+            let (words, expires) = crate::extensions::asked(key, if from == "?" { "" } else { &from });
             let words = words.join(" ");
             tracing::warn!(words, "a browser extension asked for a passkey without being paired");
             anyhow::bail!(keyward_core::fault!("err.extensionNotPaired", "words" => words, "expires" => expires));
         }
+        crate::extensions::used(key);
         anyhow::Ok(request.ask)
     };
     match run.await {

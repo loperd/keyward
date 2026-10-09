@@ -29,149 +29,149 @@
 /* ---------- a bar, and the one shimmer that sweeps every bar at once ----------
    The sheen is fixed to the window, not to the bar: every bar shows its own
    slice of one gradient that crosses the whole window once per --dur-loop. */
-.kw-sk {
+.sk {
   display: block; flex: none; height: var(--u); border-radius: var(--r-in);
   background-color: var(--sk);
   background-image: linear-gradient(90deg, transparent, var(--sk-hi), transparent);
   background-size: var(--sk-w) 100%; background-repeat: no-repeat; background-attachment: fixed;
-  animation: kw-shimmer var(--dur-loop) linear infinite;
+  animation: shimmer var(--dur-loop) linear infinite;
 }
-@keyframes kw-shimmer { from { background-position: calc(var(--sk-w) * -1) 0; } to { background-position: 100vw 0; } }
+@keyframes shimmer { from { background-position: calc(var(--sk-w) * -1) 0; } to { background-position: 100vw 0; } }
 
 /* a skeleton inside a sheet comes up only for a wait the eye would notice */
-.kw-sk-late { animation: kw-sk-in var(--dur) var(--ease-out) var(--dur-fast) both; }
-@keyframes kw-sk-in { from { opacity: 0; } }
+.sk-late { animation: sk-in var(--dur) var(--ease-out) var(--dur-fast) both; }
+@keyframes sk-in { from { opacity: 0; } }
 /* what replaces a skeleton fades in where it stood */
-.kw-arrived > :not(.kw-sec-h) { animation: kw-sk-in var(--dur) var(--ease-out); }
+.arrived > :not(.sec-h) { animation: sk-in var(--dur) var(--ease-out); }
 
 /* ---------- the shapes ---------- */
-.kw-sk-line { display: flex; align-items: center; height: var(--lh-s); }
-.kw-sk-line.kw-sk-l { height: var(--lh-l); }
-.kw-sk-two { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--u); }
-.kw-sk-title { height: var(--u2); width: 44%; }
-.kw-sk-place { width: 28%; }
-.kw-sk-state { margin-top: var(--u); }
-.kw-sk-state .kw-sk { width: 20%; }
-.kw-sk-hero-tile { width: var(--tile-hero); height: var(--tile-hero); border-radius: var(--r-ctl); }
-.kw-sk-button { width: calc(var(--u) * 16); height: var(--ctl); border-radius: var(--r-ctl); margin-right: var(--half); }
-.kw-sk-icon { width: var(--ctl); height: var(--ctl); border-radius: var(--r-ctl); }
-.kw-sk-hero .kw-acts { display: flex; }
-.kw-sk-head { width: calc(var(--u) * 12); }
-.kw-sk-caption { width: calc(var(--u) * 10); }
-.kw-sk-label { width: calc(var(--u) * 10); }
-.kw-sk-value { width: 48%; }
-.kw-sk-f:nth-child(3n + 2) .kw-sk-label { width: calc(var(--u) * 8); }
-.kw-sk-f:nth-child(3n + 2) .kw-sk-value { width: 64%; }
-.kw-sk-f:nth-child(3n) .kw-sk-label { width: calc(var(--u) * 12); }
-.kw-sk-f:nth-child(3n) .kw-sk-value { width: 36%; }
-.kw-sk-f, .kw-sk-f:hover { background: transparent; }
+.sk-line { display: flex; align-items: center; height: var(--lh-s); }
+.sk-line.sk-l { height: var(--lh-l); }
+.sk-two { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--u); }
+.sk-title { height: var(--u2); width: 44%; }
+.sk-place { width: 28%; }
+.sk-state { margin-top: var(--u); }
+.sk-state .sk { width: 20%; }
+.sk-hero-tile { width: var(--tile-hero); height: var(--tile-hero); border-radius: var(--r-ctl); }
+.sk-button { width: calc(var(--u) * 16); height: var(--ctl); border-radius: var(--r-ctl); margin-right: var(--half); }
+.sk-icon { width: var(--ctl); height: var(--ctl); border-radius: var(--r-ctl); }
+.sk-hero .acts { display: flex; }
+.sk-head { width: calc(var(--u) * 12); }
+.sk-caption { width: calc(var(--u) * 10); }
+.sk-label { width: calc(var(--u) * 10); }
+.sk-value { width: 48%; }
+.sk-f:nth-child(3n + 2) .sk-label { width: calc(var(--u) * 8); }
+.sk-f:nth-child(3n + 2) .sk-value { width: 64%; }
+.sk-f:nth-child(3n) .sk-label { width: calc(var(--u) * 12); }
+.sk-f:nth-child(3n) .sk-value { width: 36%; }
+.sk-f, .sk-f:hover { background: transparent; }
 
 /* a list row: the tile, a name, a line under it — the column's own geometry */
-.kw-sk-row { margin: 0 calc(var(--gutter) - var(--pad)); height: var(--row-2); padding: 0 var(--pad); display: flex; align-items: center; gap: var(--lead-gap); }
-.kw-sk-tile { width: var(--tile); height: var(--tile); border-radius: var(--r-in); }
-.kw-sk-tile-round { width: var(--tile); height: var(--tile); border-radius: 50%; }
-.kw-sk-name { width: 62%; }
-.kw-sk-sub { width: 40%; }
-.kw-sk-row:nth-child(4n + 3) .kw-sk-name { width: 48%; }
-.kw-sk-row:nth-child(4n + 3) .kw-sk-sub { width: 56%; }
-.kw-sk-row:nth-child(4n) .kw-sk-name { width: 74%; }
-.kw-sk-row:nth-child(4n) .kw-sk-sub { width: 30%; }
-.kw-sk-row:nth-child(4n + 1) .kw-sk-name { width: 54%; }
-.kw-sk-row:nth-child(4n + 1) .kw-sk-sub { width: 46%; }
+.sk-row { margin: 0 calc(var(--gutter) - var(--pad)); height: var(--row-2); padding: 0 var(--pad); display: flex; align-items: center; gap: var(--lead-gap); }
+.sk-tile { width: var(--tile); height: var(--tile); border-radius: var(--r-in); }
+.sk-tile-round { width: var(--tile); height: var(--tile); border-radius: 50%; }
+.sk-name { width: 62%; }
+.sk-sub { width: 40%; }
+.sk-row:nth-child(4n + 3) .sk-name { width: 48%; }
+.sk-row:nth-child(4n + 3) .sk-sub { width: 56%; }
+.sk-row:nth-child(4n) .sk-name { width: 74%; }
+.sk-row:nth-child(4n) .sk-sub { width: 30%; }
+.sk-row:nth-child(4n + 1) .sk-name { width: 54%; }
+.sk-row:nth-child(4n + 1) .sk-sub { width: 46%; }
 
 /* the members table: its own grid, rows of bars */
-.kw-sk-mt { align-items: center; }
-.kw-sk-mt, .kw-sk-mt:hover { background: transparent; cursor: default; }
-.kw-sk-role { width: calc(var(--u) * 8); }
-.kw-sk-mark { width: calc(var(--u) * 9); }
-.kw-sk-access { width: calc(var(--u) * 10); }
-.kw-sk-mt:nth-child(3n) .kw-sk-name { width: 40%; }
-.kw-sk-mt:nth-child(3n + 1) .kw-sk-name { width: 52%; }
-.kw-sk-mt:nth-child(3n) .kw-sk-sub { width: 58%; }
+.sk-mt { align-items: center; }
+.sk-mt, .sk-mt:hover { background: transparent; cursor: default; }
+.sk-role { width: calc(var(--u) * 8); }
+.sk-mark { width: calc(var(--u) * 9); }
+.sk-access { width: calc(var(--u) * 10); }
+.sk-mt:nth-child(3n) .sk-name { width: 40%; }
+.sk-mt:nth-child(3n + 1) .sk-name { width: 52%; }
+.sk-mt:nth-child(3n) .sk-sub { width: 58%; }
 
 /* the one-time code on its way: a bar of the code's breadth */
-.kw-sk-code { width: calc(var(--u) * 10); height: var(--u2); }
+.sk-code { width: calc(var(--u) * 10); height: var(--u2); }
 
 /* the fingerprint phrase on its way: a bar of a phrase's breadth on a title's line */
-.kw-sk-phrase { width: min(calc(var(--u) * 52), 100%); height: var(--u2); }
+.sk-phrase { width: min(calc(var(--u) * 52), 100%); height: var(--u2); }
 
 /* ---------- the status line: a turning mark in a soft circle, the words, a running bar ---------- */
-.kw-load-status { position: relative; display: flex; align-items: center; gap: var(--u); min-height: var(--ctl); margin-top: var(--sec-gap); color: var(--text); overflow: hidden; }
-.kw-sk-block > .kw-load-status { margin-top: var(--u2); }
-.kw-load-pulse { display: inline-grid; place-items: center; width: var(--ctl); height: var(--ctl); border-radius: 50%; flex: none; color: var(--sky);
+.load-status { position: relative; display: flex; align-items: center; gap: var(--u); min-height: var(--ctl); margin-top: var(--sec-gap); color: var(--text); overflow: hidden; }
+.sk-block > .load-status { margin-top: var(--u2); }
+.load-pulse { display: inline-grid; place-items: center; width: var(--ctl); height: var(--ctl); border-radius: 50%; flex: none; color: var(--sky);
   background: color-mix(in srgb, var(--sky) 14%, transparent); }
-.kw-load-words { animation: kw-sk-in var(--dur) var(--ease-out); }
-.kw-load-bar { position: absolute; left: calc(var(--ctl) + var(--u)); right: 0; bottom: 0; height: var(--bar-w); border-radius: var(--bar-w);
+.load-words { animation: sk-in var(--dur) var(--ease-out); }
+.load-bar { position: absolute; left: calc(var(--ctl) + var(--u)); right: 0; bottom: 0; height: var(--bar-w); border-radius: var(--bar-w);
   background: color-mix(in srgb, var(--sky) 18%, transparent); overflow: hidden; }
-.kw-load-bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: inherit;
-  background: linear-gradient(90deg, transparent, var(--sky), transparent); animation: kw-sweep var(--dur-loop) var(--ease-in-out) infinite; }
+.load-bar::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%; border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--sky), transparent); animation: sweep var(--dur-loop) var(--ease-in-out) infinite; }
 
 /* the turning mark: a faint ring and a quarter of it that turns */
-.kw-load-ring circle { fill: none; stroke-width: 1.6; }
-.kw-load-ring .kw-load-ring-bg { stroke: currentColor; opacity: 0.25; }
-.kw-load-ring .kw-load-ring-fg { stroke: currentColor; stroke-dasharray: 9 26; stroke-linecap: round; }
-.kw-load-ring { animation: kw-turn var(--dur-spin) linear infinite; }
-.kw-load-crumb-mark { color: var(--sky); }
+.load-ring circle { fill: none; stroke-width: 1.6; }
+.load-ring .load-ring-bg { stroke: currentColor; opacity: 0.25; }
+.load-ring .load-ring-fg { stroke: currentColor; stroke-dasharray: 9 26; stroke-linecap: round; }
+.load-ring { animation: turn var(--dur-spin) linear infinite; }
+.load-crumb-mark { color: var(--sky); }
 
 /* ---------- the boot screen: the window's skeleton over everything ---------- */
 /* it comes in at once: it continues the page's splash, drawn the same */
-.kw-loading { position: fixed; inset: 0; z-index: 60; }
-.kw-loading.kw-leaving { pointer-events: none; animation: kw-load-out var(--dur) var(--ease-out) forwards; }
-@keyframes kw-load-out { to { opacity: 0; } }
-.kw-loading .kw-sk-qline { flex: 1; min-width: 0; cursor: default; }
-.kw-loading .kw-crumb { cursor: default; }
-.kw-loading .kw-crumb:hover { background: transparent; }
-.kw-sk-ctl { width: var(--ic); height: var(--ic); margin: var(--u); border-radius: var(--r-in); }
-.kw-sk-tools { display: flex; align-items: center; gap: var(--u); flex: none; }
-.kw-sk-ava { width: var(--chip); height: var(--chip); margin: var(--half); border-radius: 50%; }
-.kw-sk-col { width: var(--col-w); }
-.kw-sk-col .kw-list { overflow: hidden; }
-.kw-sk-col .kw-grp { align-items: flex-end; padding-bottom: calc(var(--u) + (var(--lh-s) - var(--u)) / 2); }
-.kw-sk-tier-0 { --bg: color-mix(in srgb, var(--tier-hi) 12%, var(--tier-lo)); }
-.kw-sk-tier-1 { --bg: color-mix(in srgb, var(--tier-hi) 80%, var(--tier-lo)); }
-.kw-loading .kw-insp { overflow: hidden; }
+.loading { position: fixed; inset: 0; z-index: 60; }
+.loading.leaving { pointer-events: none; animation: load-out var(--dur) var(--ease-out) forwards; }
+@keyframes load-out { to { opacity: 0; } }
+.loading .sk-qline { flex: 1; min-width: 0; cursor: default; }
+.loading .crumb { cursor: default; }
+.loading .crumb:hover { background: transparent; }
+.sk-ctl { width: var(--ic); height: var(--ic); margin: var(--u); border-radius: var(--r-in); }
+.sk-tools { display: flex; align-items: center; gap: var(--u); flex: none; }
+.sk-ava { width: var(--chip); height: var(--chip); margin: var(--half); border-radius: 50%; }
+.sk-col { width: var(--col-w); }
+.sk-col .list { overflow: hidden; }
+.sk-col .grp { align-items: flex-end; padding-bottom: calc(var(--u) + (var(--lh-s) - var(--u)) / 2); }
+.sk-tier-0 { --bg: color-mix(in srgb, var(--tier-hi) 12%, var(--tier-lo)); }
+.sk-tier-1 { --bg: color-mix(in srgb, var(--tier-hi) 80%, var(--tier-lo)); }
+.loading .insp { overflow: hidden; }
 /* below the narrow width one list stays open, as in the window: the first
    column's width is the column's above --narrow and nothing under it */
-.kw-sk-col.kw-sk-tier-0 { width: clamp(0px, (100vw - var(--narrow)) * 1000, var(--col-w)); }
+.sk-col.sk-tier-0 { width: clamp(0px, (100vw - var(--narrow)) * 1000, var(--col-w)); }
 
 /* a secret being revealed: its dots breathe while the eye's ring turns */
-.kw-f:has(> .kw-fa [aria-busy="true"]) .kw-dots { animation: kw-breathe var(--dur-loop) ease-in-out infinite; }
+.f:has(> .fa [aria-busy="true"]) .dots { animation: breathe var(--dur-loop) ease-in-out infinite; }
 
 /* Less movement: the bars breathe in place instead of being swept, the mark
    breathes instead of turning, the bar fills its track and breathes. */
 @media (prefers-reduced-motion: reduce) {
-  .kw-sk, .kw-load-ring, .kw-load-bar::after, .kw-f:has(> .kw-fa [aria-busy="true"]) .kw-dots { animation: kw-breathe var(--dur-loop) ease-in-out infinite !important; }
-  .kw-sk { background-image: none; }
-  .kw-load-bar::after { width: 100%; }
+  .sk, .load-ring, .load-bar::after, .f:has(> .fa [aria-busy="true"]) .dots { animation: breathe var(--dur-loop) ease-in-out infinite !important; }
+  .sk { background-image: none; }
+  .load-bar::after { width: 100%; }
 }
 
 /* ---------- a session that would not load: calm, the document's type, one way on ---------- */
-.kw-load-failed p { margin: var(--u) 0 0; max-width: var(--insp-max); color: var(--dim); overflow-wrap: anywhere; }
-.kw-load-failed .kw-acts { margin-top: var(--u3); }
+.load-failed p { margin: var(--u) 0 0; max-width: var(--insp-max); color: var(--dim); overflow-wrap: anywhere; }
+.load-failed .acts { margin-top: var(--u3); }
 
 /* ---------- small waits in a line: a turning mark and quiet words ---------- */
-.kw-sk-fprint { display: flex; flex-direction: column; gap: var(--u); }
-.kw-load-inline { display: inline-flex; align-items: center; gap: var(--u); color: var(--faint); }
-.kw-load-inline .kw-load-ring { color: var(--sky); }
+.sk-fprint { display: flex; flex-direction: column; gap: var(--u); }
+.load-inline { display: inline-flex; align-items: center; gap: var(--u); color: var(--faint); }
+.load-inline .load-ring { color: var(--sky); }
 /* an account menu's other accounts on their way: a row of the menu, a bar for the address */
-.kw-mrow.kw-sk-mrow, .kw-mrow.kw-sk-mrow:hover { background: transparent; }
-.kw-sk-mrow .kw-ic { color: var(--sky); }
-.kw-sk-mrow .kw-sk { width: 60%; }
+.mrow.sk-mrow, .mrow.sk-mrow:hover { background: transparent; }
+.sk-mrow .ic { color: var(--sky); }
+.sk-mrow .sk { width: 60%; }
 
 /* ---------- a map being built: its lanes and points as bars over the points
    being measured, then the map fades in ---------- */
-.kw-mcanvas.kw-building > .kw-medges, .kw-mcanvas.kw-building > .kw-mnodes, .kw-mcanvas.kw-building > .kw-mchips, .kw-mcanvas.kw-building > .kw-mlanes { opacity: 0; }
-.kw-mcanvas.kw-built > .kw-mnodes, .kw-mcanvas.kw-built > .kw-mlanes { animation: kw-sk-in var(--dur) var(--ease-out); }
-.kw-mbuild { position: absolute; inset: 0; display: flex; justify-content: space-around; padding: var(--u2) var(--u5) 0; pointer-events: none; }
-.kw-mbuild-lane { display: flex; flex-direction: column; gap: var(--map-gap); width: calc(var(--u) * 24); }
-.kw-mbuild-lane > .kw-sk-caption { margin-bottom: calc(var(--map-top) - var(--u2) - var(--map-gap) - var(--u)); }
-.kw-mbuild-pt { display: flex; align-items: center; gap: var(--u); }
-.kw-mbuild-dot { width: var(--tile); height: var(--tile); border-radius: 50%; }
-.kw-mbuild-say { position: absolute; left: var(--u5); right: var(--u5); bottom: var(--u3); pointer-events: none; }
-.kw-mbuild-say .kw-load-status { margin-top: 0; max-width: calc(var(--u) * 40); }
+.mcanvas.building > .medges, .mcanvas.building > .mnodes, .mcanvas.building > .mchips, .mcanvas.building > .mlanes { opacity: 0; }
+.mcanvas.built > .mnodes, .mcanvas.built > .mlanes { animation: sk-in var(--dur) var(--ease-out); }
+.mbuild { position: absolute; inset: 0; display: flex; justify-content: space-around; padding: var(--u2) var(--u5) 0; pointer-events: none; }
+.mbuild-lane { display: flex; flex-direction: column; gap: var(--map-gap); width: calc(var(--u) * 24); }
+.mbuild-lane > .sk-caption { margin-bottom: calc(var(--map-top) - var(--u2) - var(--map-gap) - var(--u)); }
+.mbuild-pt { display: flex; align-items: center; gap: var(--u); }
+.mbuild-dot { width: var(--tile); height: var(--tile); border-radius: 50%; }
+.mbuild-say { position: absolute; left: var(--u5); right: var(--u5); bottom: var(--u3); pointer-events: none; }
+.mbuild-say .load-status { margin-top: 0; max-width: calc(var(--u) * 40); }
 
 /* ---------- the gate that opened the vault, fading out over the window ---------- */
-.kw-gate-box { display: contents; }
-.kw-gate.kw-gate-ghost { position: fixed; inset: 0; z-index: 59; pointer-events: none; animation: kw-load-out var(--dur) var(--ease-out) forwards; }
+.gate-box { display: contents; }
+.gate.gate-ghost { position: fixed; inset: 0; z-index: 59; pointer-events: none; animation: load-out var(--dur) var(--ease-out) forwards; }
 /* re-inserted, its parts would play their entrances again: they stand still */
-.kw-gate.kw-gate-ghost * { animation: none !important; }
+.gate.gate-ghost * { animation: none !important; }

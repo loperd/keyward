@@ -32,10 +32,10 @@ export class RenderGuard extends Component<Props, State> {
   override render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <div className="kw-window kw-failed" role="alert">
+      <div className="window failed" role="alert">
         <h1>{t("error.title")}</h1>
         <p>{t("error.hint")}</p>
-        <button type="button" className="kw-btn kw-solid" onClick={() => {
+        <button type="button" className="btn solid" onClick={() => {
           this.setState({ failed: false });
           this.props.onBack();
         }}>

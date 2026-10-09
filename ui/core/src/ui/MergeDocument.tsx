@@ -78,12 +78,12 @@ export function MergeDocument({ itemId }: { itemId: string }) {
   const close = () => store.verb(null);
   const head = (
     <>
-      <div className="kw-vlead">
+      <div className="vlead">
         <Icon name="merge" />
         <span>{t("merge.lead")}</span>
       </div>
-      <h1 className="kw-h1">{t("merge.title", { n: group.length })}</h1>
-      <p className="kw-lede">{t("merge.lede")}</p>
+      <h1 className="h1">{t("merge.title", { n: group.length })}</h1>
+      <p className="lede">{t("merge.lede")}</p>
     </>
   );
   if (group.length < 2)
@@ -104,7 +104,7 @@ export function MergeDocument({ itemId }: { itemId: string }) {
     return (
       <>
         {head}
-        <span className="kw-why kw-refused" role="alert">
+        <span className="why refused" role="alert">
           <Mark level={Level.Critical} words={t("ui.failed", { reason: refusal(loaded.error) })} />
         </span>
       </>
@@ -136,13 +136,13 @@ export function MergeDocument({ itemId }: { itemId: string }) {
   const open = lines.filter((l) => l.state !== RowState.Same);
 
   return (
-    <div className="kw-merge">
+    <div className="merge">
       {head}
-      <section className="kw-sec">
-        <div className="kw-sec-h">
-          <h2 className="kw-h2">{t("merge.keep")}</h2>
+      <section className="sec">
+        <div className="sec-h">
+          <h2 className="h2">{t("merge.keep")}</h2>
         </div>
-        <div className="kw-merge-keep" role="radiogroup" aria-label={t("merge.keep")}>
+        <div className="merge-keep" role="radiogroup" aria-label={t("merge.keep")}>
           {group.map((i) => {
             const on = i.id === draft.keeper;
             return (
@@ -151,15 +151,15 @@ export function MergeDocument({ itemId }: { itemId: string }) {
                 type="button"
                 role="radio"
                 aria-checked={on}
-                className={`kw-merge-rec${on ? " kw-on" : ""}`}
+                className={`merge-rec${on ? " on" : ""}`}
                 onClick={() => !on && set(draftMerge(cmp, i.id, group, label))}
               >
                 <Tile lead={nodeLead(dir, `item:${i.id}`)} />
-                <span className="kw-merge-rec-tx">
+                <span className="merge-rec-tx">
                   <b>{i.name}</b>
                   <span>{say(placeOf(i, dir.catalog))}</span>
                 </span>
-                <span className="kw-merge-rec-mk" data-tip={t(on ? "merge.kept" : "merge.toTrash")} aria-label={t(on ? "merge.kept" : "merge.toTrash")}>
+                <span className="merge-rec-mk" data-tip={t(on ? "merge.kept" : "merge.toTrash")} aria-label={t(on ? "merge.kept" : "merge.toTrash")}>
                   <Icon name={on ? "check" : "trash"} />
                 </span>
               </button>
@@ -169,10 +169,10 @@ export function MergeDocument({ itemId }: { itemId: string }) {
       </section>
 
       {open.length > 0 && (
-        <section className="kw-sec kw-form">
-          <div className="kw-sec-h">
-            <h2 className="kw-h2">{t("merge.differs")}</h2>
-            <span className="kw-n">{open.length}</span>
+        <section className="sec form">
+          <div className="sec-h">
+            <h2 className="h2">{t("merge.differs")}</h2>
+            <span className="n">{open.length}</span>
           </div>
           {open.map((l) => (
             <Line key={l.key} line={l} keeper={draft.keeper} nameOf={nameOf} label={label(l.slot)} group={group} onChoose={(o, c) => set(choose(draft, l.key, o.group, c))} onRename={(o, n) => set(rename(draft, l.key, o.group, n))} />
@@ -181,14 +181,14 @@ export function MergeDocument({ itemId }: { itemId: string }) {
       )}
 
       {same.length > 0 && (
-        <section className="kw-sec">
-          <div className="kw-sec-h">
-            <h2 className="kw-h2">{t("merge.same")}</h2>
-            <span className="kw-n">{same.length}</span>
+        <section className="sec">
+          <div className="sec-h">
+            <h2 className="h2">{t("merge.same")}</h2>
+            <span className="n">{same.length}</span>
           </div>
-          <div className="kw-merge-same">
+          <div className="merge-same">
             {same.map((l) => (
-              <span key={l.key} className="kw-merge-chip">
+              <span key={l.key} className="merge-chip">
                 <Icon name="check" />
                 {label(l.slot)}
               </span>
@@ -197,26 +197,26 @@ export function MergeDocument({ itemId }: { itemId: string }) {
         </section>
       )}
 
-      <div className="kw-vbar">
-        <button type="button" className="kw-btn kw-solid" disabled={running || !!problem} aria-busy={running || undefined} onClick={run} data-confirm="">
+      <div className="vbar">
+        <button type="button" className="btn solid" disabled={running || !!problem} aria-busy={running || undefined} onClick={run} data-confirm="">
           <BtnIcon icon="merge" phase={running ? Phase.Busy : Phase.Idle} />
           {t("merge.go", { n: draft.others.length })}
         </button>
-        <button type="button" className="kw-btn kw-quiet" onClick={close}>
+        <button type="button" className="btn quiet" onClick={close}>
           {t("ui.cancel")}
           <Kbd>Esc</Kbd>
         </button>
         {failed ? (
-          <span className="kw-why kw-refused" role="alert">
+          <span className="why refused" role="alert">
             <Mark level={Level.Critical} words={t("ui.failed", { reason: failed })} />
           </span>
         ) : problem ? (
-          <span className="kw-why kw-held">
+          <span className="why held">
             <Icon name="info" />
             {say(problem)}
           </span>
         ) : (
-          <span className="kw-why">
+          <span className="why">
             <Icon name="undo" />
             {t("merge.note")}
           </span>
@@ -263,41 +263,41 @@ function Line({
   const login = (id: string) => (line.slot.field === MergeField.Username ? (group.find((i) => i.id === id)?.subtitle ?? null) : null);
   const mine = login(keeper);
   return (
-    <div className="kw-merge-line">
-      <div className="kw-merge-field">
+    <div className="merge-line">
+      <div className="merge-field">
         <b>{label}</b>
         {line.secret && <Icon name="lock" />}
-        <span className="kw-faint">
-          {line.keeperHolds ? (mine ? <span className="kw-mono">{mine}</span> : t("merge.inKept")) : t("merge.notInKept")}
+        <span className="faint">
+          {line.keeperHolds ? (mine ? <span className="mono">{mine}</span> : t("merge.inKept")) : t("merge.notInKept")}
         </span>
       </div>
       {line.offers.map((o) => {
         const value = login(o.from);
         const from = o.holders.length > 1 ? t("merge.fromMany", { name: nameOf(o.from), n: o.holders.length - 1 }) : nameOf(o.from);
         return (
-          <div key={o.group} className="kw-merge-offer">
-            <div className="kw-frow">
-              <span className="kw-fl">
+          <div key={o.group} className="merge-offer">
+            <div className="frow">
+              <span className="fl">
                 <Icon name="chev" />
                 <span>
                   {from}
-                  {value && <span className="kw-mono kw-faint"> · {value}</span>}
+                  {value && <span className="mono faint"> · {value}</span>}
                 </span>
               </span>
-              <div className="kw-fseg kw-merge-seg" role="radiogroup" aria-label={t("merge.choiceFor", { field: label, name: nameOf(o.from) })}>
+              <div className="fseg merge-seg" role="radiogroup" aria-label={t("merge.choiceFor", { field: label, name: nameOf(o.from) })}>
                 {choicesOf(line).map((c) => (
-                  <button key={c.choice} type="button" role="radio" aria-checked={o.choice === c.choice} aria-label={c.tip} data-tip={c.tip} className={o.choice === c.choice ? "kw-on" : undefined} onClick={() => o.choice !== c.choice && onChoose(o, c.choice)}>
+                  <button key={c.choice} type="button" role="radio" aria-checked={o.choice === c.choice} aria-label={c.tip} data-tip={c.tip} className={o.choice === c.choice ? "on" : undefined} onClick={() => o.choice !== c.choice && onChoose(o, c.choice)}>
                     <Icon name={c.icon} />
                   </button>
                 ))}
               </div>
             </div>
             {o.choice === MergeChoice.Beside && (
-              <div className="kw-frow">
-                <span className="kw-fl">
+              <div className="frow">
+                <span className="fl">
                   <span>{t("merge.besideName")}</span>
                 </span>
-                <label className="kw-fin">
+                <label className="fin">
                   <input value={o.name} spellCheck={false} autoComplete="off" aria-label={t("merge.besideName")} onChange={(e) => onRename(o, e.target.value)} />
                 </label>
               </div>

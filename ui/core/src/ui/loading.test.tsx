@@ -64,26 +64,26 @@ describe("the boot screen", () => {
   it("is the window's skeleton with its phase's words and a running bar", () => {
     for (const p of Object.values(LoadPhase)) {
       const html = renderToString(<Loading phase={p} />);
-      expect(html).toContain("kw-loading");
-      expect(html).toContain("kw-strip");
-      expect(html).toContain("kw-load-bar");
-      expect(html).toContain("kw-load-crumb-mark");
+      expect(html).toContain("loading");
+      expect(html).toContain("strip");
+      expect(html).toContain("load-bar");
+      expect(html).toContain("load-crumb-mark");
       expect(html).toContain(phaseWords(p));
-      expect(html).not.toContain("kw-leaving");
+      expect(html).not.toContain("leaving");
       // two list columns of two-line rows, then the inspector's hero
-      expect(html.match(/kw-sk-col/g)?.length).toBe(2);
-      expect(html.match(/kw-sk-row/g)?.length).toBe(14);
-      expect(html).toContain("kw-sk-hero-tile");
+      expect(html.match(/sk-col/g)?.length).toBe(2);
+      expect(html.match(/sk-row/g)?.length).toBe(14);
+      expect(html).toContain("sk-hero-tile");
     }
-    expect(renderToString(<Loading phase={LoadPhase.Session} leaving />)).toContain("kw-leaving");
+    expect(renderToString(<Loading phase={LoadPhase.Session} leaving />)).toContain("leaving");
   });
 
   it("is what the app draws first, never an empty window", () => {
     const { b } = heldBackend();
     const html = renderToString(<App backend={b} />);
-    expect(html).toContain("kw-loading");
+    expect(html).toContain("loading");
     expect(html).toContain("Открываю хранилище…");
-    expect(html).not.toMatch(/<div class="kw-window"><\/div>/);
+    expect(html).not.toMatch(/<div class="window"><\/div>/);
   });
 });
 
@@ -101,10 +101,10 @@ describe("the app while it loads", () => {
     host.remove();
   });
 
-  const loading = () => host.querySelector(".kw-loading");
-  const words = () => host.querySelector(".kw-loading .kw-load-words")?.textContent;
+  const loading = () => host.querySelector(".loading");
+  const words = () => host.querySelector(".loading .load-words")?.textContent;
   const noEmptyWindow = () => {
-    for (const w of host.querySelectorAll(".kw-window")) expect(w.childElementCount).toBeGreaterThan(0);
+    for (const w of host.querySelectorAll(".window")) expect(w.childElementCount).toBeGreaterThan(0);
   };
 
   it("shows the boot screen until the session, then the catalogue, then the places come", async () => {
@@ -122,7 +122,7 @@ describe("the app while it loads", () => {
     h.catalog.resolve(structuredClone(DEMO));
     await flush();
     expect(words()).toBe("Загружаю места плагинов…");
-    expect(loading()!.classList.contains("kw-leaving")).toBe(false);
+    expect(loading()!.classList.contains("leaving")).toBe(false);
     noEmptyWindow();
   });
 
@@ -132,9 +132,9 @@ describe("the app while it loads", () => {
     h.session.resolve({ state: SessionState.Locked, email: "alex@acme.example", server: "s" });
     await flush();
     // The gate stands, and the boot screen fades out over it, out of reach.
-    expect(host.querySelector(".kw-gate")).not.toBeNull();
+    expect(host.querySelector(".gate")).not.toBeNull();
     const veil = loading()!;
-    expect(veil.classList.contains("kw-leaving")).toBe(true);
+    expect(veil.classList.contains("leaving")).toBe(true);
     expect(veil.hasAttribute("inert")).toBe(true);
     act(() => {
       veil.dispatchEvent(new Event("animationend", { bubbles: true }));
@@ -147,7 +147,7 @@ describe("the app while it loads", () => {
     act(() => root.render(<App backend={h.b} autoBiometric={false} />));
     h.session.reject(new Error("the daemon is not running"));
     await flush();
-    const sheet = host.querySelector(".kw-load-failed")!;
+    const sheet = host.querySelector(".load-failed")!;
     expect(sheet).not.toBeNull();
     expect(sheet.textContent).toContain("Хранилище не открылось");
     expect(sheet.textContent).toContain("the daemon is not running");
@@ -157,7 +157,7 @@ describe("the app while it loads", () => {
     const button = sheet.querySelector("button")!;
     expect(button.textContent).toBe("Повторить");
     act(() => button.click());
-    expect(host.querySelector(".kw-load-failed")).toBeNull();
+    expect(host.querySelector(".load-failed")).toBeNull();
     expect(words()).toBe("Открываю хранилище…");
   });
 });
@@ -184,9 +184,9 @@ describe("skeletons in documents", () => {
     expect(sk && "words" in sk && sk.words && text(sk.words)).toBe("Загружаю участников…");
     expect(doc.note).toBeUndefined();
     const html = renderToString(<BlockSkeleton kind={SkeletonKind.Members} rows={4} words={{ key: "load.members" }} />);
-    expect(html.match(/kw-sk-mt/g)?.length).toBe(4);
+    expect(html.match(/sk-mt/g)?.length).toBe(4);
     expect(html).toContain("Загружаю участников…");
-    expect(html).toContain("kw-sk-late");
+    expect(html).toContain("sk-late");
   });
 
   it("are not drawn where the members are not on their way", () => {

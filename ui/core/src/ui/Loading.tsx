@@ -9,6 +9,7 @@
 // splash in the page's HTML (ui/core/src/ui/splash.css). The skeletons inside
 // a sheet come up only after --dur-fast, so an answer that is there at once
 // never flickers; the content that replaces them fades in.
+import { WindowButtons } from "./WindowButtons";
 import { t, text, type Key, type Text } from "../i18n";
 import { SkeletonKind } from "../doc/spec";
 import "./loading.css";
@@ -34,16 +35,16 @@ export const phaseWords = (p: LoadPhase): string => t(PHASE_WORDS[p]);
 /// One bar of a skeleton. Its width comes from its place (loading.css), so
 /// rows differ the way real names do and every drawing is the same.
 function Bar({ k }: { k: string }) {
-  return <span className={`kw-sk kw-sk-${k}`} aria-hidden="true" />;
+  return <span className={`sk sk-${k}`} aria-hidden="true" />;
 }
 
 /// A loader that does not know how long it waits: a ring that turns, the
 /// size of an icon.
 export function Turning({ className = "" }: { className?: string }) {
   return (
-    <svg className={`kw-icon kw-load-ring ${className}`} viewBox="0 0 16 16" aria-hidden="true">
-      <circle className="kw-load-ring-bg" cx="8" cy="8" r="5.5" />
-      <circle className="kw-load-ring-fg" cx="8" cy="8" r="5.5" />
+    <svg className={`icon load-ring ${className}`} viewBox="0 0 16 16" aria-hidden="true">
+      <circle className="load-ring-bg" cx="8" cy="8" r="5.5" />
+      <circle className="load-ring-fg" cx="8" cy="8" r="5.5" />
     </svg>
   );
 }
@@ -53,14 +54,14 @@ export function Turning({ className = "" }: { className?: string }) {
 /// --dur-fast (inside a sheet); the boot screen's is there at once.
 export function Pending({ words, quiet = true }: { words: string; quiet?: boolean }) {
   return (
-    <div className={`kw-load-status${quiet ? " kw-sk-late" : ""}`} role="status" aria-live="polite">
-      <span className="kw-load-pulse" aria-hidden="true">
+    <div className={`load-status${quiet ? " sk-late" : ""}`} role="status" aria-live="polite">
+      <span className="load-pulse" aria-hidden="true">
         <Turning />
       </span>
-      <span className="kw-load-words" key={words}>
+      <span className="load-words" key={words}>
         {words}
       </span>
-      <span className="kw-load-bar" aria-hidden="true" />
+      <span className="load-bar" aria-hidden="true" />
     </div>
   );
 }
@@ -69,13 +70,13 @@ export function Pending({ words, quiet = true }: { words: string; quiet?: boolea
 /// place, the state, the main action and two more.
 export function HeroSkeleton() {
   return (
-    <header className="kw-hero kw-sk-hero" aria-hidden="true">
+    <header className="hero sk-hero" aria-hidden="true">
       <Bar k="hero-tile" />
-      <div className="kw-hero-t">
-        <span className="kw-sk-line kw-sk-l"><Bar k="title" /></span>
-        <span className="kw-sk-line"><Bar k="place" /></span>
-        <span className="kw-sk-line kw-sk-state"><Bar k="state" /></span>
-        <span className="kw-acts">
+      <div className="hero-t">
+        <span className="sk-line sk-l"><Bar k="title" /></span>
+        <span className="sk-line"><Bar k="place" /></span>
+        <span className="sk-line sk-state"><Bar k="state" /></span>
+        <span className="acts">
           <Bar k="button" />
           <Bar k="icon" />
           <Bar k="icon" />
@@ -88,11 +89,11 @@ export function HeroSkeleton() {
 /// Fields on their way: the document's label column, then a value.
 export function FieldsSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="kw-sk-fields" aria-hidden="true">
+    <div className="sk-fields" aria-hidden="true">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="kw-f kw-sk-f">
-          <span className="kw-k"><Bar k="label" /></span>
-          <span className="kw-v"><Bar k="value" /></span>
+        <div key={i} className="f sk-f">
+          <span className="k"><Bar k="label" /></span>
+          <span className="v"><Bar k="value" /></span>
           <span />
         </div>
       ))}
@@ -104,8 +105,8 @@ export function FieldsSkeleton({ rows }: { rows: number }) {
 /// columns.
 export function MembersSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="kw-sk-members">
-      <div className="kw-mt-h">
+    <div className="sk-members">
+      <div className="mt-h">
         <span />
         <span>{t("ui.th.name")}</span>
         <span>{t("ui.th.role")}</span>
@@ -114,9 +115,9 @@ export function MembersSkeleton({ rows }: { rows: number }) {
         <span>{t("ui.th.access")}</span>
       </div>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="kw-mt-r kw-sk-mt" aria-hidden="true">
+        <div key={i} className="mt-r sk-mt" aria-hidden="true">
           <Bar k="tile-round" />
-          <span className="kw-sk-two">
+          <span className="sk-two">
             <Bar k="name" />
             <Bar k="sub" />
           </span>
@@ -133,7 +134,7 @@ export function MembersSkeleton({ rows }: { rows: number }) {
 /// A skeleton block of a document, with its words when the wait has any.
 export function BlockSkeleton({ kind, rows, words }: { kind: SkeletonKind; rows: number; words?: Text | undefined }) {
   return (
-    <div className={`kw-sk-block kw-sk-late kw-sk-${kind}-block`}>
+    <div className={`sk-block sk-late sk-${kind}-block`}>
       {kind === SkeletonKind.Members ? <MembersSkeleton rows={rows} /> : <FieldsSkeleton rows={rows} />}
       {words && <Pending words={text(words)} quiet={false} />}
     </div>
@@ -144,10 +145,10 @@ export function BlockSkeleton({ kind, rows, words }: { kind: SkeletonKind; rows:
 /// hero, then a section of fields.
 export function DocSkeleton({ rows = 3, words }: { rows?: number; words?: string }) {
   return (
-    <div className="kw-sk-doc kw-sk-late">
+    <div className="sk-doc sk-late">
       <HeroSkeleton />
-      <section className="kw-sec" aria-hidden="true">
-        <div className="kw-sec-h"><Bar k="head" /></div>
+      <section className="sec" aria-hidden="true">
+        <div className="sec-h"><Bar k="head" /></div>
         <FieldsSkeleton rows={rows} />
       </section>
       {words && <Pending words={words} quiet={false} />}
@@ -159,13 +160,13 @@ export function DocSkeleton({ rows = 3, words }: { rows?: number; words?: string
 /// a name, a line under it).
 function ColumnSkeleton({ rows, tier }: { rows: number; tier: number }) {
   return (
-    <section className={`kw-col kw-sk-col kw-sk-tier-${tier}`} aria-hidden="true">
-      <div className="kw-list">
-        <div className="kw-grp"><Bar k="caption" /></div>
+    <section className={`col sk-col sk-tier-${tier}`} aria-hidden="true">
+      <div className="list">
+        <div className="grp"><Bar k="caption" /></div>
         {Array.from({ length: rows }, (_, i) => (
-          <div key={i} className="kw-sk-row">
+          <div key={i} className="sk-row">
             <Bar k="tile" />
-            <span className="kw-sk-two">
+            <span className="sk-two">
               <Bar k="name" />
               <Bar k="sub" />
             </span>
@@ -182,43 +183,44 @@ function ColumnSkeleton({ rows, tier }: { rows: number; tier: number }) {
 export function Loading({ phase, leaving = false, onGone }: { phase: LoadPhase; leaving?: boolean; onGone?: () => void }) {
   return (
     <div
-      className={`kw-window kw-loading${leaving ? " kw-leaving" : ""}`}
+      className={`window loading${leaving ? " leaving" : ""}`}
       aria-busy={!leaving}
       inert={leaving}
       onAnimationEnd={(e) => {
         if (leaving && e.target === e.currentTarget) onGone?.();
       }}
     >
-      <header className="kw-strip" data-tauri-drag-region="deep">
-        <div className="kw-nav" aria-hidden="true">
+      <header className="strip" data-tauri-drag-region="deep">
+        <WindowButtons />
+        <div className="nav" aria-hidden="true">
           <Bar k="ctl" />
           <Bar k="ctl" />
         </div>
-        <div className="kw-qline kw-sk-qline">
-          <span className="kw-crumbs">
-            <span className="kw-crumb kw-last">
-              <Turning className="kw-load-crumb-mark" />
+        <div className="qline sk-qline">
+          <span className="crumbs">
+            <span className="crumb last">
+              <Turning className="load-crumb-mark" />
               <span>{t("root")}</span>
             </span>
           </span>
         </div>
-        <span className="kw-sk-tools" aria-hidden="true">
+        <span className="sk-tools" aria-hidden="true">
           <Bar k="ctl" />
           <Bar k="ctl" />
           <Bar k="ctl" />
           <Bar k="ava" />
         </span>
       </header>
-      <main className="kw-stage">
-        <div className="kw-cols">
+      <main className="stage">
+        <div className="cols">
           <ColumnSkeleton rows={8} tier={0} />
           <ColumnSkeleton rows={6} tier={1} />
         </div>
-        <section className="kw-insp">
-          <div className="kw-doc">
+        <section className="insp">
+          <div className="doc">
             <HeroSkeleton />
-            <section className="kw-sec" aria-hidden="true">
-              <div className="kw-sec-h"><Bar k="head" /></div>
+            <section className="sec" aria-hidden="true">
+              <div className="sec-h"><Bar k="head" /></div>
               <FieldsSkeleton rows={2} />
             </section>
             <Pending words={phaseWords(phase)} quiet={false} />

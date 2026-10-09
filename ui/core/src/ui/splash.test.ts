@@ -128,7 +128,7 @@ describe("the splash", () => {
     const markup = pages.map(([p, html]) => {
       const m = /<div id="root">([\s\S]*?)\n {4}<\/div>\n/.exec(html);
       if (!m) throw new Error(`${p} has no splash in #root`);
-      expect(m[1]).toContain('class="kws"');
+      expect(m[1]).toContain('class="splash"');
       // nothing inline: no style element, no style attribute, no inline script
       expect(html).not.toMatch(/<style|style="|<script(?![^>]*\bsrc=)/);
       expect(html).toMatch(/<link rel="stylesheet" href="[^"]*splash\.css" \/>/);

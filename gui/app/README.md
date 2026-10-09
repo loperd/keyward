@@ -38,7 +38,9 @@ removed once every blocker below is in the new one. Tick a line when it is in
 - [x] **Browser extensions:** list, pair, unpair, and the pairing prompt that
       polls `extensions` (old: `src/screens/Extensions.tsx`, `src/PairPrompt.tsx`).
 - [x] **Autofill:** the `autofill` event, ⌘⇧L, `autofill_fill`, the
-      Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244).
+      Accessibility request (old: App.tsx:187, Spotlight.tsx:189-244); `> fill`
+      chooses what the field in front asks for (the code into a code field);
+      `?fill=<site>` presses ⌘⇧L on the stand.
 - [x] **Plugin management:** catalogue, install from file, enable, remove,
       trust, sources (old: `src/plugins/Plugins.tsx`): Settings › Plugins,
       each plugin and each offer a step; enable (the consent), disable,

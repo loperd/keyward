@@ -34,13 +34,13 @@ type State = { step: Exclude<Step, Step.Disable> } | { step: Step.Disable; provi
 
 function Row({ title, hint, on, children }: { title: string; hint?: string; on?: boolean; children: ReactNode }) {
   return (
-    <div className="kw-set">
-      <span className="kw-set-t">
+    <div className="set">
+      <span className="set-t">
         <b>{title}</b>
-        {hint && <span className="kw-set-h">{hint}</span>}
+        {hint && <span className="set-h">{hint}</span>}
       </span>
-      <span className="kw-set-acts">
-        {on !== undefined && <span className={`kw-set-state${on ? " kw-on" : ""}`}>{t(on ? "set.on" : "set.off")}</span>}
+      <span className="set-acts">
+        {on !== undefined && <span className={`set-state${on ? " on" : ""}`}>{t(on ? "set.on" : "set.off")}</span>}
         {children}
       </span>
     </div>
@@ -49,11 +49,11 @@ function Row({ title, hint, on, children }: { title: string; hint?: string; on?:
 
 function SecretRow({ label, handle, onFilled, numeric, autoFocus }: { label: string; handle: React.Ref<SecretInputHandle>; onFilled: (f: boolean) => void; numeric?: boolean; autoFocus?: boolean }) {
   return (
-    <div className="kw-frow">
-      <span className="kw-fl">
+    <div className="frow">
+      <span className="fl">
         <span>{label}</span>
       </span>
-      <label className="kw-fin">
+      <label className="fin">
         <SecretInput ref={handle} onFilled={onFilled} shown={numeric} autoComplete={numeric ? "one-time-code" : "current-password"} {...(numeric ? { inputMode: "numeric" as const } : {})} autoFocus={autoFocus} aria-label={label} />
       </label>
     </div>
@@ -131,8 +131,8 @@ export function TwoFactorPanel() {
   if (failed) return <Mark level={Level.Critical} words={t("tf.failed", { reason: failed })} />;
   if (!status)
     return (
-      <div className="kw-set kw-set-wait" role="status" aria-label={t("set.loading")}>
-        <span className="kw-set-t">
+      <div className="set set-wait" role="status" aria-label={t("set.loading")}>
+        <span className="set-t">
           <b>{t("set.loading")}</b>
         </span>
       </div>
@@ -141,14 +141,14 @@ export function TwoFactorPanel() {
   if (st.step === Step.List)
     return (
       <>
-        <p className="kw-set-h kw-tf-lede">{t("tf.hint")}</p>
+        <p className="set-h tf-lede">{t("tf.hint")}</p>
         <Row title={t("tf.authenticator")} hint={t("tf.authenticatorHint")} on={status.authenticator}>
           {status.authenticator ? (
-            <button type="button" className="kw-btn kw-quiet" onClick={() => go({ step: Step.Disable, provider: AUTHENTICATOR_PROVIDER, name: t("tf.authenticator") })}>
+            <button type="button" className="btn quiet" onClick={() => go({ step: Step.Disable, provider: AUTHENTICATOR_PROVIDER, name: t("tf.authenticator") })}>
               {t("tf.turnOff")}
             </button>
           ) : (
-            <button type="button" className="kw-btn kw-solid" onClick={() => go({ step: Step.AuthPassword })}>
+            <button type="button" className="btn solid" onClick={() => go({ step: Step.AuthPassword })}>
               <Icon name="key" />
               {t("tf.setUp")}
             </button>
@@ -156,11 +156,11 @@ export function TwoFactorPanel() {
         </Row>
         <Row title={t("tf.email")} hint={t("tf.emailHint")} on={status.email}>
           {status.email ? (
-            <button type="button" className="kw-btn kw-quiet" onClick={() => go({ step: Step.Disable, provider: EMAIL_PROVIDER, name: t("tf.email") })}>
+            <button type="button" className="btn quiet" onClick={() => go({ step: Step.Disable, provider: EMAIL_PROVIDER, name: t("tf.email") })}>
               {t("tf.turnOff")}
             </button>
           ) : (
-            <button type="button" className="kw-btn kw-quiet" onClick={() => go({ step: Step.EmailPassword })}>
+            <button type="button" className="btn quiet" onClick={() => go({ step: Step.EmailPassword })}>
               <Icon name="mail" />
               {t("tf.setUp")}
             </button>
@@ -168,13 +168,13 @@ export function TwoFactorPanel() {
         </Row>
         {status.others.map((o) => (
           <Row key={o.provider} title={o.name} hint={t("tf.elsewhere")} on>
-            <button type="button" className="kw-btn kw-quiet" onClick={() => go({ step: Step.Disable, provider: o.provider, name: o.name })}>
+            <button type="button" className="btn quiet" onClick={() => go({ step: Step.Disable, provider: o.provider, name: o.name })}>
               {t("tf.turnOff")}
             </button>
           </Row>
         ))}
         <Row title={t("tf.recovery")} hint={t("tf.recoveryHint")}>
-          <button type="button" className="kw-btn kw-quiet" onClick={() => go({ step: Step.RecoveryPassword })}>
+          <button type="button" className="btn quiet" onClick={() => go({ step: Step.RecoveryPassword })}>
             <Icon name="eye" />
             {t("tf.show")}
           </button>
@@ -197,11 +197,11 @@ export function TwoFactorPanel() {
         {passwordRow}
         {st.step === Step.AuthCode && s && (
           <>
-            <p className="kw-set-h">{t("tf.scan")}</p>
-            <div className="kw-tf-qr">
+            <p className="set-h">{t("tf.scan")}</p>
+            <div className="tf-qr">
               {qr.current && <img src={qr.current} alt={t("tf.qrAlt")} width={176} height={176} />}
-              <span className="kw-tf-key">
-                <span className="kw-set-h">{t("tf.key")}</span>
+              <span className="tf-key">
+                <span className="set-h">{t("tf.key")}</span>
                 <code>{s.key.value}</code>
               </span>
             </div>
@@ -241,17 +241,17 @@ export function TwoFactorPanel() {
     body = (
       <>
         {passwordRow}
-        <div className="kw-frow">
-          <span className="kw-fl">
+        <div className="frow">
+          <span className="fl">
             <span>{t("tf.address")}</span>
           </span>
-          <label className="kw-fin">
+          <label className="fin">
             <input type="email" value={address} onChange={(e) => setAddress(e.target.value)} spellCheck={false} autoComplete="email" aria-label={t("tf.address")} disabled={st.step === Step.EmailCode} />
           </label>
         </div>
         {st.step === Step.EmailCode && (
           <>
-            <p className="kw-set-h">{t("tf.sent", { email: address })}</p>
+            <p className="set-h">{t("tf.sent", { email: address })}</p>
             {codeRow(t("tf.emailCode"))}
           </>
         )}
@@ -289,14 +289,14 @@ export function TwoFactorPanel() {
     body =
       st.step === Step.RecoveryShown && r ? (
         <>
-          <p className="kw-set-h">{t("tf.recoveryShown")}</p>
-          <span className="kw-tf-key">
+          <p className="set-h">{t("tf.recoveryShown")}</p>
+          <span className="tf-key">
             <code>{r.value}</code>
           </span>
         </>
       ) : (
         <>
-          <p className="kw-set-h">{t("tf.recoveryBody")}</p>
+          <p className="set-h">{t("tf.recoveryBody")}</p>
           {passwordRow}
         </>
       );
@@ -318,7 +318,7 @@ export function TwoFactorPanel() {
     const s = st;
     body = (
       <>
-        <p className="kw-set-h">{t("tf.disableBody", { name: s.name })}</p>
+        <p className="set-h">{t("tf.disableBody", { name: s.name })}</p>
         {passwordRow}
       </>
     );
@@ -334,22 +334,22 @@ export function TwoFactorPanel() {
     };
   }
   return (
-    <section className="kw-form kw-tf-step" aria-busy={busy || undefined}>
-      <h3 className="kw-tf-title">{title}</h3>
+    <section className="form tf-step" aria-busy={busy || undefined}>
+      <h3 className="tf-title">{title}</h3>
       {body}
       {error && (
         <div role="alert">
           <Mark level={Level.Critical} words={error} />
         </div>
       )}
-      <div className="kw-vbar">
+      <div className="vbar">
         {action && (
-          <button type="button" className={`kw-btn kw-solid${action.danger ? " kw-danger" : ""}`} disabled={busy || !action.ready} onClick={action.run}>
+          <button type="button" className={`btn solid${action.danger ? " danger" : ""}`} disabled={busy || !action.ready} onClick={action.run}>
             {action.label}
           </button>
         )}
         {st.step !== Step.RecoveryShown && (
-          <button type="button" className="kw-btn kw-quiet" onClick={() => go({ step: Step.List })} disabled={busy}>
+          <button type="button" className="btn quiet" onClick={() => go({ step: Step.List })} disabled={busy}>
             {t("tf.cancel")}
           </button>
         )}
@@ -395,7 +395,7 @@ export function EmailChange() {
   if (step === EmailStep.Idle)
     return (
       <Row title={t("em.title")} hint={t("em.hint")}>
-        <button type="button" className="kw-btn kw-quiet" onClick={() => setStep(EmailStep.Ask)}>
+        <button type="button" className="btn quiet" onClick={() => setStep(EmailStep.Ask)}>
           <Icon name="mail" />
           {t("set.change")}
         </button>
@@ -403,22 +403,22 @@ export function EmailChange() {
     );
   const to = address.trim();
   return (
-    <section className="kw-form kw-tf-step" aria-busy={busy || undefined}>
-      <h3 className="kw-tf-title">{t("em.title")}</h3>
+    <section className="form tf-step" aria-busy={busy || undefined}>
+      <h3 className="tf-title">{t("em.title")}</h3>
       <SecretRow label={t("tf.password")} handle={password} onFilled={(f) => setFilled((x) => ({ ...x, password: f }))} autoFocus />
-      <div className="kw-frow">
-        <span className="kw-fl">
+      <div className="frow">
+        <span className="fl">
           <span>{t("em.new")}</span>
         </span>
-        <label className="kw-fin">
+        <label className="fin">
           <input type="email" value={address} onChange={(e) => setAddress(e.target.value)} spellCheck={false} autoComplete="email" aria-label={t("em.new")} disabled={step === EmailStep.Code} />
         </label>
       </div>
       {step === EmailStep.Code && (
         <>
-          <p className="kw-set-h">{t("tf.sent", { email: to })}</p>
+          <p className="set-h">{t("tf.sent", { email: to })}</p>
           <SecretRow label={t("tf.emailCode")} handle={code} onFilled={(f) => setFilled((x) => ({ ...x, code: f }))} numeric autoFocus />
-          <p className="kw-set-h">{t("em.relogin")}</p>
+          <p className="set-h">{t("em.relogin")}</p>
         </>
       )}
       {error && (
@@ -426,11 +426,11 @@ export function EmailChange() {
           <Mark level={Level.Critical} words={error} />
         </div>
       )}
-      <div className="kw-vbar">
+      <div className="vbar">
         {step === EmailStep.Ask ? (
           <button
             type="button"
-            className="kw-btn kw-solid"
+            className="btn solid"
             disabled={busy || !filled.password || !/^[^@\s]+@[^@\s]+$/.test(to)}
             onClick={() =>
               run(async () => {
@@ -444,7 +444,7 @@ export function EmailChange() {
         ) : (
           <button
             type="button"
-            className="kw-btn kw-solid"
+            className="btn solid"
             disabled={busy || !filled.password || !filled.code}
             onClick={() =>
               run(async () => {
@@ -458,7 +458,7 @@ export function EmailChange() {
             {t("em.go")}
           </button>
         )}
-        <button type="button" className="kw-btn kw-quiet" onClick={close} disabled={busy}>
+        <button type="button" className="btn quiet" onClick={close} disabled={busy}>
           {t("tf.cancel")}
         </button>
       </div>

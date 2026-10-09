@@ -1,33 +1,33 @@
 /* ---------- a setting as a live control ---------- */
 /* its words on the left, a switch on the right; choices go under the words,
    across the whole row, and wrap rather than leave a narrow island */
-.kw-set {
+.set {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--u2); row-gap: var(--u);
   min-height: var(--row-1); padding: var(--u) var(--pad); margin: 0 calc(var(--pad) * -1); border-radius: var(--r-ctl);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.kw-set:hover { background: var(--hover); }
-.kw-set-t { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
-.kw-set-t b { font-weight: var(--w-text); color: var(--text); }
-.kw-set-h { color: var(--dim); font-size: var(--fs-s); line-height: var(--lh-s); }
-.kw-set-choice { grid-template-columns: minmax(0, 1fr); }
-.kw-set .kw-set-chips { grid-column: 1 / -1; }
-.kw-set .kw-switch { justify-self: end; }
-.kw-set[aria-busy="true"] .kw-switch, .kw-set[aria-busy="true"] .kw-chip { opacity: 0.6; }
-.kw-set-wait b { color: var(--dim); }
+.set:hover { background: var(--hover); }
+.set-t { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
+.set-t b { font-weight: var(--w-text); color: var(--text); }
+.set-h { color: var(--dim); font-size: var(--fs-s); line-height: var(--lh-s); }
+.set-choice { grid-template-columns: minmax(0, 1fr); }
+.set .set-chips { grid-column: 1 / -1; }
+.set .switch { justify-self: end; }
+.set[aria-busy="true"] .switch, .set[aria-busy="true"] .chip { opacity: 0.6; }
+.set-wait b { color: var(--dim); }
 /* a way to open the vault: its state as a word, then the buttons that change it */
-.kw-set-acts { display: flex; align-items: center; gap: var(--u); justify-self: end; }
-.kw-set-state { color: var(--faint); font-size: var(--fs-s); line-height: var(--lh-s); padding-right: var(--half); }
-.kw-set-state.kw-on { color: var(--mint); }
+.set-acts { display: flex; align-items: center; gap: var(--u); justify-self: end; }
+.set-state { color: var(--faint); font-size: var(--fs-s); line-height: var(--lh-s); padding-right: var(--half); }
+.set-state.on { color: var(--mint); }
 /* a row of the danger zone: its button in the danger's colour, quiet until pointed at */
-.kw-btn.kw-danger-q { color: var(--rose); }
-.kw-btn.kw-danger-q:hover { background: color-mix(in srgb, var(--rose) 12%, transparent); }
+.btn.danger-q { color: var(--rose); }
+.btn.danger-q:hover { background: color-mix(in srgb, var(--rose) 12%, transparent); }
 
 /* ---------- two-step login ---------- */
-.kw-tf-lede { margin: 0 0 var(--u); }
-.kw-tf-step { display: grid; gap: var(--u); }
-.kw-tf-title { margin: 0; font-weight: var(--w-name); font-size: var(--fs-m); line-height: var(--lh-m); }
-.kw-tf-qr { display: flex; align-items: center; gap: var(--u2); flex-wrap: wrap; }
-.kw-tf-qr img { border-radius: var(--r-ctl); background: #fff; padding: var(--u); }
-.kw-tf-key { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
-.kw-tf-key code { font: var(--w-text) var(--fs-m)/var(--lh-m) var(--mono); color: var(--text); word-break: break-all; -webkit-user-select: text; user-select: text; }
+.tf-lede { margin: 0 0 var(--u); }
+.tf-step { display: grid; gap: var(--u); }
+.tf-title { margin: 0; font-weight: var(--w-name); font-size: var(--fs-m); line-height: var(--lh-m); }
+.tf-qr { display: flex; align-items: center; gap: var(--u2); flex-wrap: wrap; }
+.tf-qr img { border-radius: var(--r-ctl); background: #fff; padding: var(--u); }
+.tf-key { display: flex; flex-direction: column; gap: var(--half); min-width: 0; }
+.tf-key code { font: var(--w-text) var(--fs-m)/var(--lh-m) var(--mono); color: var(--text); word-break: break-all; -webkit-user-select: text; user-select: text; }

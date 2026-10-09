@@ -59,7 +59,7 @@ export function useCore(): Core {
   return c;
 }
 
-export const LEVEL_CLASS: Record<Level, string> = { [Level.Critical]: "kw-m-crit", [Level.Action]: "kw-m-act", [Level.Warning]: "kw-m-warn", [Level.Healthy]: "kw-m-ok", [Level.Unknown]: "kw-m-unk" };
+export const LEVEL_CLASS: Record<Level, string> = { [Level.Critical]: "m-crit", [Level.Action]: "m-act", [Level.Warning]: "m-warn", [Level.Healthy]: "m-ok", [Level.Unknown]: "m-unk" };
 const LEVEL_WORD: Record<Level, Text> = {
   [Level.Critical]: { key: "level.critical" },
   [Level.Action]: { key: "level.action" },
@@ -74,9 +74,9 @@ const say = (x: Text | string) => (typeof x === "string" ? x : text(x));
 /// A glyph and its words.
 export function Mark({ level, words }: { level: Level; words?: Text | string }) {
   return (
-    <span className={`kw-mk ${LEVEL_CLASS[level]}`}>
+    <span className={`mk ${LEVEL_CLASS[level]}`}>
       <i>{LEVEL_MARK[level]}</i>
-      <span className="kw-w">{say(words ?? LEVEL_WORD[level])}</span>
+      <span className="w">{say(words ?? LEVEL_WORD[level])}</span>
     </span>
   );
 }
@@ -85,7 +85,7 @@ export function Mark({ level, words }: { level: Level; words?: Text | string }) 
 export function Glyph({ level, words }: { level: Level; words?: Text | string }) {
   const w = say(words ?? LEVEL_WORD[level]);
   return (
-    <span className={`kw-g ${LEVEL_CLASS[level]}`} title={w} aria-label={w}>
+    <span className={`g ${LEVEL_CLASS[level]}`} title={w} aria-label={w}>
       {LEVEL_MARK[level]}
     </span>
   );
@@ -108,7 +108,7 @@ type TileProps = { lead: Lead; xl?: boolean };
 /// and a hero draw the same thing for the same node.
 export function Tile({ lead, xl }: TileProps) {
   const { dir } = useCore();
-  const cls = (extra: string, hue?: Hue) => `kw-tile${extra}${xl ? " kw-xl" : ""}${hue ? ` kw-hue-${hue}` : ""}`;
+  const cls = (extra: string, hue?: Hue) => `tile${extra}${xl ? " xl" : ""}${hue ? ` hue-${hue}` : ""}`;
   switch (lead.tile) {
     case LeadTile.Letter:
       return <span className={cls("", lead.hue)}>{letterOf(lead.of)}</span>;
@@ -119,10 +119,10 @@ export function Tile({ lead, xl }: TileProps) {
         </span>
       );
     case LeadTile.Avatar:
-      return <span className={cls(" kw-round", lead.hue)}>{initials(lead.of)}</span>;
+      return <span className={cls(" round", lead.hue)}>{initials(lead.of)}</span>;
     case LeadTile.Plain:
       return (
-        <span className="kw-tile kw-plain">
+        <span className="tile plain">
           <Icon name={lead.icon} />
         </span>
       );
@@ -152,7 +152,7 @@ export function nodeLead(dir: Directory, id: string, xl = false): Lead {
 }
 
 export function Kbd({ children }: { children: string }) {
-  return <kbd className="kw-kbd">{children}</kbd>;
+  return <kbd className="kbd">{children}</kbd>;
 }
 
 /// An icon button with its words in a tooltip. `phase` is its own action's
@@ -176,7 +176,7 @@ export function IconButton({
   return (
     <button
       type="button"
-      className={`kw-btn kw-ico${phase === Phase.Done ? " kw-done" : ""}${className ? " " + className : ""}`}
+      className={`btn ico${phase === Phase.Done ? " done" : ""}${className ? " " + className : ""}`}
       data-tip={tip}
       aria-label={tip}
       aria-busy={phase === Phase.Busy || undefined}
@@ -193,14 +193,14 @@ export function IconButton({
 /// so nothing beside it moves.
 export function BtnIcon({ icon, phase }: { icon: string; phase: Phase }) {
   if (phase === Phase.Busy) return <Spinner />;
-  if (phase === Phase.Done) return <Icon name="check" className="kw-morph" />;
+  if (phase === Phase.Done) return <Icon name="check" className="morph" />;
   return <Icon name={icon} />;
 }
 
 /// A loader the size of an icon: a ring that turns.
 export function Spinner() {
   return (
-    <svg className="kw-icon kw-spin" viewBox="0 0 16 16" aria-hidden="true">
+    <svg className="icon spin" viewBox="0 0 16 16" aria-hidden="true">
       <circle cx="8" cy="8" r="5.5" />
     </svg>
   );

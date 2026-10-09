@@ -1219,6 +1219,37 @@ fn set_capture(window: &tauri::WebviewWindow, allow: bool) {
     }
 }
 
+/// Hides the system's three window buttons: the window draws its own in the
+/// strip (ui/core's WindowButtons), placed and coloured as the window is.
+/// macOS shows them again after full screen and at times on a resize, so this
+/// runs on those events too.
+#[cfg(target_os = "macos")]
+fn hide_window_buttons(ns_window: tauri::Result<*mut std::ffi::c_void>) {
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{NSWindow, NSWindowButton};
+
+    let handle = match ns_window {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("the window's own buttons stay: no NSWindow ({e})");
+            return;
+        }
+    };
+    // SAFETY: Tauri gives a pointer to this window's live NSWindow.
+    let ns: Option<Retained<NSWindow>> =
+        unsafe { Retained::retain(handle.cast::<AnyObject>().cast::<NSWindow>()) };
+    let Some(ns) = ns else {
+        eprintln!("the window's own buttons stay: the NSWindow is gone");
+        return;
+    };
+    for kind in [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton] {
+        if let Some(button) = ns.standardWindowButton(kind) {
+            button.setHidden(true);
+        }
+    }
+}
+
 /// Whether the menu bar icon is what the window comes back from after the
 /// close button (together with `KEEP_IN_DOCK`, whether it hides at all).
 ///
@@ -1471,6 +1502,7 @@ pub fn run() {
                     Some(NSVisualEffectState::Active),
                     Some(12.0),
                 );
+                hide_window_buttons(win.ns_window());
             }
             // Screenshots and the close button follow the settings from the
             // first frame.
@@ -1525,6 +1557,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            #[cfg(target_os = "macos")]
+            if matches!(event, WindowEvent::Resized(_) | WindowEvent::Focused(_)) {
+                hide_window_buttons(window.ns_window());
+            }
             // The close button hides the window rather than switching the
             // agent off: otherwise the ssh sockets would die with it. Keeping
             // it in the menu bar and keeping it in the Dock are two separate

@@ -4,7 +4,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import { DEMO, DEMO_NOW } from "../demo";
 import { demoContributions } from "../demo-backend";
 import { setLang, text, textsOf, Lang } from "../i18n";
-import { Directory, isStep, slugify, type Node, NodeKind, MapKind } from "./directory";
+import { Directory, EMPTY_FOLDERS, isStep, slugify, type Node, NodeKind, MapKind } from "./directory";
 import { Query, rows, type Filter, TokenKey, ColumnType } from "./query";
 import { suggest } from "./suggest";
 import { EMPTY } from "./query";
@@ -277,5 +277,25 @@ describe("the layout's indexes", () => {
     const d = dir();
     for (const md of [accessModel(d, "org:so0"), accessModel(d, "org:so1"), mapModel(d, { kind: MapKind.Relations, anchor: "item:aws" })])
       for (const h of [600, 1200, 4000]) expect([...placeVertical(md, h, t)]).toEqual([...plainVertical(md, h, t)]);
+  });
+});
+
+describe("empty folders", () => {
+  const withEmpty = { ...DEMO, folders: [...DEMO.folders, { id: "nothing", name: "Nothing here" }, { id: "old", name: "Old stuff" }] };
+  const dir = new Directory(withEmpty, []);
+
+  it("go into one row of their own after the personal vault's folders and items", () => {
+    const kids = dir.kidIds("personal");
+    expect(kids.at(-1)).toBe(EMPTY_FOLDERS);
+    expect(kids).not.toContain("folder:nothing");
+    expect(dir.kidIds(EMPTY_FOLDERS)).toEqual(["folder:nothing", "folder:old"]);
+  });
+
+  it("live under that row on the path", () => {
+    expect(dir.node("folder:nothing").home).toEqual(["personal", EMPTY_FOLDERS, "folder:nothing"]);
+  });
+
+  it("leave no such row where every folder holds something", () => {
+    expect(new Directory(DEMO, []).has(EMPTY_FOLDERS)).toBe(DEMO.folders.some((f) => !DEMO.items.some((i) => !i.deleted && !i.orgId && i.folderId === f.id)));
   });
 });

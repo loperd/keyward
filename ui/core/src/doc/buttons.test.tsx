@@ -44,7 +44,7 @@ describe("a page's buttons", () => {
   it("copy an item's secrets at once, without a preview", () => {
     const login = docs.find((d) => d.id === "item:aws")!.doc;
     const copies = actions(login).filter((a): a is Action & { act: Extract<Act, { copy: unknown }> } => "copy" in a.act);
-    expect(copies.map((a) => a.act.copy.field)).toEqual(["password", "username", "totp"]);
+    expect(copies.map((a) => a.act.copy.field), "the one-time code is typed by autofill, not copied").toEqual(["password", "username"]);
     expect(actions(login).some((a) => "verb" in a.act && a.act.verb.startsWith("copy"))).toBe(false);
   });
 
@@ -79,17 +79,17 @@ describe("More", () => {
     act(() => root.render(<App backend={b} line="personal › work › aws-production" onLine={(l) => lines.push(l)} autoBiometric={false} />));
     await flush();
     await flush();
-    const more = host.querySelector<HTMLButtonElement>('.kw-hero button[aria-label="Ещё"]');
+    const more = host.querySelector<HTMLButtonElement>('.hero button[aria-label="Ещё"]');
     expect(more).not.toBeNull();
     await act(async () => more!.click());
-    const items = [...host.querySelectorAll<HTMLButtonElement>('.kw-more-menu [role="menuitem"]')];
+    const items = [...host.querySelectorAll<HTMLButtonElement>('.more-menu [role="menuitem"]')];
     expect(items.length).toBeGreaterThan(0);
     const trash = items.find((x) => x.textContent?.includes("корзину") || x.textContent?.includes("Удалить"));
     await act(async () => (trash ?? items[0]!).click());
     await flush();
     await flush();
     expect(lines.at(-1)).toMatch(/ > /);
-    expect(host.querySelector(".kw-more-menu")).toBeNull();
+    expect(host.querySelector(".more-menu")).toBeNull();
   });
 
   it("copies a password from the page at once", async () => {
@@ -97,7 +97,7 @@ describe("More", () => {
     act(() => root.render(<App backend={b} line="personal › work › aws-production" autoBiometric={false} />));
     await flush();
     await flush();
-    const copy = [...host.querySelectorAll<HTMLButtonElement>(".kw-hero button")].find((x) => x.textContent?.includes("Копировать пароль"));
+    const copy = [...host.querySelectorAll<HTMLButtonElement>(".hero button")].find((x) => x.textContent?.includes("Копировать пароль"));
     await act(async () => copy!.click());
     await flush();
     expect(b.lastCopied).not.toBeNull();

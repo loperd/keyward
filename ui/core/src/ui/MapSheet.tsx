@@ -65,17 +65,17 @@ const readTokens = (): LayoutTokens => ({
   u: token("--u"),
 });
 
-const POINT_CLASS: Record<Level, string> = { [Level.Critical]: "kw-s-crit", [Level.Action]: "kw-s-act", [Level.Warning]: "kw-s-warn", [Level.Healthy]: "kw-s-ok", [Level.Unknown]: "kw-s-unk" };
-const ROLE_CLASS: Record<LaneRole, string> = { [LaneRole.EndL]: "kw-end-l", [LaneRole.EndR]: "kw-end-r", [LaneRole.Pill]: "kw-pill" };
-const lineClass = (kind: string, level?: LoudLevel) => `kw-ln kw-p-${kind}${level ? ` kw-lv-${level === Level.Critical ? "crit" : "warn"}` : ""}`;
+const POINT_CLASS: Record<Level, string> = { [Level.Critical]: "s-crit", [Level.Action]: "s-act", [Level.Warning]: "s-warn", [Level.Healthy]: "s-ok", [Level.Unknown]: "s-unk" };
+const ROLE_CLASS: Record<LaneRole, string> = { [LaneRole.EndL]: "end-l", [LaneRole.EndR]: "end-r", [LaneRole.Pill]: "pill" };
+const lineClass = (kind: string, level?: LoudLevel) => `ln p-${kind}${level ? ` lv-${level === Level.Critical ? "crit" : "warn"}` : ""}`;
 
 /// A point's picture: initials for a person, the type's shape with the
 /// state's mark inside for anything else.
 function Point({ n }: { n: MapNode }) {
-  if (n.avatar) return <span className={`kw-av${n.invited ? " kw-inv" : ""}`}>{n.avatar}</span>;
+  if (n.avatar) return <span className={`av${n.invited ? " inv" : ""}`}>{n.avatar}</span>;
   if (!n.shape) throw new Error(`the point "${n.id}" has neither a shape nor initials`);
   return (
-    <span className={`kw-gl ${POINT_CLASS[n.level]}`}>
+    <span className={`gl ${POINT_CLASS[n.level]}`}>
       <ShapeSvg shape={n.shape} />
       <i>{LEVEL_MARK[n.level]}</i>
     </span>
@@ -90,7 +90,7 @@ function Sub({ n, compact, mono }: { n: MapNode; compact: boolean; mono: boolean
   const s = text(n.sub);
   return (
     <>
-      {s ? <span className={mono ? "kw-mono" : undefined}>{marks.length ? t("mapui.subMarks", { sub: s }) : s}</span> : null}
+      {s ? <span className={mono ? "mono" : undefined}>{marks.length ? t("mapui.subMarks", { sub: s }) : s}</span> : null}
       {marks}
     </>
   );
@@ -210,14 +210,14 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
   const subMono = (n: MapNode) => (n.nav ? dir.node(n.nav).subMono === true : false);
 
   return (
-    <div className="kw-msheet">
-      <header className="kw-mhead">
-        <div className="kw-mtop">
-          <div className="kw-mt">
+    <div className="msheet">
+      <header className="mhead">
+        <div className="mtop">
+          <div className="mt">
             <h1>{text(md.title)}</h1>
-            <div className="kw-mplace">{text(md.place)}</div>
+            <div className="mplace">{text(md.place)}</div>
           </div>
-          <div className="kw-mlegend">
+          <div className="mlegend">
             {present.map((l, i) => (
               <span key={i}>
                 <svg viewBox="0 0 24 8" aria-hidden="true">
@@ -227,14 +227,14 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
               </span>
             ))}
           </div>
-          <IconButton icon="close" tip={t("mapui.closeMap")} className="kw-tip-l" onClick={() => store.closeMap()} />
+          <IconButton icon="close" tip={t("mapui.closeMap")} className="tip-l" onClick={() => store.closeMap()} />
         </div>
-        <div className="kw-finds">
+        <div className="finds">
           {md.findings.map((f, i) => (
             <button
               type="button"
               key={i}
-              className={`kw-find${f.focus === focus ? " kw-on" : ""}`}
+              className={`find${f.focus === focus ? " on" : ""}`}
               onMouseEnter={() => onHover(f.focus)}
               onMouseLeave={() => onHover(null)}
               onClick={() => store.go(f.focus)}
@@ -244,18 +244,18 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
           ))}
         </div>
       </header>
-      <div className={`kw-mcanvas${building ? " kw-building" : built.current ? " kw-built" : ""}`} ref={canvas}>
+      <div className={`mcanvas${building ? " building" : built.current ? " built" : ""}`} ref={canvas}>
         {building && (
-          <div className="kw-mbuild kw-sk-late" aria-hidden="true">
+          <div className="mbuild sk-late" aria-hidden="true">
             {perLane.map((k, l) => (
-              <div key={l} className="kw-mbuild-lane">
-                <span className="kw-sk kw-sk-caption" />
+              <div key={l} className="mbuild-lane">
+                <span className="sk sk-caption" />
                 {Array.from({ length: k }, (_, i) => (
-                  <span key={i} className="kw-mbuild-pt">
-                    <span className="kw-sk kw-mbuild-dot" />
-                    <span className="kw-sk-two">
-                      <span className="kw-sk kw-sk-name" />
-                      <span className="kw-sk kw-sk-sub" />
+                  <span key={i} className="mbuild-pt">
+                    <span className="sk mbuild-dot" />
+                    <span className="sk-two">
+                      <span className="sk sk-name" />
+                      <span className="sk sk-sub" />
                     </span>
                   </span>
                 ))}
@@ -264,43 +264,43 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
           </div>
         )}
         {building && (
-          <div className="kw-mbuild-say">
+          <div className="mbuild-say">
             <Pending words={t("load.map")} />
           </div>
         )}
         {drawn && current && size ? (
-          <svg key={`${map.kind}:${map.anchor}`} className="kw-medges kw-fresh" viewBox={`0 0 ${current.width} ${size.h}`} style={{ width: current.width }}>
+          <svg key={`${map.kind}:${map.anchor}`} className="medges fresh" viewBox={`0 0 ${current.width} ${size.h}`} style={{ width: current.width }}>
             {drawn.lines.map((l, i) => (
-              <path key={i} className={`${lineClass(l.edge.kind, l.edge.level)}${hi ? (hi.edges.has(i) ? " kw-lit" : " kw-faded") : ""}`} d={l.d} />
+              <path key={i} className={`${lineClass(l.edge.kind, l.edge.level)}${hi ? (hi.edges.has(i) ? " lit" : " faded") : ""}`} d={l.d} />
             ))}
             {drawn.ports.map((p) => (
-              <circle key={`${p.id}:${p.x}`} className={`kw-port${hi && !hi.nodes.has(p.id) ? " kw-faded" : ""}`} cx={p.x} cy={p.y} r={2} />
+              <circle key={`${p.id}:${p.x}`} className={`port${hi && !hi.nodes.has(p.id) ? " faded" : ""}`} cx={p.x} cy={p.y} r={2} />
             ))}
           </svg>
         ) : (
-          <svg className="kw-medges" />
+          <svg className="medges" />
         )}
-        <div className="kw-mlanes">
+        <div className="mlanes">
           {md.lanes.map((name, l) => (
             <div
               key={l}
-              className="kw-lane-h"
+              className="lane-h"
               ref={(el) => {
                 capEls.current[l] = el;
               }}
               style={current ? { left: current.capX[l] } : undefined}
             >
               {text(name)}
-              <span className="kw-n">{md.nodes.filter((n) => n.lane === l).length}</span>
+              <span className="n">{md.nodes.filter((n) => n.lane === l).length}</span>
             </div>
           ))}
         </div>
-        <div className="kw-mnodes">
+        <div className="mnodes">
           {md.nodes.map((n) => {
             const role = roleOf(n.lane, lanes);
             const p = current?.placed.get(n.id);
             const style = { top: ys?.get(n.id) ?? 0, ...(p ? { left: p.left, ...(p.width !== null ? { width: p.width } : {}) } : {}), "--lbw": `${role === LaneRole.Pill ? cap - 48 : cap - 32}px` } as CSSProperties;
-            const cls = ["kw-nd", ROLE_CLASS[role], n.anchor ? "kw-anchor" : "", hi && !hi.nodes.has(n.id) ? "kw-faded" : "", n.id === selected ? "kw-sel" : ""].filter(Boolean).join(" ");
+            const cls = ["nd", ROLE_CLASS[role], n.anchor ? "anchor" : "", hi && !hi.nodes.has(n.id) ? "faded" : "", n.id === selected ? "sel" : ""].filter(Boolean).join(" ");
             return (
               <div
                 key={n.id}
@@ -315,9 +315,9 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
                 onClick={n.nav ? () => store.go(n.nav!) : undefined}
               >
                 <Point n={n} />
-                <span className="kw-lb">
-                  <b className={n.mono ? "kw-mono" : undefined}>{text(n.label)}</b>
-                  <em className="kw-calm">
+                <span className="lb">
+                  <b className={n.mono ? "mono" : undefined}>{text(n.label)}</b>
+                  <em className="calm">
                     <Sub n={n} compact={fit.compact} mono={subMono(n)} />
                   </em>
                 </span>
@@ -325,39 +325,39 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
             );
           })}
         </div>
-        <div className="kw-mchips">
+        <div className="mchips">
           {drawn &&
             chips.map((i) => {
               const l = drawn.lines[i]!;
               const e = l.edge;
               return (
-                <span key={i} className={`kw-ec kw-calm${e.level === Level.Critical ? " kw-crit" : ""}`} style={{ left: Math.round(l.mid[0]), top: Math.round(l.mid[1]) }}>
+                <span key={i} className={`ec calm${e.level === Level.Critical ? " crit" : ""}`} style={{ left: Math.round(l.mid[0]), top: Math.round(l.mid[1]) }}>
                   {e.level ? <Mark level={e.level} words={e.words} /> : text(e.words)}
                 </span>
               );
             })}
         </div>
       </div>
-      <footer className="kw-mfoot">
+      <footer className="mfoot">
         {fn ? (
           <>
-            <span className="kw-cur">
+            <span className="cur">
               <Point n={fn} />
-              <span className="kw-tx">
+              <span className="tx">
                 <b>{text(fn.label)}</b>
-                <span className="kw-calm">
+                <span className="calm">
                   <Sub n={fn} compact={false} mono={subMono(fn)} />
                 </span>
               </span>
             </span>
             {fn.nav && dir.node(fn.nav).kind === NodeKind.Item && !(map.kind === MapKind.Relations && map.anchor === fn.nav) ? (
-              <button type="button" className="kw-btn" onClick={() => store.openMap({ kind: MapKind.Relations, anchor: fn.nav! })}>
+              <button type="button" className="btn" onClick={() => store.openMap({ kind: MapKind.Relations, anchor: fn.nav! })}>
                 <Icon name="map" />
                 {t("mapui.itsRelations")}
               </button>
             ) : null}
             {fn.nav ? (
-              <button type="button" className="kw-btn kw-quiet" onClick={() => store.go(fn.nav!)}>
+              <button type="button" className="btn quiet" onClick={() => store.go(fn.nav!)}>
                 {t("mapui.open")}
                 <Kbd>↵</Kbd>
               </button>
@@ -365,10 +365,10 @@ export function MapSheet({ map, hover, onHover }: { map: MapRef; hover: string |
           </>
         ) : (
           <>
-            <span className="kw-cur">
-              <span className="kw-faint">{t("mapui.counts", { points: { key: "mapui.points", args: { n: md.nodes.length } }, links: { key: "mapui.links", args: { n: md.edges.length } } })}</span>
+            <span className="cur">
+              <span className="faint">{t("mapui.counts", { points: { key: "mapui.points", args: { n: md.nodes.length } }, links: { key: "mapui.links", args: { n: md.edges.length } } })}</span>
             </span>
-            <span className="kw-hint">
+            <span className="hint">
               <span>{t("mapui.hoverPaths")}</span>
               <span>{t("mapui.clickPick")}</span>
               <span>

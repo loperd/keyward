@@ -34,16 +34,16 @@ enum Move {
   Fresh = "fresh",
   Gone = "gone",
 }
-const MOVE_CLASS: Record<Move, string> = { [Move.Still]: "", [Move.Fresh]: " kw-arrive", [Move.Gone]: " kw-leave" };
+const MOVE_CLASS: Record<Move, string> = { [Move.Still]: "", [Move.Fresh]: " arrive", [Move.Gone]: " leave" };
 
 function Row({ e, sel, col, lit, onHover, move = Move.Still, onSettle }: { e: Entry; sel: string | null; col: Column; lit: boolean; onHover: (id: string | null) => void; move?: Move; onSettle?: (id: string) => void }) {
   const { dir, query, store } = useCore();
-  if ("gap" in e) return <div className="kw-gap" />;
+  if ("gap" in e) return <div className="gap" />;
   if ("heading" in e)
     return (
-      <div className="kw-grp">
+      <div className="grp">
         {text(e.heading)}
-        {e.count !== undefined && <span className="kw-n">{e.count}</span>}
+        {e.count !== undefined && <span className="n">{e.count}</span>}
       </div>
     );
   if ("place" in e) {
@@ -53,18 +53,18 @@ function Row({ e, sel, col, lit, onHover, move = Move.Still, onSettle }: { e: En
     const before = st.segs[st.segs.length - 2];
     const n = last && "filter" in last ? query.results(before && "id" in before ? before.id : "root", last.filter).length : null;
     return (
-      <div className="kw-row kw-cont" onClick={() => store.commit(p.line)}>
-        <span className="kw-lead">{p.level ? <Glyph level={p.level} /> : <Tile lead={{ tile: LeadTile.Plain, icon: p.icon! }} />}</span>
-        <span className="kw-lbl">
-          <span className="kw-t">{text(p.name)}</span>
+      <div className="row cont" onClick={() => store.commit(p.line)}>
+        <span className="lead">{p.level ? <Glyph level={p.level} /> : <Tile lead={{ tile: LeadTile.Plain, icon: p.icon! }} />}</span>
+        <span className="lbl">
+          <span className="t">{text(p.name)}</span>
         </span>
-        <span className="kw-side">{n !== null && <span className="kw-n">{n}</span>}</span>
+        <span className="side">{n !== null && <span className="n">{n}</span>}</span>
       </div>
     );
   }
   const n = dir.node(e.id);
   const isSel = e.id === sel && move !== Move.Gone;
-  const base = `kw-row${isSel ? " kw-sel" : ""}${e.off ? " kw-off" : ""}${lit ? " kw-lit" : ""}${MOVE_CLASS[move]}`;
+  const base = `row${isSel ? " sel" : ""}${e.off ? " off" : ""}${lit ? " lit" : ""}${MOVE_CLASS[move]}`;
   const choose = () => store.choose(col.at, e.id);
   const id = e.id;
   const hover = {
@@ -81,13 +81,13 @@ function Row({ e, sel, col, lit, onHover, move = Move.Still, onSettle }: { e: En
   if (n.item || n.member || n.result) {
     const bare = n.kind === NodeKind.Plugin;
     return (
-      <div className={`${base} kw-two`} onClick={choose} {...hover} data-id={e.id}>
-        <span className="kw-lead">{bare ? <Icon name={n.icon} /> : <Tile lead={nodeLead(dir, e.id)} />}</span>
-        <span className="kw-lbl">
-          <span className={`kw-t${n.mono ? " kw-mono" : ""}`}>{text(n.rowName ?? n.name)}</span>
-          <span className={`kw-s${n.subMono ? " kw-mono" : ""}`}>{n.sub ? text(n.sub) : ""}</span>
+      <div className={`${base} two`} onClick={choose} {...hover} data-id={e.id}>
+        <span className="lead">{bare ? <Icon name={n.icon} /> : <Tile lead={nodeLead(dir, e.id)} />}</span>
+        <span className="lbl">
+          <span className={`t${n.mono ? " mono" : ""}`}>{text(n.rowName ?? n.name)}</span>
+          <span className={`s${n.subMono ? " mono" : ""}`}>{n.sub ? text(n.sub) : ""}</span>
         </span>
-        <span className="kw-side">
+        <span className="side">
           <Tail n={n} />
         </span>
       </div>
@@ -96,15 +96,15 @@ function Row({ e, sel, col, lit, onHover, move = Move.Still, onSettle }: { e: En
   const sub = e.sub ?? n.sub;
   const lead = n.kind === NodeKind.Org ? <Tile lead={nodeLead(dir, e.id)} /> : <Tile lead={{ tile: LeadTile.Plain, icon: n.icon }} />;
   return (
-    <div className={`${base} kw-cont${sub ? " kw-two" : ""}`} onClick={choose} {...hover} data-id={e.id}>
-      <span className="kw-lead">{lead}</span>
-      <span className="kw-lbl">
-        <span className="kw-t">{text(n.name)}</span>
-        {sub && <span className="kw-s">{text(sub)}</span>}
+    <div className={`${base} cont${sub ? " two" : ""}`} onClick={choose} {...hover} data-id={e.id}>
+      <span className="lead">{lead}</span>
+      <span className="lbl">
+        <span className="t">{text(n.name)}</span>
+        {sub && <span className="s">{text(sub)}</span>}
       </span>
-      <span className="kw-side">
+      <span className="side">
         {e.off ? <Glyph level={Level.Unknown} words={t("perm.none")} /> : isLoudLevel(n.level) ? <Glyph level={n.level} words={{ key: `level.${n.level}` }} /> : null}
-        {n.count !== undefined && !sub && <span className="kw-n">{n.count}</span>}
+        {n.count !== undefined && !sub && <span className="n">{n.count}</span>}
       </span>
     </div>
   );
@@ -163,7 +163,7 @@ function ColumnList({ entries, col, lit, onHover }: { entries: readonly Entry[];
     const list = ref.current;
     const slab = tab.current;
     if (!list || !slab) return;
-    const row = list.querySelector<HTMLElement>(":scope > .kw-row.kw-sel");
+    const row = list.querySelector<HTMLElement>(":scope > .row.sel");
     if (!row) {
       slab.style.opacity = "0";
       placed.current = false;
@@ -181,7 +181,7 @@ function ColumnList({ entries, col, lit, onHover }: { entries: readonly Entry[];
     }
   });
   return (
-    <div className="kw-list" ref={ref} {...(long ? { "data-virtual": "" } : {})}>
+    <div className="list" ref={ref} {...(long ? { "data-virtual": "" } : {})}>
       {sp && sp.above > 0 && <div style={{ height: sp.above }} aria-hidden />}
       {drawn.map(({ item: e, gone }, k) => {
         const move: Move = gone ? Move.Gone : isStep(e) && motion.fresh(e.id) ? Move.Fresh : Move.Still;
@@ -199,7 +199,7 @@ function ColumnList({ entries, col, lit, onHover }: { entries: readonly Entry[];
         );
       })}
       {sp && sp.below > 0 && <div style={{ height: sp.below }} aria-hidden />}
-      <div className="kw-tabsel" ref={tab} aria-hidden />
+      <div className="tabsel" ref={tab} aria-hidden />
     </div>
   );
 }
@@ -213,7 +213,7 @@ function Spine({ col, i }: { col: Column; i: number }) {
   const label = n ? text(n.name) : col.type === ColumnType.Results ? query.filterName(col.filter) : "";
   const lead =
     !n && col.type === ColumnType.Results ? (
-      <span className="kw-tile kw-plain">
+      <span className="tile plain">
         <FilterIcon filter={col.filter} />
       </span>
     ) : n && (n.item || n.member || n.kind === NodeKind.Org) ? (
@@ -222,11 +222,11 @@ function Spine({ col, i }: { col: Column; i: number }) {
       <Tile lead={{ tile: LeadTile.Plain, icon: n?.icon ?? "folder" }} />
     );
   return (
-    <div className="kw-spine" title={label} onClick={() => store.expand(i)}>
-      <span className="kw-sp-ic">{lead}</span>
-      <span className="kw-sp-t">{label}</span>
+    <div className="spine" title={label} onClick={() => store.expand(i)}>
+      <span className="sp-ic">{lead}</span>
+      <span className="sp-t">{label}</span>
       {n && isLoudLevel(n.level) ? (
-        <span className="kw-sp-g">
+        <span className="sp-g">
           <Glyph level={n.level} />
         </span>
       ) : (
@@ -263,11 +263,11 @@ export function Columns({
   // may not have drawn it: its place is known from the layout.
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      const list = ref.current?.querySelector<HTMLElement>(`.kw-col[data-col="${focus}"] .kw-list`);
+      const list = ref.current?.querySelector<HTMLElement>(`.col[data-col="${focus}"] .list`);
       const c = cols[focus];
       if (!list || !c) return;
       if (list.dataset.virtual === undefined) {
-        void list.querySelector(".kw-row.kw-sel")?.scrollIntoView({ block: "nearest" });
+        void list.querySelector(".row.sel")?.scrollIntoView({ block: "nearest" });
         return;
       }
       const entries = rows(query, c);
@@ -280,7 +280,7 @@ export function Columns({
   });
   const n = cols.length;
   return (
-    <div className="kw-cols" ref={ref}>
+    <div className="cols" ref={ref}>
       {cols.map((c, i) => {
         const key = keys[i]!;
         const fresh = seen.length > 0 && !seen.includes(key);
@@ -290,7 +290,7 @@ export function Columns({
           <section
             key={key}
             data-col={i}
-            className={`kw-col${i === focus ? " kw-focus" : ""}${open[i] ? "" : " kw-spined"}${fresh ? " kw-enter" : ""}`}
+            className={`col${i === focus ? " focus" : ""}${open[i] ? "" : " spined"}${fresh ? " enter" : ""}`}
             style={
               {
                 width: open[i] ? widths.col : widths.spine,
@@ -304,8 +304,8 @@ export function Columns({
             {shown ? (
               <ColumnList entries={shown} col={c} lit={lit} onHover={onHover} />
             ) : (
-              <div className="kw-list">
-                <div className="kw-row kw-empty">{t("ui.nothingShort")}</div>
+              <div className="list">
+                <div className="row empty">{t("ui.nothingShort")}</div>
               </div>
             )}
           </section>

@@ -5,6 +5,5 @@
   "reprompt.confirm": "Подтвердить",
   "reprompt.checking": "Проверяю…",
   "reprompt.cancel": "Отмена",
-  "reprompt.show": "Показать по мастер-паролю",
   "reprompt.failed": "Пароль не проверен: {reason}"
 }

@@ -264,7 +264,6 @@
   "doc.noRepromptSub": "Открывается сразу",
   "doc.notChecked": "Не проверяется",
   "doc.notCheckedSub": "Содержимое расшифровывается только по запросу",
-  "doc.notSetUp": "Не настроен",
   "doc.noTwoStep": "Без двухэтапного входа",
   "doc.noTwoStepSub": "Кода в этой записи нет",
   "doc.off": "Выключена",
@@ -649,7 +648,6 @@
   "ui.quickLook": "Просмотр",
   "ui.space": "Пробел",
   "ui.brief": "Кратко",
-  "ui.seconds": "{n} с",
   "ui.lang.ru": "Русский",
   "ui.lang.en": "English",
   "ui.synced": "Синхронизировано · {server}",
@@ -1210,5 +1208,17 @@
   "doc.noEmail": "В записи нет email",
   "doc.noPublicKey": "У ключа нет публичной части",
   "doc.reading": "Читаю запись…",
-  "doc.openHost": "Открыть хост"
+  "doc.openHost": "Открыть хост",
+  "folders.empty": "Пустые папки",
+  "folders.emptyWhat": {
+    "one": "{n} папка без записей",
+    "few": "{n} папки без записей",
+    "many": "{n} папок без записей",
+    "other": "{n} папки без записей"
+  },
+  "folders.emptyNote": "Папка уходит отсюда, как только в неё попадает запись; ненужную можно удалить на её странице.",
+  "win.buttons": "Кнопки окна",
+  "win.close": "Закрыть окно",
+  "win.minimize": "Свернуть",
+  "win.fullscreen": "Во весь экран; с ⌥ — увеличить"
 }

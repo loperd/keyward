@@ -2,21 +2,21 @@
   "url": "http://localhost:5190/?p=map-ssh",
   "layout": "sO|insp",
   "pads": [
-    "kw-list: 16 0 24 0 ×1",
-    "kw-mhead: 24 40 16 40 ×1",
-    "kw-nd: 0 8 0 8 ×9",
-    "kw-qline: 0 4 0 4 ×1",
-    "kw-row: 0 16 0 8 ×2",
-    "kw-row: 0 8 0 8 ×13",
-    "kw-spine: 16 0 16 0 ×1",
-    "kw-strip: 0 16 0 80 ×1"
+    "list: 16 0 24 0 ×1",
+    "mhead: 24 40 16 40 ×1",
+    "nd: 0 8 0 8 ×9",
+    "qline: 0 4 0 4 ×1",
+    "row: 0 16 0 8 ×2",
+    "row: 0 8 0 8 ×13",
+    "spine: 16 0 16 0 ×1",
+    "strip: 0 16 0 16 ×1"
   ],
   "type": [
     "12px/400 sans ×46  e.g. span \"Хранилище\"",
-    "12px/600 sans ×37  e.g. span.kw-ava \"AM\"",
+    "12px/600 sans ×37  e.g. span.ava \"AM\"",
     "12px/500 sans ×27  e.g. span \"Топология SSH\"",
-    "12px/500 mono ×9  e.g. b.kw-mono \"git\"",
-    "12px/400 mono ×7  e.g. kbd.kw-kbd \"⌘K\"",
+    "12px/500 mono ×9  e.g. b.mono \"git\"",
+    "12px/400 mono ×7  e.g. kbd.kbd \"⌘K\"",
     "20px/600 sans ls-0.2px ×1  e.g. h1 \"Топология SSH\""
   ],
   "findings": {

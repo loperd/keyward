@@ -252,7 +252,6 @@
   "doc.noRepromptSub": "Opens at once",
   "doc.notChecked": "Not checked",
   "doc.notCheckedSub": "The contents decrypt only when asked for",
-  "doc.notSetUp": "Not set up",
   "doc.noTwoStep": "No two-step login",
   "doc.noTwoStepSub": "This item holds no code",
   "doc.off": "Off",
@@ -603,7 +602,6 @@
   "ui.quickLook": "Quick look",
   "ui.space": "Space",
   "ui.brief": "Brief",
-  "ui.seconds": "{n} s",
   "ui.lang.ru": "Русский",
   "ui.lang.en": "English",
   "ui.synced": "Synced · {server}",
@@ -1149,5 +1147,15 @@
   "doc.noEmail": "The item has no email",
   "doc.noPublicKey": "The key has no public part",
   "doc.reading": "Reading the item…",
-  "doc.openHost": "Open the host"
+  "doc.openHost": "Open the host",
+  "folders.empty": "Empty folders",
+  "folders.emptyWhat": {
+    "one": "{n} folder with no items",
+    "other": "{n} folders with no items"
+  },
+  "folders.emptyNote": "A folder leaves this row as soon as an item goes into it; one that is not needed can be deleted on its page.",
+  "win.buttons": "Window buttons",
+  "win.close": "Close the window",
+  "win.minimize": "Minimise",
+  "win.fullscreen": "Full screen; with ⌥, zoom"
 }

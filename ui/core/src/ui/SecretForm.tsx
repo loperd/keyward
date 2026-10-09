@@ -25,12 +25,12 @@ function Field({ ask, handle, onFilled, onEnter, first }: { ask: SecretAsk; hand
   const [shown, setShown] = useState(false);
   const label = text(ask.label);
   return (
-    <div className="kw-frow kw-frow-t">
-      <span className="kw-fl">
+    <div className="frow frow-t">
+      <span className="fl">
         <span>{label}</span>
       </span>
       <label
-        className="kw-fin"
+        className="fin"
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
@@ -41,7 +41,7 @@ function Field({ ask, handle, onFilled, onEnter, first }: { ask: SecretAsk; hand
       >
         <SecretInput ref={handle} onFilled={onFilled} shown={shown} autoComplete={AUTOCOMPLETE[ask.kind]} {...(ask.kind === SecretAskKind.Pin ? { inputMode: "numeric" as const } : {})} autoFocus={first} aria-label={label} />
       </label>
-      <IconButton icon="eye" className={shown ? "kw-on kw-tip-l" : "kw-tip-l"} tip={shown ? t("gate.hidePassword") : t("gate.showPassword")} onClick={() => setShown(!shown)} />
+      <IconButton icon="eye" className={shown ? "on tip-l" : "tip-l"} tip={shown ? t("gate.hidePassword") : t("gate.showPassword")} onClick={() => setShown(!shown)} />
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function SecretForm({ ref, asks, onFilled, onEnter }: { ref: Ref<SecretFo
     [asks],
   );
   return (
-    <section className="kw-form kw-form-top">
+    <section className="form form-top">
       {asks.map((a, i) => (
         <Field
           key={a.id}

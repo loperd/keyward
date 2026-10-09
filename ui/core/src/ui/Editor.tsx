@@ -111,7 +111,7 @@ export function EditDocument({
         <>
           <Place ids={n.home.slice(0, -1)} what={{ key: "edit.editing" }} />
           {n.why && (
-            <div className="kw-state">
+            <div className="state">
               <Mark level={n.level} words={n.why} />
             </div>
           )}
@@ -174,9 +174,9 @@ export function NewDocument({
       form={form}
       lead={lead}
       what={
-        <div className="kw-place">
+        <div className="place">
           <span>{t(`edit.new.${form.kind}` as Key)}</span>
-          <span className="kw-sl">·</span>
+          <span className="sl">·</span>
           <span>{opt ? say(opt.label) : t("personal")}</span>
         </div>
       }
@@ -295,14 +295,14 @@ function FormSheet({
   const fields = KIND_FIELDS[form.kind];
   return (
     <SlotsContext.Provider value={slots}>
-      <div className="kw-form" ref={root} onKeyDown={onKeyDown}>
+      <div className="form" ref={root} onKeyDown={onKeyDown}>
         <fieldset disabled={busy}>
-          <header className="kw-hero">
+          <header className="hero">
             <Tile lead={lead} xl />
-            <div className="kw-hero-t">
+            <div className="hero-t">
               <input
                 ref={title}
-                className="kw-in kw-in-title"
+                className="in in-title"
                 value={form.name}
                 placeholder={t("edit.namePlaceholder")}
                 aria-label={t("edit.name")}
@@ -313,7 +313,7 @@ function FormSheet({
               {what}
               {kinds && (
                 <div
-                  className="kw-kinds"
+                  className="kinds"
                   role="radiogroup"
                   aria-label={t("edit.kind")}
                 >
@@ -322,16 +322,16 @@ function FormSheet({
                       key={k.kind}
                       icon={k.icon}
                       tip={t(k.label)}
-                      className={form.kind === k.kind ? "kw-on" : undefined}
+                      className={form.kind === k.kind ? "on" : undefined}
                       onClick={() => kinds(k.kind)}
                     />
                   ))}
                 </div>
               )}
-              <div className="kw-acts">
+              <div className="acts">
                 <button
                   type="button"
-                  className="kw-btn kw-solid"
+                  className="btn solid"
                   disabled={busy || wrong.length > 0}
                   aria-busy={busy || undefined}
                   onClick={save}
@@ -344,20 +344,20 @@ function FormSheet({
                 </button>
                 <button
                   type="button"
-                  className="kw-btn kw-quiet"
+                  className="btn quiet"
                   onClick={cancel}
                 >
                   {t("ui.cancel")}
                   <Kbd>Esc</Kbd>
                 </button>
-                {wrong[0] && <span className="kw-why">{t(wrong[0])}</span>}
+                {wrong[0] && <span className="why">{t(wrong[0])}</span>}
               </div>
             </div>
           </header>
 
-          <section className="kw-sec">
-            <div className="kw-sec-h">
-              <h2 className="kw-h2">{t(SECTION[form.kind])}</h2>
+          <section className="sec">
+            <div className="sec-h">
+              <h2 className="h2">{t(SECTION[form.kind])}</h2>
             </div>
             {fields.map((f) => (
               <FieldRow
@@ -397,7 +397,7 @@ function FormSheet({
               ) : (
                 <Row key={`c${i}`} label={c.name}>
                   <input
-                    className={`kw-in${c.mono ? " kw-mono" : ""}`}
+                    className={`in${c.mono ? " mono" : ""}`}
                     value={c.value}
                     spellCheck={false}
                     autoComplete="off"
@@ -417,7 +417,7 @@ function FormSheet({
               form.uris.map((u, i) => (
                 <Row key={`u${i}`} label={t("field.site")}>
                   <input
-                    className="kw-in kw-mono"
+                    className="in mono"
                     value={u}
                     placeholder="https://"
                     spellCheck={false}
@@ -432,11 +432,11 @@ function FormSheet({
                     }
                   />
                   {form.uris.length > 1 && (
-                    <span className="kw-fa">
+                    <span className="fa">
                       <IconButton
                         icon="close"
                         tip={t("edit.removeSite")}
-                        className="kw-tip-l"
+                        className="tip-l"
                         onClick={() =>
                           set({ uris: form.uris.filter((_, j) => j !== i) })
                         }
@@ -450,7 +450,7 @@ function FormSheet({
                 <span>
                   <button
                     type="button"
-                    className="kw-btn kw-add"
+                    className="btn add"
                     onClick={() => set({ uris: [...form.uris, ""] })}
                   >
                     <Icon name="plus" />
@@ -462,9 +462,9 @@ function FormSheet({
           </section>
 
           {form.kind !== ItemKind.SecureNote && (
-            <section className="kw-sec">
-              <div className="kw-sec-h">
-                <h2 className="kw-h2">{t("edit.notes")}</h2>
+            <section className="sec">
+              <div className="sec-h">
+                <h2 className="h2">{t("edit.notes")}</h2>
               </div>
               {form.notes.stored || form.notes.input ? (
                 <SecretRow
@@ -480,7 +480,7 @@ function FormSheet({
                   <span>
                     <button
                       type="button"
-                      className="kw-btn kw-add"
+                      className="btn add"
                       onClick={() =>
                         set({ notes: { stored: false, input: { set: "" } } })
                       }
@@ -494,14 +494,14 @@ function FormSheet({
             </section>
           )}
 
-          <section className="kw-sec">
-            <div className="kw-sec-h">
-              <h2 className="kw-h2">{t("edit.where")}</h2>
+          <section className="sec">
+            <div className="sec-h">
+              <h2 className="h2">{t("edit.where")}</h2>
             </div>
             <Row label={t("edit.place")}>
-              <span className="kw-sel">
+              <span className="sel">
                 <select
-                  className="kw-in"
+                  className="in"
                   value={placeValue(form.place)}
                   aria-label={t("edit.place")}
                   onChange={(e) => {
@@ -521,7 +521,7 @@ function FormSheet({
                     </option>
                   ))}
                 </select>
-                <Icon name="chev" className="kw-sel-ic" />
+                <Icon name="chev" className="sel-ic" />
               </span>
             </Row>
             <Row label={t("edit.favorite")}>
@@ -532,13 +532,13 @@ function FormSheet({
               />
             </Row>
             <Row label={t("edit.reprompt")}>
-              <span className="kw-inline">
+              <span className="inline">
                 <Switch
                   on={form.reprompt}
                   label={t("edit.reprompt")}
                   onChange={(reprompt) => set({ reprompt })}
                 />
-                <span className="kw-faint">{t("edit.repromptHint")}</span>
+                <span className="faint">{t("edit.repromptHint")}</span>
               </span>
             </Row>
           </section>
@@ -560,8 +560,8 @@ function Row({
   top?: boolean;
 }) {
   return (
-    <div className={`kw-f kw-fe${top ? " kw-top" : ""}`}>
-      <span className="kw-k">{label}</span>
+    <div className={`f fe${top ? " top" : ""}`}>
+      <span className="k">{label}</span>
       {children}
     </div>
   );
@@ -588,9 +588,9 @@ function FieldRow({
     const [a, b] = spec.parts;
     return (
       <Row label={label}>
-        <span className="kw-parts">
+        <span className="parts">
           <input
-            className="kw-in kw-mono kw-short"
+            className="in mono short"
             value={value(a)}
             placeholder={t("edit.mm")}
             inputMode="numeric"
@@ -598,9 +598,9 @@ function FieldRow({
             aria-label={t("edit.expMonth")}
             onChange={(e) => put(a, e.target.value.replace(/\D/g, ""))}
           />
-          <span className="kw-sl">/</span>
+          <span className="sl">/</span>
           <input
-            className="kw-in kw-mono kw-year"
+            className="in mono year"
             value={value(b)}
             placeholder={t("edit.yyyy")}
             inputMode="numeric"
@@ -636,9 +636,9 @@ function FieldRow({
   if (spec.readOnly)
     return (
       <Row label={label}>
-        <span className={`kw-v${spec.mono ? " kw-mono" : ""}`}>
+        <span className={`v${spec.mono ? " mono" : ""}`}>
           {value(spec.key) || (
-            <span className="kw-faint">{t("edit.derived")}</span>
+            <span className="faint">{t("edit.derived")}</span>
           )}
         </span>
       </Row>
@@ -646,7 +646,7 @@ function FieldRow({
   return (
     <Row label={label}>
       <input
-        className={`kw-in${spec.mono ? " kw-mono" : ""}`}
+        className={`in${spec.mono ? " mono" : ""}`}
         value={value(spec.key)}
         spellCheck={false}
         autoComplete="off"
@@ -755,18 +755,18 @@ function SecretRow({
 
   let control: ReactNode;
   if (cleared)
-    control = <span className="kw-v kw-faint">{t("edit.willClear")}</span>;
+    control = <span className="v faint">{t("edit.willClear")}</span>;
   else if (!typing)
     control = (
-      <span className="kw-v">
-        <span className="kw-dots">{dots}</span>
+      <span className="v">
+        <span className="dots">{dots}</span>
       </span>
     );
   else
     control = (
       <SecretInput
         ref={bind}
-        className={`kw-in kw-mono${shown ? "" : " kw-masked"}`}
+        className={`in mono${shown ? "" : " masked"}`}
         shown={shown}
         multiline={!!multiline}
         rows={4}
@@ -778,12 +778,12 @@ function SecretRow({
     );
   return (
     <div
-      className={`kw-f kw-fe${multiline && typing && !cleared ? " kw-top" : ""}`}
+      className={`f fe${multiline && typing && !cleared ? " top" : ""}`}
       {...(madeTurn ? { "data-made": madeTurn % 2 ? "odd" : "even" } : {})}
     >
-      <span className="kw-k">{label}</span>
+      <span className="k">{label}</span>
       {control}
-      <span className="kw-fa">
+      <span className="fa">
         {typing && !cleared && (
           <IconButton
             icon="eye"
@@ -800,11 +800,11 @@ function SecretRow({
               tip={t("edit.generate")}
               onClick={() => run(optsOf(w.gen))}
             />
-            <span className="kw-gen-at">
+            <span className="gen-at">
               <IconButton
                 icon="tune"
                 tip={t("edit.genOptions")}
-                className={`kw-tip-l${generator.open ? " kw-on" : ""}`}
+                className={`tip-l${generator.open ? " on" : ""}`}
                 onClick={generator.toggle}
               />
               {generator.open && (
@@ -823,7 +823,7 @@ function SecretRow({
           <>
             <button
               type="button"
-              className="kw-btn kw-replace"
+              className="btn replace"
               onClick={() => onSlot({ stored: true, input: { set: "" } })}
             >
               {t("edit.replace")}
@@ -831,7 +831,7 @@ function SecretRow({
             <IconButton
               icon="close"
               tip={t("edit.clear")}
-              className="kw-tip-l"
+              className="tip-l"
               onClick={() => onSlot({ stored: true, input: { clear: true } })}
             />
           </>
@@ -840,7 +840,7 @@ function SecretRow({
           <IconButton
             icon="undo"
             tip={t("edit.keepStored")}
-            className="kw-tip-l"
+            className="tip-l"
             onClick={() => {
               hide();
               onSlot({ stored: true, input: null });
@@ -867,7 +867,7 @@ function Switch({
       role="switch"
       aria-checked={on}
       aria-label={label}
-      className={`kw-switch${on ? " kw-on" : ""}`}
+      className={`switch${on ? " on" : ""}`}
       onClick={() => onChange(!on)}
     />
   );
@@ -918,19 +918,19 @@ function GenPop({
   ];
   return (
     <div
-      className="kw-gen"
+      className="gen"
       ref={ref}
       role="dialog"
       aria-label={t("edit.genOptions")}
     >
-      <div className="kw-seg2" role="radiogroup">
+      <div className="seg2" role="radiogroup">
         {[GeneratorKind.Password, GeneratorKind.Passphrase].map((k) => (
           <button
             key={k}
             type="button"
             role="radio"
             aria-checked={prefs.kind === k}
-            className={prefs.kind === k ? "kw-on" : undefined}
+            className={prefs.kind === k ? "on" : undefined}
             onClick={() => change({ ...prefs, kind: k })}
           >
             {t(k === GeneratorKind.Password ? "edit.gen.password" : "edit.gen.passphrase")}
@@ -939,11 +939,11 @@ function GenPop({
       </div>
       {prefs.kind === GeneratorKind.Password ? (
         <>
-          <div className="kw-gen-row">
-            <span className="kw-k">{t("edit.gen.length")}</span>
+          <div className="gen-row">
+            <span className="k">{t("edit.gen.length")}</span>
             <input
               type="range"
-              className="kw-range"
+              className="range"
               min={8}
               max={64}
               value={pw.length}
@@ -955,16 +955,16 @@ function GenPop({
                 })
               }
             />
-            <span className="kw-gen-n">{pw.length}</span>
+            <span className="gen-n">{pw.length}</span>
           </div>
-          <div className="kw-gen-row">
-            <span className="kw-k">{t("edit.gen.sets")}</span>
-            <span className="kw-chips">
+          <div className="gen-row">
+            <span className="k">{t("edit.gen.sets")}</span>
+            <span className="chips">
               {SETS.map(([k, label, tip]) => (
                 <button
                   key={k}
                   type="button"
-                  className={`kw-chip${pw[k] ? " kw-on" : ""}`}
+                  className={`chip${pw[k] ? " on" : ""}`}
                   aria-pressed={pw[k]}
                   aria-label={t(tip)}
                   title={t(tip)}
@@ -979,9 +979,9 @@ function GenPop({
               ))}
             </span>
           </div>
-          <div className="kw-gen-row">
-            <span className="kw-k">{t("edit.gen.similar")}</span>
-            <span className="kw-gen-pair">
+          <div className="gen-row">
+            <span className="k">{t("edit.gen.similar")}</span>
+            <span className="gen-pair">
               <Switch
                 on={pw.avoidAmbiguous}
                 label={t("edit.gen.avoid")}
@@ -989,17 +989,17 @@ function GenPop({
                   change({ ...prefs, password: { ...pw, avoidAmbiguous: v } })
                 }
               />
-              <span className="kw-faint">{t("edit.gen.avoidHint")}</span>
+              <span className="faint">{t("edit.gen.avoidHint")}</span>
             </span>
           </div>
         </>
       ) : (
         <>
-          <div className="kw-gen-row">
-            <span className="kw-k">{t("edit.gen.words")}</span>
+          <div className="gen-row">
+            <span className="k">{t("edit.gen.words")}</span>
             <input
               type="range"
-              className="kw-range"
+              className="range"
               min={3}
               max={10}
               value={pp.words}
@@ -1011,12 +1011,12 @@ function GenPop({
                 })
               }
             />
-            <span className="kw-gen-n">{pp.words}</span>
+            <span className="gen-n">{pp.words}</span>
           </div>
-          <div className="kw-gen-row">
-            <span className="kw-k">{t("edit.gen.separator")}</span>
+          <div className="gen-row">
+            <span className="k">{t("edit.gen.separator")}</span>
             <input
-              className="kw-in kw-mono kw-short"
+              className="in mono short"
               value={pp.separator}
               maxLength={1}
               aria-label={t("edit.gen.separator")}
@@ -1029,12 +1029,12 @@ function GenPop({
             />
             <span />
           </div>
-          <div className="kw-gen-row">
-            <span className="kw-k">{t("edit.gen.form")}</span>
-            <span className="kw-chips">
+          <div className="gen-row">
+            <span className="k">{t("edit.gen.form")}</span>
+            <span className="chips">
               <button
                 type="button"
-                className={`kw-chip kw-sans${pp.capitalize ? " kw-on" : ""}`}
+                className={`chip sans${pp.capitalize ? " on" : ""}`}
                 aria-pressed={pp.capitalize}
                 onClick={() =>
                   change({
@@ -1047,7 +1047,7 @@ function GenPop({
               </button>
               <button
                 type="button"
-                className={`kw-chip kw-sans${pp.number ? " kw-on" : ""}`}
+                className={`chip sans${pp.number ? " on" : ""}`}
                 aria-pressed={pp.number}
                 onClick={() =>
                   change({
@@ -1062,10 +1062,10 @@ function GenPop({
           </div>
         </>
       )}
-      <div className="kw-gen-foot">
+      <div className="gen-foot">
         <button
           type="button"
-          className="kw-btn kw-quiet"
+          className="btn quiet"
           onClick={() => onGenerate(prefs)}
           disabled={busy}
           aria-busy={busy || undefined}

@@ -39,7 +39,7 @@ const say = (x: Text) => text(x);
 
 /// A tone as one of the window's levels, for a state's mark.
 const LEVEL_OF: Record<Tone, Level> = { [Tone.Plain]: Level.Unknown, [Tone.Ok]: Level.Healthy, [Tone.Warn]: Level.Warning, [Tone.Bad]: Level.Critical, [Tone.Accent]: Level.Action };
-const TONE_CLASS: Record<Tone, string> = { [Tone.Plain]: "", [Tone.Ok]: " kw-t-ok", [Tone.Warn]: " kw-t-warn", [Tone.Bad]: " kw-t-bad", [Tone.Accent]: " kw-t-accent" };
+const TONE_CLASS: Record<Tone, string> = { [Tone.Plain]: "", [Tone.Ok]: " t-ok", [Tone.Warn]: " t-warn", [Tone.Bad]: " t-bad", [Tone.Accent]: " t-accent" };
 
 /// How long a button asked lightly stays armed.
 const ARMED_MS = 3000;
@@ -50,7 +50,7 @@ export function ChipView({ chip }: { chip: ScreenChip }) {
   // A state is a mark, glyph and words; a kind is a quiet tag.
   if (chip.dot) return <span title={chip.title ? say(chip.title) : undefined}><Mark level={LEVEL_OF[chip.tone]} words={chip.label} /></span>;
   return (
-    <span className={`kw-tag${TONE_CLASS[chip.tone]}`} title={chip.title ? say(chip.title) : undefined}>
+    <span className={`tag${TONE_CLASS[chip.tone]}`} title={chip.title ? say(chip.title) : undefined}>
       {chip.icon && <Icon name={chip.icon} />}
       {say(chip.label)}
     </span>
@@ -84,7 +84,7 @@ export function ButtonView({ b, onPress, tipLeft }: { b: ScreenButton; onPress?:
     return (
       <button
         type="button"
-        className={`kw-btn kw-ico${danger ? " kw-bad" : ""}${tipLeft ? " kw-tip-l" : ""}`}
+        className={`btn ico${danger ? " bad" : ""}${tipLeft ? " tip-l" : ""}`}
         data-tip={tip}
         aria-label={tip}
         aria-busy={phase === Phase.Busy || undefined}
@@ -97,7 +97,7 @@ export function ButtonView({ b, onPress, tipLeft }: { b: ScreenButton; onPress?:
   return (
     <button
       type="button"
-      className={`kw-btn ${b.primary ? "kw-solid" : "kw-quiet"}${danger ? " kw-danger kw-bad" : ""}`}
+      className={`btn ${b.primary ? "solid" : "quiet"}${danger ? " danger bad" : ""}`}
       title={tip}
       aria-busy={phase === Phase.Busy || undefined}
       disabled={b.disabled || phase === Phase.Busy}
@@ -111,7 +111,7 @@ export function ButtonView({ b, onPress, tipLeft }: { b: ScreenButton; onPress?:
 
 function Ago({ at }: { at: number }) {
   const lang = useLang();
-  return <span className="kw-when">{agoSeconds(at, lang)}</span>;
+  return <span className="when">{agoSeconds(at, lang)}</span>;
 }
 
 // -- Rows and cards -------------------------------------------------------------
@@ -122,32 +122,32 @@ function RowView({ row, card }: { row: ScreenRow; card?: boolean }) {
   const press = open ? () => void run(open) : undefined;
   return (
     <div
-      className={`${card ? "kw-scard" : "kw-srow"}${open ? " kw-opens" : ""}`}
+      className={`${card ? "scard" : "srow"}${open ? " opens" : ""}`}
       role={open ? "button" : undefined}
       tabIndex={open ? 0 : undefined}
       onClick={press}
       onKeyDown={press ? (e) => e.key === "Enter" && e.target === e.currentTarget && press() : undefined}
     >
-      <span className={`kw-tile kw-plain kw-srow-ic${TONE_CLASS[row.tone]}`}>
+      <span className={`tile plain srow-ic${TONE_CLASS[row.tone]}`}>
         <Icon name={row.icon} />
-        {(row.tone !== Tone.Plain || row.busy) && <i className={`kw-dot${row.busy ? " kw-pulse" : ""}`} />}
+        {(row.tone !== Tone.Plain || row.busy) && <i className={`dot${row.busy ? " pulse" : ""}`} />}
       </span>
-      <span className="kw-srow-t">
-        <b className={row.mono ? "kw-mono" : undefined} title={say(row.title)}>
+      <span className="srow-t">
+        <b className={row.mono ? "mono" : undefined} title={say(row.title)}>
           {say(row.title)}
         </b>
         {row.subtitle && <span>{say(row.subtitle)}</span>}
       </span>
       {(row.chips.length > 0 || row.note || row.code) && (
-        <span className="kw-srow-s">
+        <span className="srow-s">
           {row.chips.map((c, i) => (
             <ChipView key={i} chip={c} />
           ))}
-          {row.note && <span className={`kw-srow-note${TONE_CLASS[row.tone]}`}>{say(row.note)}</span>}
-          {row.code && <code className="kw-mono kw-srow-code">{row.code}</code>}
+          {row.note && <span className={`srow-note${TONE_CLASS[row.tone]}`}>{say(row.note)}</span>}
+          {row.code && <code className="mono srow-code">{row.code}</code>}
         </span>
       )}
-      <span className="kw-srow-a">
+      <span className="srow-a">
         {row.at !== undefined && <Ago at={row.at} />}
         {row.actions.map((b, i) => (
           <ButtonView key={i} b={b} tipLeft={i === row.actions.length - 1} />
@@ -181,7 +181,7 @@ function CellView({ c, mono }: { c: ScreenCell | undefined; mono: boolean }) {
   if (!c) return null;
   switch (c.type) {
     case CellType.Text:
-      return <span className={mono ? "kw-mono" : undefined}>{say(c.text)}</span>;
+      return <span className={mono ? "mono" : undefined}>{say(c.text)}</span>;
     case CellType.Chip:
       return <ChipView chip={c.chip} />;
     case CellType.Ago:
@@ -209,13 +209,13 @@ function TableView({ id, columns, facets, rows, empty }: { id: string; columns: 
   const acts = rows.some((r) => r.actions.length > 0);
   const sortBy = (k: string) => set({ ...v, sort: { key: k, desc: v.sort.key === k ? !v.sort.desc : false } });
   return (
-    <div className="kw-stable">
+    <div className="stable">
       {facets.length > 0 && (
-        <div className="kw-sfilters">
+        <div className="sfilters">
           {facets.map((f) => {
             const value = v.selects[f.id];
             return (
-              <label key={f.id} className={`kw-ssel${value !== undefined ? " kw-on" : ""}`} data-tip={say(f.title)}>
+              <label key={f.id} className={`ssel${value !== undefined ? " on" : ""}`} data-tip={say(f.title)}>
                 <Icon name={f.icon} />
                 <select
                   aria-label={say(f.title)}
@@ -232,28 +232,28 @@ function TableView({ id, columns, facets, rows, empty }: { id: string; columns: 
               </label>
             );
           })}
-          <span className="kw-sshown">{active ? t("scr.shown", { n: shown.length, total: rows.length }) : rows.length}</span>
+          <span className="sshown">{active ? t("scr.shown", { n: shown.length, total: rows.length }) : rows.length}</span>
           {active && (
-            <button type="button" className="kw-btn kw-ico kw-tip-l" data-tip={t("scr.reset")} aria-label={t("scr.reset")} onClick={() => set({ ...v, selects: {} })}>
+            <button type="button" className="btn ico tip-l" data-tip={t("scr.reset")} aria-label={t("scr.reset")} onClick={() => set({ ...v, selects: {} })}>
               <Icon name="close" />
             </button>
           )}
         </div>
       )}
       {shown.length === 0 ? (
-        <div className="kw-sempty">
+        <div className="sempty">
           <Icon name={rows.length === 0 ? "info" : "filter"} />
           <span>{rows.length === 0 && empty ? say(empty) : t("scr.nothing")}</span>
         </div>
       ) : (
-        <div className="kw-stable-wrap">
+        <div className="stable-wrap">
           <table>
             <thead>
               <tr>
                 {columns.map((c) => (
                   <th key={c.id} aria-sort={v.sort.key === c.id ? (v.sort.desc ? "descending" : "ascending") : undefined}>
                     {c.sortable ? (
-                      <button type="button" className={`kw-ssort${v.sort.key === c.id ? " kw-on" : ""}${v.sort.desc ? " kw-desc" : ""}`} onClick={() => sortBy(c.id)}>
+                      <button type="button" className={`ssort${v.sort.key === c.id ? " on" : ""}${v.sort.desc ? " desc" : ""}`} onClick={() => sortBy(c.id)}>
                         {say(c.title)}
                         <Icon name="chev" />
                       </button>
@@ -262,7 +262,7 @@ function TableView({ id, columns, facets, rows, empty }: { id: string; columns: 
                     )}
                   </th>
                 ))}
-                {acts && <th className="kw-sacts" aria-hidden="true" />}
+                {acts && <th className="sacts" aria-hidden="true" />}
               </tr>
             </thead>
             <tbody>
@@ -271,18 +271,18 @@ function TableView({ id, columns, facets, rows, empty }: { id: string; columns: 
                 return (
                   <tr
                     key={r.key}
-                    className={open ? "kw-opens" : undefined}
+                    className={open ? "opens" : undefined}
                     tabIndex={open ? 0 : undefined}
                     onClick={open ? () => void run(open) : undefined}
                     onKeyDown={open ? (e) => e.key === "Enter" && e.target === e.currentTarget && void run(open) : undefined}
                   >
                     {columns.map((c, i) => (
-                      <td key={c.id} className={i === 0 ? "kw-sfirst" : undefined} title={i === 0 ? cellText(r.cells[c.id]) : undefined}>
+                      <td key={c.id} className={i === 0 ? "sfirst" : undefined} title={i === 0 ? cellText(r.cells[c.id]) : undefined}>
                         <CellView c={r.cells[c.id]} mono={c.mono} />
                       </td>
                     ))}
                     {acts && (
-                      <td className="kw-sacts">
+                      <td className="sacts">
                         <span>
                           {r.actions.map((b, i) => (
                             <ButtonView key={i} b={b} tipLeft={i === r.actions.length - 1} />
@@ -352,15 +352,15 @@ function TabsView({ id, iconsOnly, initial, tabs }: { id: string; iconsOnly: boo
   // shows until the new answer is in.
   const body = load ? (loaded?.tab === tab.id ? loaded.body : null) : tab.body;
   return (
-    <div className="kw-stabs">
-      <div className={`kw-fseg kw-stabbar${iconsOnly ? " kw-icons" : ""}`} role="tablist">
+    <div className="stabs">
+      <div className={`fseg stabbar${iconsOnly ? " icons" : ""}`} role="tablist">
         {tabs.map((x) => (
           <button
             key={x.id}
             type="button"
             role="tab"
             aria-selected={x.id === tab.id}
-            className={x.id === tab.id ? "kw-on" : undefined}
+            className={x.id === tab.id ? "on" : undefined}
             data-tip={iconsOnly ? say(x.title) : undefined}
             aria-label={say(x.title)}
             onClick={() => setOn(x.id)}
@@ -378,7 +378,7 @@ function TabsView({ id, iconsOnly, initial, tabs }: { id: string; iconsOnly: boo
 function SelectView({ node }: { node: Extract<ScreenNode, { type: ScreenNodeType.Select }> }) {
   const { run } = useScreen();
   return (
-    <label className={`kw-ssel${node.value ? " kw-on" : ""}`} data-tip={say(node.title)}>
+    <label className={`ssel${node.value ? " on" : ""}`} data-tip={say(node.title)}>
       <Icon name={node.icon} />
       <select aria-label={say(node.title)} value={node.value} onChange={(e) => void run({ ...node.action, payload: { ...((node.action.payload as object | null) ?? {}), value: e.target.value } })}>
         {node.options.map(([v, label]) => (
@@ -406,7 +406,7 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
   switch (spec.kind) {
     case FieldKind.Secret:
       return (
-        <span className="kw-fin">
+        <span className="fin">
           <SecretInput
             aria-label={label}
             ref={(h) => {
@@ -414,14 +414,14 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
               else secrets.delete(f.id);
             }}
           />
-          <Icon name="lock" className="kw-fin-ic" />
+          <Icon name="lock" className="fin-ic" />
         </span>
       );
     case FieldKind.Area:
-      return <textarea ref={keep(f.id)} className="kw-sarea" aria-label={label} defaultValue={f.value ?? ""} spellCheck={false} rows={8} />;
+      return <textarea ref={keep(f.id)} className="sarea" aria-label={label} defaultValue={f.value ?? ""} spellCheck={false} rows={8} />;
     case FieldKind.Select:
       return (
-        <span className="kw-fin kw-ssel-in">
+        <span className="fin ssel-in">
           <select ref={keep(f.id)} aria-label={label} defaultValue={f.value ?? spec.options[0]![0]}>
             {spec.options.map(([v, l]) => (
               <option key={v} value={v}>
@@ -429,7 +429,7 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
               </option>
             ))}
           </select>
-          <Icon name="chev" className="kw-fin-ic kw-down" />
+          <Icon name="chev" className="fin-ic down" />
         </span>
       );
     case FieldKind.Toggle:
@@ -438,13 +438,13 @@ function FieldControl({ f, refs, secrets }: { f: ScreenField; refs: Map<string, 
       return <ItemControl label={label} pick={spec.pick} initial={f.value} keep={keep(f.id)} />;
     case FieldKind.Number:
       return (
-        <span className="kw-fin">
+        <span className="fin">
           <input ref={keep(f.id)} aria-label={label} type="number" min={spec.min} max={spec.max} defaultValue={f.value ?? ""} autoComplete="off" />
         </span>
       );
     case FieldKind.Text:
       return (
-        <span className="kw-fin">
+        <span className="fin">
           <input ref={keep(f.id)} aria-label={label} type="text" defaultValue={f.value ?? ""} autoComplete="off" spellCheck={false} />
         </span>
       );
@@ -460,7 +460,7 @@ function ItemControl({ label, pick, initial, keep }: { label: string; pick: Item
   const { dir } = useCore();
   const items = dir.catalog.items.filter((i) => i.kind === PICKED[pick] && !i.deleted).sort((a, b) => a.name.localeCompare(b.name));
   return (
-    <span className="kw-fin kw-ssel-in">
+    <span className="fin ssel-in">
       <select ref={keep} aria-label={label} defaultValue={initial ?? ""}>
         <option value="" disabled>
           {t("scr.pickItem")}
@@ -471,7 +471,7 @@ function ItemControl({ label, pick, initial, keep }: { label: string; pick: Item
           </option>
         ))}
       </select>
-      <Icon name="chev" className="kw-fin-ic kw-down" />
+      <Icon name="chev" className="fin-ic down" />
     </span>
   );
 }
@@ -481,9 +481,9 @@ function ItemControl({ label, pick, initial, keep }: { label: string; pick: Item
 function ToggleControl({ label, initial, keep }: { label: string; initial: boolean; keep: (el: HTMLInputElement | null) => void }) {
   const [on, setOn] = useState(initial);
   return (
-    <span className="kw-stoggle">
+    <span className="stoggle">
       <input ref={keep} type="checkbox" hidden checked={on} readOnly />
-      <button type="button" role="switch" aria-checked={on} aria-label={label} title={t(on ? "set.on" : "set.off")} className={`kw-switch${on ? " kw-on" : ""}`} onClick={() => setOn((x) => !x)} />
+      <button type="button" role="switch" aria-checked={on} aria-label={label} title={t(on ? "set.on" : "set.off")} className={`switch${on ? " on" : ""}`} onClick={() => setOn((x) => !x)} />
     </span>
   );
 }
@@ -512,25 +512,25 @@ function FormView({ fields, submit }: { fields: ScreenField[]; submit: ScreenBut
   };
   return (
     <form
-      className="kw-sform"
+      className="sform"
       onSubmit={(e) => {
         e.preventDefault();
         send();
       }}
     >
       {fields.map((f) => (
-        <div key={f.id} className={`kw-frow${f.spec.kind === FieldKind.Area ? " kw-frow-area" : ""}`}>
-          <span className="kw-fl">
+        <div key={f.id} className={`frow${f.spec.kind === FieldKind.Area ? " frow-area" : ""}`}>
+          <span className="fl">
             <span>{say(f.label)}</span>
           </span>
-          <span className="kw-sctl">
+          <span className="sctl">
             <FieldControl f={f} refs={refs} secrets={secrets} />
-            {f.hint && <span className="kw-shint">{say(f.hint)}</span>}
+            {f.hint && <span className="shint">{say(f.hint)}</span>}
           </span>
         </div>
       ))}
-      <div className="kw-sfoot">
-        <button type="submit" className={`kw-btn ${submit.primary ? "kw-solid" : "kw-quiet"}`} disabled={busy || submit.disabled} aria-busy={busy || undefined}>
+      <div className="sfoot">
+        <button type="submit" className={`btn ${submit.primary ? "solid" : "quiet"}`} disabled={busy || submit.disabled} aria-busy={busy || undefined}>
           {submit.icon ? <BtnIcon icon={submit.icon} phase={busy ? Phase.Busy : Phase.Idle} /> : busy ? <Spinner /> : null}
           {say(submit.label ?? submit.title)}
         </button>
@@ -560,10 +560,10 @@ function EditorView({ text: initial, check, apply }: { text: string; check: Scre
       .finally(() => setBusy(false));
   };
   return (
-    <div className="kw-seditor">
+    <div className="seditor">
       <textarea
         ref={area}
-        className="kw-sarea kw-tall"
+        className="sarea tall"
         spellCheck={false}
         defaultValue={initial}
         aria-label={t("scr.text")}
@@ -573,13 +573,13 @@ function EditorView({ text: initial, check, apply }: { text: string; check: Scre
         }}
       />
       {checked && (
-        <section className="kw-sdiff">
-          <div className="kw-sec-h">
-            <h2 className="kw-h2">{checked.before === null ? t("scr.new") : changed ? t("scr.changes") : t("scr.noChanges")}</h2>
+        <section className="sdiff">
+          <div className="sec-h">
+            <h2 className="h2">{checked.before === null ? t("scr.new") : changed ? t("scr.changes") : t("scr.noChanges")}</h2>
           </div>
           <pre>
             {lines.map((l, i) => (
-              <span key={i} className={l.kind === DiffKind.Add ? "kw-add" : l.kind === DiffKind.Del ? "kw-del" : undefined}>
+              <span key={i} className={l.kind === DiffKind.Add ? "add" : l.kind === DiffKind.Del ? "del" : undefined}>
                 {l.kind === DiffKind.Add ? "+ " : l.kind === DiffKind.Del ? "- " : "  "}
                 {l.text}
                 {"\n"}
@@ -588,14 +588,14 @@ function EditorView({ text: initial, check, apply }: { text: string; check: Scre
           </pre>
         </section>
       )}
-      <div className="kw-sfoot">
+      <div className="sfoot">
         {checked ? (
-          <button type="button" className="kw-btn kw-solid" disabled={busy || !changed} aria-busy={busy || undefined} onClick={() => go(apply, () => setChecked(null))}>
+          <button type="button" className="btn solid" disabled={busy || !changed} aria-busy={busy || undefined} onClick={() => go(apply, () => setChecked(null))}>
             <BtnIcon icon="check" phase={busy ? Phase.Busy : Phase.Idle} />
             {t("scr.apply")}
           </button>
         ) : (
-          <button type="button" className="kw-btn kw-solid" disabled={busy || blank} aria-busy={busy || undefined} onClick={() => go(check, (r) => setChecked(reader.diff(r.data, check.op)))}>
+          <button type="button" className="btn solid" disabled={busy || blank} aria-busy={busy || undefined} onClick={() => go(check, (r) => setChecked(reader.diff(r.data, check.op)))}>
             <BtnIcon icon="eye" phase={busy ? Phase.Busy : Phase.Idle} />
             {t("scr.check")}
           </button>
@@ -615,27 +615,27 @@ function DangerView({ title, hint, button, more }: { title: Text; hint: Text; bu
   const [busy, setBusy] = useState(false);
   const word = button.action.confirm;
   return (
-    <section className={`kw-sec kw-sdanger${more ? " kw-more" : ""}`}>
+    <section className={`sec sdanger${more ? " more" : ""}`}>
       {/* One heading over the zone: the next of its rows says nothing again. */}
       {!more && (
-        <div className="kw-sec-h">
-          <h2 className="kw-h2">{t("scr.danger")}</h2>
+        <div className="sec-h">
+          <h2 className="h2">{t("scr.danger")}</h2>
         </div>
       )}
-      <div className="kw-sdanger-row">
-        <span className="kw-sdanger-t">
+      <div className="sdanger-row">
+        <span className="sdanger-t">
           <b>{say(title)}</b>
           <span>{say(hint)}</span>
         </span>
-        <span className="kw-sdanger-a">
+        <span className="sdanger-a">
           {word !== undefined && (
-            <span className="kw-fin">
-              <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={word} aria-label={t("scr.typeToConfirm", { word })} spellCheck={false} autoComplete="off" className="kw-mono" />
+            <span className="fin">
+              <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={word} aria-label={t("scr.typeToConfirm", { word })} spellCheck={false} autoComplete="off" className="mono" />
             </span>
           )}
           <button
             type="button"
-            className="kw-btn kw-solid kw-danger"
+            className="btn solid danger"
             disabled={button.disabled || busy || (word !== undefined && typed !== word)}
             aria-busy={busy || undefined}
             onClick={() => {
@@ -656,7 +656,7 @@ function DangerView({ title, hint, button, more }: { title: Text; hint: Text; bu
 
 function BusyView({ words }: { words?: Text }) {
   return (
-    <div className="kw-sbusy" role="status">
+    <div className="sbusy" role="status">
       <Spinner />
       {words && <span>{say(words)}</span>}
     </div>
@@ -666,25 +666,25 @@ function BusyView({ words }: { words?: Text }) {
 function SectionView({ node }: { node: Extract<ScreenNode, { type: ScreenNodeType.Section }> }) {
   const head = (
     <>
-      <Icon name={node.icon} className={`kw-ssec-ic${TONE_CLASS[node.tone]}`} />
-      <h2 className="kw-h2">{say(node.title)}</h2>
-      {node.count !== undefined && <span className="kw-n">{node.count}</span>}
-      {node.hint && <span className="kw-ssec-hint">{say(node.hint)}</span>}
+      <Icon name={node.icon} className={`ssec-ic${TONE_CLASS[node.tone]}`} />
+      <h2 className="h2">{say(node.title)}</h2>
+      {node.count !== undefined && <span className="n">{node.count}</span>}
+      {node.hint && <span className="ssec-hint">{say(node.hint)}</span>}
     </>
   );
   if (node.folded)
     return (
-      <details className="kw-sec kw-ssec">
-        <summary className="kw-sec-h">
-          <Icon name="chev" className="kw-fold" />
+      <details className="sec ssec">
+        <summary className="sec-h">
+          <Icon name="chev" className="fold" />
           {head}
         </summary>
         <Nodes nodes={node.body} />
       </details>
     );
   return (
-    <section className="kw-sec kw-ssec">
-      <div className="kw-sec-h">{head}</div>
+    <section className="sec ssec">
+      <div className="sec-h">{head}</div>
       <Nodes nodes={node.body} />
     </section>
   );
@@ -696,7 +696,7 @@ export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode
       return <SectionView node={node} />;
     case ScreenNodeType.List:
       return (
-        <div className="kw-srows">
+        <div className="srows">
           {node.rows.map((r) => (
             <RowView key={r.key} row={r} />
           ))}
@@ -704,7 +704,7 @@ export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode
       );
     case ScreenNodeType.Cards:
       return (
-        <div className="kw-scards">
+        <div className="scards">
           {node.cards.map((r) => (
             <RowView key={r.key} row={r} card />
           ))}
@@ -719,7 +719,7 @@ export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode
     case ScreenNodeType.Form:
       return <FormView fields={node.fields} submit={node.submit} />;
     case ScreenNodeType.Pre:
-      return <pre className="kw-spre">{node.text || t("scr.empty")}</pre>;
+      return <pre className="spre">{node.text || t("scr.empty")}</pre>;
     case ScreenNodeType.Editor:
       return <EditorView key={node.text} text={node.text} check={node.check} apply={node.apply} />;
     case ScreenNodeType.Terminal:
@@ -728,7 +728,7 @@ export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode
       return <DangerView title={node.title} hint={node.hint} button={node.button} more={after?.type === ScreenNodeType.Danger} />;
     case ScreenNodeType.Chips:
       return (
-        <div className="kw-schips">
+        <div className="schips">
           {node.chips.map((c, i) => (
             <ChipView key={i} chip={c} />
           ))}
@@ -736,7 +736,7 @@ export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode
       );
     case ScreenNodeType.Actions:
       return (
-        <div className="kw-sactions">
+        <div className="sactions">
           {node.buttons.map((b, i) => (
             <ButtonView key={i} b={b} />
           ))}
@@ -744,13 +744,13 @@ export function NodeView({ node, after }: { node: ScreenNode; after?: ScreenNode
       );
     case ScreenNodeType.Alert:
       return (
-        <div className={`kw-salert${TONE_CLASS[node.tone]}`} role={node.tone === Tone.Bad ? "alert" : "status"}>
+        <div className={`salert${TONE_CLASS[node.tone]}`} role={node.tone === Tone.Bad ? "alert" : "status"}>
           <Mark level={node.tone === Tone.Plain ? Level.Unknown : LEVEL_OF[node.tone]} words={node.text} />
         </div>
       );
     case ScreenNodeType.Empty:
       return (
-        <div className="kw-sempty kw-big">
+        <div className="sempty big">
           <Icon name={node.icon} />
           <b>{say(node.title)}</b>
           {node.body && <span>{say(node.body)}</span>}

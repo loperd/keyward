@@ -18,10 +18,20 @@ export enum FillMode {
   Card = "card",
 }
 
+/// What the field in front looks like it wants.
+export enum FillField {
+  Username = "username",
+  Password = "password",
+  Totp = "totp",
+  Card = "card",
+  Other = "other",
+}
+
 /// What was in front at ⌘⇧L: the app, the site's domain if a browser showed
 /// one, and whether the field lies in a form proven to be a login (one field
-/// for each, side by side) — only then are both typed at once.
-export type FillContext = { app: string; domain: string | null; loginPair: boolean };
+/// for each, side by side) — only then are both typed at once — and what the
+/// field looks like it wants.
+export type FillContext = { app: string; domain: string | null; loginPair: boolean; field: FillField };
 
 export const FILL_VERB = "fill";
 
@@ -43,11 +53,28 @@ export function fillModes(n: Node): FillMode[] {
   return [FillMode.Both, FillMode.Username, FillMode.Password, ...(it.hasTotp ? [FillMode.Totp] : [])];
 }
 
-/// boundary: the mode the line names, the item's first when it names none.
-export function fillModeOf(n: Node, arg: string): FillMode | null {
+/// What the field in front asks for, among what the item offers: a code
+/// field the code, a password field the password, a login field both where
+/// the form is a login; otherwise the item's first.
+function wanted(modes: readonly FillMode[], ctx: FillContext | null): FillMode {
+  const want: Record<FillField, FillMode[]> = {
+    [FillField.Totp]: [FillMode.Totp],
+    [FillField.Password]: [FillMode.Password],
+    [FillField.Card]: [FillMode.Card],
+    [FillField.Username]: ctx?.loginPair ? [FillMode.Both, FillMode.Username] : [FillMode.Username],
+    [FillField.Other]: ctx?.loginPair ? [FillMode.Both] : [],
+  };
+  // Both go only into a login form: elsewhere the first that fits one field.
+  const fallback = modes.find((m) => m !== FillMode.Both || ctx?.loginPair) ?? modes[0]!;
+  return (ctx ? want[ctx.field] : []).find((m) => modes.includes(m)) ?? fallback;
+}
+
+/// boundary: the mode the line names; when it names none, the one the field
+/// in front asks for.
+export function fillModeOf(n: Node, arg: string, ctx: FillContext | null = null): FillMode | null {
   const a = arg.trim().toLowerCase();
   const modes = fillModes(n);
-  if (a === "") return modes[0]!;
+  if (a === "") return wanted(modes, ctx);
   return isEnumValue(FillMode, a) && modes.includes(a) ? a : null;
 }
 
@@ -59,7 +86,7 @@ export function fillVerb(ctx: FillContext | null): Verb {
     applies: (n) => ctx !== null && fillable(n),
     preview: (dir, obj, arg): Preview => {
       const n = dir.node(obj);
-      const mode = fillModeOf(n, arg);
+      const mode = fillModeOf(n, arg, ctx);
       const into = ctx?.app ?? "";
       return {
         kind: PreviewKind.Ready,

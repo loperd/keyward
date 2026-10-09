@@ -11,10 +11,15 @@ import "./extensions.css";
 import { currentLang, t } from "../i18n";
 import type { BrowserExtension, BrowserExtensions } from "../settings/types";
 import { Icon } from "./Icons";
-import { IconButton, Mark, useCore } from "./marks";
+import { IconButton, Mark, Tile, useCore } from "./marks";
+import { LeadTile } from "../doc/spec";
+import { pageId, SettingsPage } from "../settings/pages";
 import { Phase } from "./feedback";
 import { Level } from "../model/types";
 import { ToastKind } from "./toasts";
+
+/// The extension's page in the Chrome Web Store.
+export const EXTENSION_STORE_URL = "https://chromewebstore.google.com/detail/keyward/codlckblccbcnadacdnoieimkmdieajg";
 
 /// How often the list and the prompt look again, in milliseconds.
 const LIST_EVERY = 5000;
@@ -22,7 +27,7 @@ const PROMPT_EVERY = 3000;
 
 function Words({ words }: { words: string[] }) {
   return (
-    <span className="kw-ext-words">
+    <span className="ext-words">
       {words.map((w, i) => (
         <code key={i}>{w}</code>
       ))}
@@ -31,6 +36,18 @@ function Words({ words }: { words: string[] }) {
 }
 
 const since = (at: number) => t("ext.since", { date: new Date(at * 1000).toLocaleDateString(currentLang(), { day: "numeric", month: "long", year: "numeric" }) });
+const used = (at: number) => t("ext.used", { when: new Date(at * 1000).toLocaleString(currentLang(), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) });
+
+/// What is known of where an extension is: the Mac, when it was paired, its
+/// last request.
+const about = (r: BrowserExtension, paired: boolean) =>
+  [r.device, paired ? since(r.at) : null, r.used !== null ? used(r.used) : null].filter((x): x is string => !!x).join(" · ");
+
+/// The browsers paired, by name, or how many when one has none.
+const pairedNames = (rows: BrowserExtension[]) => {
+  const names = [...new Set(rows.map((r) => r.browser))];
+  return names.every((n): n is string => n !== null) ? names.join(", ") : t("ext.rowPaired", { n: rows.length });
+};
 
 /// The Browsers page's list: the ones asking first, then the paired.
 export function ExtensionsList() {
@@ -66,48 +83,97 @@ export function ExtensionsList() {
   if (failed && !list) return <Mark level={Level.Critical} words={t("ext.failed", { reason: failed })} />;
   if (!list)
     return (
-      <div className="kw-set kw-set-wait" role="status" aria-label={t("set.loading")}>
-        <span className="kw-set-t">
+      <div className="set set-wait" role="status" aria-label={t("set.loading")}>
+        <span className="set-t">
           <b>{t("set.loading")}</b>
         </span>
       </div>
     );
+  const install = (solid: boolean) =>
+    b.openUrl && (
+      <button type="button" className={`btn${solid ? " solid" : " quiet"}`} onClick={() => b.openUrl!(EXTENSION_STORE_URL).catch(core.report)}>
+        <Icon name="ext" />
+        {t("ext.install")}
+      </button>
+    );
   if (!list.paired.length && !list.pending.length)
     return (
-      <div className="kw-set">
-        <span className="kw-set-t">
+      <div className="set">
+        <span className="set-t">
           <b>{t("ext.none")}</b>
-          <span className="kw-set-h">{t("ext.noneHint")}</span>
+          <span className="set-h">{t("ext.noneHint")}</span>
         </span>
-        <Icon name="login" />
+        <span className="set-acts">{install(true)}</span>
       </div>
     );
   return (
     <>
       {list.pending.map((r) => (
-        <div key={r.key} className="kw-set kw-ext">
-          <span className="kw-set-t">
-            <b>{t("ext.asking")}</b>
+        <div key={r.key} className="set ext">
+          <span className="set-t">
+            <b>{r.browser ? t("ext.askingFrom", { browser: r.browser }) : t("ext.asking")}</b>
+            {r.device && <span className="set-h">{about(r, false)}</span>}
             <Words words={r.words} />
           </span>
-          <button type="button" className="kw-btn kw-solid" disabled={busy !== null} aria-busy={busy === r.key || undefined} onClick={() => b.pairExtension && act(r.key, () => b.pairExtension!(r.key), t("ext.pairedToast"))}>
+          <button type="button" className="btn solid" disabled={busy !== null} aria-busy={busy === r.key || undefined} onClick={() => b.pairExtension && act(r.key, () => b.pairExtension!(r.key), t("ext.pairedToast"))}>
             <Icon name="finger" />
             {t(busy === r.key ? "pair.touch" : "ext.pair")}
           </button>
         </div>
       ))}
       {list.paired.map((r) => (
-        <div key={r.key} className="kw-set kw-ext">
-          <span className="kw-set-t">
-            <b>
-              {t("ext.paired")} <span className="kw-set-h">· {since(r.at)}</span>
-            </b>
+        <div key={r.key} className="set ext">
+          <span className="set-t">
+            <b title={r.browser ? undefined : t("ext.unknownBrowser")}>{r.browser ?? t("ext.paired")}</b>
+            <span className="set-h">{about(r, true)}</span>
             <Words words={r.words} />
           </span>
           <IconButton icon="trash" tip={t("ext.unpair")} phase={busy === r.key ? Phase.Busy : Phase.Idle} onClick={() => b.unpairExtension && busy === null && act(r.key, () => b.unpairExtension!(r.key), t("ext.unpaired"))} />
         </div>
       ))}
+      <div className="set">
+        <span className="set-t">
+          <b>{t("ext.another")}</b>
+          <span className="set-h">{t("ext.anotherHint")}</span>
+        </span>
+        <span className="set-acts">{install(false)}</span>
+      </div>
     </>
+  );
+}
+
+/// The browsers among the vault's connections on its home: how many are
+/// paired, or that the extension is still to be installed; it leads to the
+/// Browsers page, where it is installed and paired.
+export function BrowsersRow() {
+  const { backend, store } = useCore();
+  const [list, setList] = useState<BrowserExtensions | null>(null);
+  useEffect(() => {
+    if (!backend.extensions) return;
+    let live = true;
+    backend.extensions().then((l) => live && setList(l), (e: unknown) => console.error(e));
+    return () => {
+      live = false;
+    };
+  }, [backend]);
+  const asking = list?.pending.length ?? 0;
+  const paired = list?.paired.length ?? 0;
+  return (
+    <div className="ref" onClick={() => store.go(pageId(SettingsPage.Browsers))}>
+      <Tile lead={{ tile: LeadTile.Plain, icon: "login" }} />
+      <span className="rt">{t("set.page.browsers")}</span>
+      <span className="rc">{t("ext.rowSub")}</span>
+      <span className="rs">
+        {list &&
+          (asking ? (
+            <Mark level={Level.Action} words={t("ext.rowAsking", { n: asking })} />
+          ) : paired ? (
+            <Mark level={Level.Healthy} words={pairedNames(list.paired)} />
+          ) : (
+            <Mark level={Level.Warning} words={t("ext.rowNone")} />
+          ))}
+      </span>
+    </div>
   );
 }
 
@@ -178,15 +244,15 @@ export function PairPrompt() {
       .finally(() => setBusy(false));
   };
   return (
-    <div className="kw-reprompt-veil" onClick={(e) => e.target === e.currentTarget && !busy && later()}>
-      <div className="kw-reprompt kw-pair" role="dialog" aria-modal="true" aria-label={t("pair.title")} aria-busy={busy}>
-        <div className="kw-reprompt-h">
+    <div className="reprompt-veil" onClick={(e) => e.target === e.currentTarget && !busy && later()}>
+      <div className="reprompt pair" role="dialog" aria-modal="true" aria-label={t("pair.title")} aria-busy={busy}>
+        <div className="reprompt-h">
           <Icon name="login" />
-          <span>{t("pair.title")}</span>
+          <span>{asking.browser ? t("ext.askingFrom", { browser: asking.browser }) : t("pair.title")}</span>
         </div>
         <p>{t("pair.body")}</p>
         <Words words={asking.words} />
-        <p className={`kw-pair-timer${expired ? " kw-expired" : ""}`}>
+        <p className={`pair-timer${expired ? " expired" : ""}`}>
           <Icon name="clock" />
           {expired ? t("pair.expired") : t("pair.left", { left: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` })}
         </p>
@@ -195,11 +261,11 @@ export function PairPrompt() {
             <Mark level={Level.Critical} words={error} />
           </div>
         )}
-        <div className="kw-reprompt-go">
-          <button type="button" className="kw-btn" onClick={later} disabled={busy}>
+        <div className="reprompt-go">
+          <button type="button" className="btn" onClick={later} disabled={busy}>
             {t("pair.later")}
           </button>
-          <button type="button" className="kw-btn kw-solid" onClick={pair} disabled={busy || expired} autoFocus>
+          <button type="button" className="btn solid" onClick={pair} disabled={busy || expired} autoFocus>
             <Icon name="finger" />
             {t(busy ? "pair.touch" : "pair.confirm")}
           </button>

@@ -22,7 +22,7 @@ export function FilterIcon({ filter, dim }: { filter: Filter; dim?: boolean }) {
     const level: Level = lone.length === 1 ? lone[0]! : Level.Action;
     return <Glyph level={level} />;
   }
-  return <Icon name={filter.tokens.length ? "filter" : "search"} {...(dim ? { className: "kw-dim" } : {})} />;
+  return <Icon name={filter.tokens.length ? "filter" : "search"} {...(dim ? { className: "dim" } : {})} />;
 }
 
 const GROUP_KEY = { items: "group.items", hosts: "group.hosts", members: "group.members", clusters: "group.clusters" } as const;
@@ -80,7 +80,7 @@ function calmLayout(lines: Line[]): RowLayout {
 const NO_LAYOUT: RowLayout = layoutOf(0, () => 0, () => 0);
 /// The calm list scrolls with the sheet it stands on.
 function sheetOf(list: HTMLElement): HTMLElement {
-  const sc = list.closest<HTMLElement>(".kw-insp");
+  const sc = list.closest<HTMLElement>(".insp");
   if (!sc) throw new Error("the calm list stands outside the inspector");
   return sc;
 }
@@ -105,7 +105,7 @@ export function CalmList({ column, lsel }: { column: Extract<Column, { type: Col
     const list = listRef.current;
     if (!list) return;
     if (!long) {
-      void list.querySelector(".kw-lrow.kw-on")?.scrollIntoView({ block: "nearest" });
+      void list.querySelector(".lrow.on")?.scrollIntoView({ block: "nearest" });
       return;
     }
     const at = calm.lines.findIndex((x) => "id" in x && x.k === lsel);
@@ -116,20 +116,20 @@ export function CalmList({ column, lsel }: { column: Extract<Column, { type: Col
     // Only a new row to stand on brings the list to it.
   }, [lsel]);
   const head = (
-    <div className="kw-lhead">
-      <span className="kw-lt">
+    <div className="lhead">
+      <span className="lt">
         <FilterIcon filter={column.filter} dim />
-        <h1 className="kw-h1">{query.filterName(column.filter)}</h1>
-        <span className="kw-n">{t("count.matches", { n: ids.length })}</span>
+        <h1 className="h1">{query.filterName(column.filter)}</h1>
+        <span className="n">{t("count.matches", { n: ids.length })}</span>
       </span>
-      {column.scope !== "root" && <span className="kw-faint">{t("ui.inScope", { place: text(dir.node(column.scope).name) })}</span>}
+      {column.scope !== "root" && <span className="faint">{t("ui.inScope", { place: text(dir.node(column.scope).name) })}</span>}
       {saved ? (
-        <span className="kw-saved">
+        <span className="saved">
           <Icon name="markOn" />
           {text(saved.name)}
         </span>
       ) : (
-        <button type="button" className="kw-btn kw-quiet" onClick={savePlace}>
+        <button type="button" className="btn quiet" onClick={savePlace}>
           <Icon name="mark" />
           {t("savePlace")}
         </button>
@@ -140,9 +140,9 @@ export function CalmList({ column, lsel }: { column: Extract<Column, { type: Col
     return (
       <>
         {head}
-        <div className="kw-empty">
+        <div className="empty">
           <span>{t("ui.nothingFound")}</span>
-          <span className="kw-faint">{t("ui.dropOne")}</span>
+          <span className="faint">{t("ui.dropOne")}</span>
         </div>
       </>
     );
@@ -156,17 +156,17 @@ export function CalmList({ column, lsel }: { column: Extract<Column, { type: Col
     <>
       {head}
       <div
-        className={`kw-lrows${settled ? "" : " kw-stagger"}`}
+        className={`lrows${settled ? "" : " stagger"}`}
         ref={listRef}
         onAnimationEnd={(e) => {
-          if (e.animationName === "kw-lrow-in" && (e.target as HTMLElement).dataset.lastIn !== undefined) setSettled(true);
+          if (e.animationName === "lrow-in" && (e.target as HTMLElement).dataset.lastIn !== undefined) setSettled(true);
         }}
       >
         {sp && sp.above > 0 && <div style={{ height: sp.above }} aria-hidden />}
         {shownRows.map((x, i) => {
           if ("group" in x)
             return (
-              <div key={`g:${x.group}`} className="kw-lgrp">
+              <div key={`g:${x.group}`} className="lgrp">
                 <span>{t(GROUP_KEY[x.group])}</span>
                 <span>{x.n}</span>
               </div>
@@ -181,26 +181,26 @@ export function CalmList({ column, lsel }: { column: Extract<Column, { type: Col
           return (
             <div
               key={id}
-              className={`kw-lrow${k === lsel ? " kw-on" : ""}`}
+              className={`lrow${k === lsel ? " on" : ""}`}
               onClick={() => openFound(store, id)}
               {...(k < STAGGERED ? { style: { "--i": k } as React.CSSProperties } : {})}
               {...(i === lastRow ? { "data-last-in": "" } : {})}
             >
-              <span className="kw-who">
+              <span className="who">
                 {plugin ? (
-                  <span className="kw-tile kw-plain">
+                  <span className="tile plain">
                     <Icon name={n.icon} />
                   </span>
                 ) : (
                   <Tile lead={nodeLead(dir, id)} />
                 )}
-                <span className="kw-lbl">
-                  <span className={`kw-t${n.mono ? " kw-mono" : ""}`}>{text(n.name)}</span>
-                  <span className={`kw-s${n.mono || n.subMono ? " kw-mono" : ""}`}>{sub}</span>
+                <span className="lbl">
+                  <span className={`t${n.mono ? " mono" : ""}`}>{text(n.name)}</span>
+                  <span className={`s${n.mono || n.subMono ? " mono" : ""}`}>{sub}</span>
                 </span>
               </span>
-              <span className="kw-why">{why}</span>
-              <span className="kw-pl">{n.member ? `${where} · ${t(`role.${n.member.role}`)}` : where}</span>
+              <span className="why">{why}</span>
+              <span className="pl">{n.member ? `${where} · ${t(`role.${n.member.role}`)}` : where}</span>
               <Glyph level={n.level} words={why} />
             </div>
           );

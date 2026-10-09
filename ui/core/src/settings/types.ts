@@ -65,7 +65,10 @@ export type UnlockState = { biometric: boolean; biometricProblem: string | null;
 /// A browser extension that may ask for passkeys, or asks to: its key's five
 /// words, compared with the extension's own window; `at` and `expires` are
 /// seconds since the epoch (`expires` is 0 for a paired one).
-export type BrowserExtension = { key: string; words: string[]; at: number; expires: number };
+/// A browser extension: its key and words, when it was paired (or asked),
+/// the browser and Mac it was paired in when the daemon knows them, and its
+/// last request since the daemon started.
+export type BrowserExtension = { key: string; words: string[]; at: number; expires: number; browser: string | null; device: string | null; used: number | null };
 export type BrowserExtensions = { paired: BrowserExtension[]; pending: BrowserExtension[] };
 
 /// Two-step login as the server has it: the two methods the app sets up,

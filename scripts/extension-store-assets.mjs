@@ -15,7 +15,7 @@ import path from "node:path";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const EXT = path.join(ROOT, "extension");
 const OUT = path.join(EXT, "store");
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "kw-assets-"));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "assets-"));
 const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".json": "application/json", ".woff2": "font/woff2" };

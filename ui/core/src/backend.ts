@@ -248,6 +248,10 @@ export interface Backend {
   /// The recovery code, shown once.
   recoveryCode?(password: string): Promise<Revealed>;
 
+  /// The window's own buttons, where the app is a window of its own (the
+  /// desktop app; a web page has none and draws none).
+  window?: WindowControls;
+
   /// ⌘⇧L in another app: told what was in front; returns the unsubscribe.
   /// Present where the app types into other apps.
   onAutofill?(cb: (ctx: FillContext) => void): () => void;
@@ -266,4 +270,20 @@ export interface Backend {
   pairExtension?(key: string): Promise<BrowserExtensions>;
   unpairExtension?(key: string): Promise<BrowserExtensions>;
 
+}
+
+/// The window's close, minimise and full-screen buttons, drawn by the window
+/// itself in the strip; the system's are hidden.
+export interface WindowControls {
+  /// As the system's close button: hides the window, or quits where nothing
+  /// would bring it back.
+  close(): Promise<void>;
+  minimize(): Promise<void>;
+  /// The green button: full screen and back.
+  fullscreen(): Promise<void>;
+  /// The green button with ⌥: the window as large as its content allows.
+  zoom(): Promise<void>;
+  /// Whether the window is the one in front: its buttons go grey when not.
+  /// Returns the unsubscribe.
+  onFocus(cb: (focused: boolean) => void): () => void;
 }

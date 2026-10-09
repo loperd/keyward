@@ -183,7 +183,7 @@ describe("documents", () => {
     const doc = buildDoc({ dir: d, detail, server: "s", places }, "item:aws");
     const blocks = doc.sections.flatMap((s) => s.blocks);
     expect(blocks.some((b) => "secret" in b && b.secret.key === "password")).toBe(true);
-    expect(blocks.some((b) => "totp" in b)).toBe(true);
+    expect(blocks.some((b) => "totp" in b), "the one-time code is the editor's, not the page's").toBe(false);
   });
   it("read every map and preview in both languages", () => {
     const d = dir();

@@ -1,43 +1,43 @@
 /* ---------- a preview's controls ----------
    A row is the field column's label and one 32px control; rows sit on the
    document's own surface, no box around them. */
-.kw-form-top { margin-top: var(--u3); }
-.kw-frow { display: grid; grid-template-columns: var(--label-w) minmax(0, 1fr); column-gap: var(--u2); align-items: center; min-height: var(--row-1); }
-.kw-fl { display: flex; align-items: center; gap: var(--lead-gap); min-width: 0; color: var(--dim); }
-.kw-fl > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.kw-fl .kw-tile { margin-left: calc(var(--u) * -1); }
+.form-top { margin-top: var(--u3); }
+.frow { display: grid; grid-template-columns: var(--label-w) minmax(0, 1fr); column-gap: var(--u2); align-items: center; min-height: var(--row-1); }
+.fl { display: flex; align-items: center; gap: var(--lead-gap); min-width: 0; color: var(--dim); }
+.fl > span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl .tile { margin-left: calc(var(--u) * -1); }
 
-.kw-fin { height: var(--ctl); display: flex; align-items: center; border-radius: var(--r-ctl); background: var(--line-bg);
+.fin { height: var(--ctl); display: flex; align-items: center; border-radius: var(--r-ctl); background: var(--line-bg);
   box-shadow: inset 0 0 0 1px var(--line-edge); transition: box-shadow var(--dur) var(--ease-out); cursor: text; }
-.kw-fin:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
-.kw-fin input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text); outline: none;
+.fin:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
+.fin input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text); outline: none;
   padding: 0 var(--u); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans); }
-.kw-fin input.kw-mono { font-family: var(--mono); }
-.kw-fin input:focus-visible { box-shadow: none; }
-.kw-fin input::placeholder { color: var(--faint); font-family: var(--sans); }
+.fin input.mono { font-family: var(--mono); }
+.fin input:focus-visible { box-shadow: none; }
+.fin input::placeholder { color: var(--faint); font-family: var(--sans); }
 
-.kw-fseg { display: flex; gap: var(--half); padding: var(--half); height: var(--ctl); border-radius: var(--r-ctl); background: var(--line-bg);
+.fseg { display: flex; gap: var(--half); padding: var(--half); height: var(--ctl); border-radius: var(--r-ctl); background: var(--line-bg);
   box-shadow: inset 0 0 0 1px var(--line-edge); min-width: 0; }
-.kw-fseg button { flex: 1 1 0; min-width: 0; height: 100%; border: 0; border-radius: var(--r-in); background: transparent; color: var(--dim);
+.fseg button { flex: 1 1 0; min-width: 0; height: 100%; border: 0; border-radius: var(--r-in); background: transparent; color: var(--dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 var(--half); font: var(--w-text) var(--fs-s)/var(--lh-s) var(--sans);
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-.kw-fseg button:hover:not(:disabled) { color: var(--text); }
-.kw-fseg button:active:not(:disabled) { transform: scale(0.97); }
-.kw-fseg button.kw-on { background: var(--pill); color: var(--text); font-weight: var(--w-name); box-shadow: var(--sh-1), inset 0 0 0 1px var(--pill-edge); }
-.kw-fseg button:disabled { color: var(--faint); opacity: 0.6; }
-.kw-fseg button[data-tip] { position: relative; overflow: visible; }
+.fseg button:hover:not(:disabled) { color: var(--text); }
+.fseg button:active:not(:disabled) { transform: scale(0.97); }
+.fseg button.on { background: var(--pill); color: var(--text); font-weight: var(--w-name); box-shadow: var(--sh-1), inset 0 0 0 1px var(--pill-edge); }
+.fseg button:disabled { color: var(--faint); opacity: 0.6; }
+.fseg button[data-tip] { position: relative; overflow: visible; }
 
 /* a verb that takes something away says so in its colour */
-.kw-btn.kw-solid.kw-danger { background: var(--rose); }
-.kw-btn.kw-solid.kw-danger:hover { background: color-mix(in srgb, var(--rose) 88%, var(--hi)); }
-.kw-btn.kw-solid:disabled, .kw-btn.kw-solid:disabled:hover { opacity: 0.45; background: var(--blue); color: var(--on-accent); }
-.kw-btn.kw-solid.kw-danger:disabled, .kw-btn.kw-solid.kw-danger:disabled:hover { background: var(--rose); }
-.kw-vbar .kw-why.kw-held { color: var(--dim); }
-.kw-sec > .kw-steps { margin-top: 0; }
+.btn.solid.danger { background: var(--rose); }
+.btn.solid.danger:hover { background: color-mix(in srgb, var(--rose) 88%, var(--hi)); }
+.btn.solid:disabled, .btn.solid:disabled:hover { opacity: 0.45; background: var(--blue); color: var(--on-accent); }
+.btn.solid.danger:disabled, .btn.solid.danger:disabled:hover { background: var(--rose); }
+.vbar .why.held { color: var(--dim); }
+.sec > .steps { margin-top: 0; }
 /* a row of choices with a switch beside it: passwords hidden */
-.kw-frow-t { grid-template-columns: var(--label-w) minmax(0, 1fr) var(--ctl); }
-.kw-ftog { position: relative; color: var(--faint); }
-.kw-ftog.kw-on { color: var(--sky); background: color-mix(in srgb, var(--sky) 12%, transparent); }
-.kw-ftog:disabled { opacity: 0.35; }
-.kw-ftog .kw-slash { position: absolute; left: 50%; top: 50%; width: calc(var(--ic) + 2px); height: 1.5px; background: currentColor;
+.frow-t { grid-template-columns: var(--label-w) minmax(0, 1fr) var(--ctl); }
+.ftog { position: relative; color: var(--faint); }
+.ftog.on { color: var(--sky); background: color-mix(in srgb, var(--sky) 12%, transparent); }
+.ftog:disabled { opacity: 0.35; }
+.ftog .slash { position: absolute; left: 50%; top: 50%; width: calc(var(--ic) + 2px); height: 1.5px; background: currentColor;
   transform: translate(-50%, -50%) rotate(-45deg); border-radius: 1px; box-shadow: 0 0 0 1px var(--tier-hi); }

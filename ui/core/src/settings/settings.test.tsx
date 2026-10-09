@@ -13,7 +13,8 @@ import { DEMO } from "../demo";
 import { allTexts, Lang, setLang, currentLang, text } from "../i18n";
 import { PIN_MIN, PASSWORD_MIN, secretsProblem, ACCOUNT_VERBS, AccountVerb, exportFormatOf, kdfOf } from "../verbs/account";
 import { SecretAskKind, PreviewKind, ExportFormat } from "../verbs/spec";
-import { fillVerb } from "../verbs/fill";
+import { FillField, FillMode, fillVerb } from "../verbs/fill";
+import { EXTENSION_STORE_URL } from "../ui/Extensions";
 import { type UnlockState, KdfKind } from "./types";
 
 const UNLOCKS: UnlockState[] = [
@@ -224,7 +225,7 @@ describe("the unlocking page", () => {
     el.value = value;
     el.dispatchEvent(new Event("input", { bubbles: true }));
   };
-  const pinRow = () => [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Открывать по PIN"));
+  const pinRow = () => [...host.querySelectorAll(".set")].find((r) => r.textContent?.includes("Открывать по PIN"));
 
   async function openPin(b: DemoBackend, lines: string[]) {
     act(() => root.render(<App backend={b} line="settings › settings-unlock" onLine={(l) => lines.push(l)} autoBiometric={false} />));
@@ -292,17 +293,42 @@ describe("the browsers", () => {
   const dialog = () => host.ownerDocument.querySelector('[role="dialog"][aria-label="Сопряжение браузера"]');
   const inDialog = (words: string) => [...(dialog()?.querySelectorAll("button") ?? [])].find((b) => b.textContent?.includes(words));
 
-  it("lists the paired ones on their page with their five words", async () => {
+  it("lists the paired ones on their page by browser and Mac, with their five words", async () => {
     const b = new DemoBackend();
     act(() => root.render(<App backend={b} line="settings › settings-browsers" autoBiometric={false} />));
     await flush();
     await flush();
-    expect(host.textContent).toContain("Сопряжено");
-    expect(host.textContent).toContain("amber");
+    const row = host.querySelector(".ext")!;
+    expect(row.querySelector("b")?.textContent).toBe("Arc");
+    expect(row.textContent).toContain("Studio Mac · С ");
+    expect(row.textContent).toContain("amber");
     await act(async () => host.querySelector<HTMLButtonElement>('button[aria-label="Отменить сопряжение"]')!.click());
     await flush();
     expect(b.calls).toContain("unpair:demo-paired");
     expect(host.textContent).toContain("Браузеры не сопряжены");
+  });
+
+  it("offers to install the extension where no browser is paired, from the store", async () => {
+    const b = new DemoBackend();
+    await b.unpairExtension("demo-paired");
+    act(() => root.render(<App backend={b} line="settings › settings-browsers" autoBiometric={false} />));
+    await flush();
+    await flush();
+    const install = [...host.querySelectorAll<HTMLButtonElement>(".insp button")].find((x) => x.textContent?.includes("Установить расширение"));
+    expect(install?.className).toContain("solid");
+    await act(async () => install!.click());
+    expect(b.opened).toEqual([EXTENSION_STORE_URL]);
+  });
+
+  it("stands among the vault's connections on its home, saying what is paired", async () => {
+    const b = new DemoBackend();
+    act(() => root.render(<App backend={b} autoBiometric={false} />));
+    await flush();
+    await flush();
+    const row = [...host.querySelectorAll(".insp .ref")].find((r) => r.textContent?.includes("Браузеры"));
+    expect(row?.textContent).toContain("Arc");
+    await b.unpairExtension("demo-paired");
+    act(() => root.render(<App backend={new DemoBackend()} autoBiometric={false} />));
   });
 
   it("asks over the window when a browser wants to pair, and pairs it", async () => {
@@ -312,6 +338,7 @@ describe("the browsers", () => {
     await flush();
     await flush();
     expect(dialog()?.textContent).toContain("harbor");
+    expect(dialog()?.textContent).toContain("Google Chrome просит сопряжения");
     await act(async () => inDialog("Сопрячь")!.click());
     await flush();
     expect(b.calls).toContain("pair:demo-asking");
@@ -455,7 +482,7 @@ describe("two-step login", () => {
     act(() => root.unmount());
     host.remove();
   });
-  const btn = (words: string) => [...host.querySelectorAll<HTMLButtonElement>(".kw-insp button")].find((b) => b.textContent?.trim() === words || b.textContent?.endsWith(words));
+  const btn = (words: string) => [...host.querySelectorAll<HTMLButtonElement>(".insp button")].find((b) => b.textContent?.trim() === words || b.textContent?.endsWith(words));
   const type = (label: string, value: string) => {
     const el = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
     el.value = value;
@@ -470,7 +497,7 @@ describe("two-step login", () => {
   it("turns email codes on: the password, a code sent to the account's address, the code", async () => {
     const b = new DemoBackend();
     await open(b);
-    const emailRow = [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Код на почту"))!;
+    const emailRow = [...host.querySelectorAll(".set")].find((r) => r.textContent?.includes("Код на почту"))!;
     await act(async () => [...emailRow.querySelectorAll("button")].find((x) => x.textContent?.includes("Настроить"))!.click());
     await act(async () => type("Мастер-пароль", "correct horse"));
     await act(async () => btn("Прислать код")!.click());
@@ -481,7 +508,7 @@ describe("two-step login", () => {
     await flush();
     expect(b.calls).toContain("tf:email");
     for (const el of host.querySelectorAll('input[type="password"]')) expect((el as HTMLInputElement).value).toBe("");
-    expect([...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Код на почту"))?.textContent).toContain("Включено");
+    expect([...host.querySelectorAll(".set")].find((r) => r.textContent?.includes("Код на почту"))?.textContent).toContain("Включено");
   });
 
   it("shows the recovery code once, and lets it go when done", async () => {
@@ -499,7 +526,7 @@ describe("two-step login", () => {
   it("turns the authenticator off with the master password", async () => {
     const b = new DemoBackend();
     await open(b);
-    const authRow = [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Приложение-аутентификатор"))!;
+    const authRow = [...host.querySelectorAll(".set")].find((r) => r.textContent?.includes("Приложение-аутентификатор"))!;
     await act(async () => [...authRow.querySelectorAll("button")].find((x) => x.textContent?.includes("Выключить"))!.click());
     await act(async () => type("Мастер-пароль", "correct horse"));
     await act(async () => btn("Выключить")!.click());
@@ -528,7 +555,7 @@ describe("a change of email", () => {
     act(() => root.render(<App backend={b} line="settings › settings-account" autoBiometric={false} />));
     await flush();
     await flush();
-    const row = [...host.querySelectorAll(".kw-set")].find((r) => r.textContent?.includes("Email аккаунта"))!;
+    const row = [...host.querySelectorAll(".set")].find((r) => r.textContent?.includes("Email аккаунта"))!;
     await act(async () => row.querySelector("button")!.click());
     const set = (label: string, v: string) => {
       const el = host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;
@@ -540,7 +567,7 @@ describe("a change of email", () => {
       set("Мастер-пароль", "correct horse");
       set("Новый email", "alex@new.example");
     });
-    const step = () => host.querySelector(".kw-tf-step")!;
+    const step = () => host.querySelector(".tf-step")!;
     await act(async () => [...step().querySelectorAll("button")].find((x) => x.textContent === "Прислать код")!.click());
     await flush();
     expect(b.calls).toContain("email:code:alex@new.example");
@@ -574,7 +601,7 @@ describe("autofill", () => {
     await flush();
     await flush();
     expect(go()).toBeNull();
-    await act(async () => b.pressAutofill({ app: "Arc", domain: null, loginPair: true }));
+    await act(async () => b.pressAutofill({ app: "Arc", domain: null, loginPair: true, field: FillField.Username }));
     await flush();
     expect(host.textContent).toContain("«Arc»");
     await act(async () => go()!.click());
@@ -588,7 +615,7 @@ describe("autofill", () => {
     act(() => root.render(<App backend={b} line="personal › work › aws-production > fill password" autoBiometric={false} />));
     await flush();
     await flush();
-    await act(async () => b.pressAutofill({ app: "Arc", domain: null, loginPair: false }));
+    await act(async () => b.pressAutofill({ app: "Arc", domain: null, loginPair: false, field: FillField.Password }));
     await flush();
     await act(async () => go()!.click());
     await flush();
@@ -597,9 +624,25 @@ describe("autofill", () => {
     expect(host.textContent).toContain("Универсальному доступу");
   });
 
+  it("chooses what the field in front asks for: the code into a code field", () => {
+    const dir = new Directory(DEMO, []);
+    const at = (field: FillField, loginPair = false) => {
+      const p = fillVerb({ app: "Arc", domain: null, loginPair, field }).preview!(dir, "item:aws", "");
+      return p.kind === PreviewKind.Ready && "fill" in p.effect ? p.effect.fill.mode : null;
+    };
+    expect(at(FillField.Totp)).toBe(FillMode.Totp);
+    expect(at(FillField.Password)).toBe(FillMode.Password);
+    expect(at(FillField.Username, true)).toBe(FillMode.Both);
+    expect(at(FillField.Username)).toBe(FillMode.Username);
+    expect(at(FillField.Other), "one field takes one value, never both").toBe(FillMode.Username);
+    const choices = fillVerb({ app: "Arc", domain: null, loginPair: false, field: FillField.Totp }).preview!(dir, "item:aws", "");
+    const input = choices.kind === PreviewKind.Ready ? choices.form?.[0]?.inputs[0] : undefined;
+    expect(input && "choices" in input ? input.choices.map((c) => c.arg) : []).toContain(FillMode.Totp);
+  });
+
   it("will not type both where the field is not in a sign-in form", () => {
     const dir = new Directory(DEMO, []);
-    const p = fillVerb({ app: "Notes", domain: null, loginPair: false }).preview!(dir, "item:aws", "");
+    const p = fillVerb({ app: "Notes", domain: null, loginPair: false, field: FillField.Other }).preview!(dir, "item:aws", "both");
     expect(p.kind === PreviewKind.Ready && p.blocked).toBeTruthy();
   });
 });

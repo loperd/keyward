@@ -53,7 +53,7 @@ describe("a plugin's screen", () => {
     act(() => root.render(<App backend={b} line="kubernetes › prod-eu-1" autoBiometric={false} />));
     await flush();
     await flush();
-    expect(host.querySelector(".kw-h1")?.textContent).toBe("prod-eu-1");
+    expect(host.querySelector(".h1")?.textContent).toBe("prod-eu-1");
     await press(button("Открыть"));
   }
 
@@ -62,32 +62,32 @@ describe("a plugin's screen", () => {
     await openCluster(b);
     expect(b.calls).toContain("pluginView:cluster/prod-eu-1");
     expect(b.calls).toContain("pluginRun:table");
-    const rows = [...host.querySelectorAll(".kw-stable tbody tr")].map((r) => r.querySelector("td")?.textContent);
+    const rows = [...host.querySelectorAll(".stable tbody tr")].map((r) => r.querySelector("td")?.textContent);
     expect(rows).toContain("worker-5c8d7f9b8-qq4lp");
     // The facets filter in the window: one namespace leaves its pods.
-    const ns = host.querySelector<HTMLSelectElement>('.kw-ssel select[aria-label="Пространство"]')!;
+    const ns = host.querySelector<HTMLSelectElement>('.ssel select[aria-label="Пространство"]')!;
     await act(async () => {
       ns.value = "data";
       ns.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    expect(host.querySelectorAll(".kw-stable tbody tr")).toHaveLength(2);
-    expect(host.querySelector(".kw-sshown")?.textContent).toBe("2 из 5");
+    expect(host.querySelectorAll(".stable tbody tr")).toHaveLength(2);
+    expect(host.querySelector(".sshown")?.textContent).toBe("2 из 5");
   });
 
   it("opens a row's drawer, and Escape closes it, then the screen", async () => {
     const b = new DemoBackend();
     await openCluster(b);
-    await press(host.querySelector(".kw-stable tbody tr"));
-    const drawer = host.querySelector(".kw-drawer");
-    expect(drawer?.querySelector(".kw-ohead-t b")?.textContent).toMatch(/^api-|^postgres|^worker|^migrate/);
+    await press(host.querySelector(".stable tbody tr"));
+    const drawer = host.querySelector(".drawer");
+    expect(drawer?.querySelector(".ohead-t b")?.textContent).toMatch(/^api-|^postgres|^worker|^migrate/);
     expect(b.calls).toContain("pluginRun:logs_node");
-    expect(drawer?.querySelector(".kw-spre")?.textContent).toContain("listening on :8080");
+    expect(drawer?.querySelector(".spre")?.textContent).toContain("listening on :8080");
     await key("Escape");
-    expect(host.querySelector(".kw-drawer")).toBeNull();
-    expect(host.querySelector(".kw-stable")).not.toBeNull();
+    expect(host.querySelector(".drawer")).toBeNull();
+    expect(host.querySelector(".stable")).not.toBeNull();
     await key("Escape");
     // The sheet that was let go fades out where it stood (a ghost, emptied).
-    expect(host.querySelector(".kw-doc:not(.kw-ghost) .kw-stable")).toBeNull();
+    expect(host.querySelector(".doc:not(.ghost) .stable")).toBeNull();
     expect(button("Открыть")).toBeTruthy();
   });
 
@@ -95,7 +95,7 @@ describe("a plugin's screen", () => {
     const b = new DemoBackend();
     await openCluster(b);
     await press(button("Создать"));
-    const dialog = host.querySelector(".kw-dialog")!;
+    const dialog = host.querySelector(".dialog")!;
     expect(dialog).not.toBeNull();
     const name = dialog.querySelector<HTMLInputElement>('input[aria-label="Имя"]')!;
     const token = dialog.querySelector<HTMLInputElement>('input[aria-label="Токен"]')!;
@@ -107,7 +107,7 @@ describe("a plugin's screen", () => {
     });
     await press([...dialog.querySelectorAll<HTMLButtonElement>("button[type=submit]")][0]);
     expect(b.calls).toContain("pluginRun:create_object:name,ns,replicas,token");
-    expect(host.querySelector(".kw-dialog")).toBeNull();
+    expect(host.querySelector(".dialog")).toBeNull();
     expect(document.body.textContent).toContain("cache создан");
     expect(host.innerHTML).not.toContain("s3cr3t-token");
     expect(b.calls.join("\n")).not.toContain("s3cr3t-token");
@@ -116,16 +116,16 @@ describe("a plugin's screen", () => {
   it("asks a row's delete twice and a drawer's danger zone for the name", async () => {
     const b = new DemoBackend();
     await openCluster(b);
-    const del = host.querySelector<HTMLButtonElement>('.kw-stable tbody tr .kw-sacts button[aria-label="Удалить"]')!;
+    const del = host.querySelector<HTMLButtonElement>('.stable tbody tr .sacts button[aria-label="Удалить"]')!;
     await press(del);
     expect(b.calls).not.toContain("pluginRun:delete_object");
     expect(del.getAttribute("aria-label")).toBe("Нажмите ещё раз");
     await press(del);
     expect(b.calls).toContain("pluginRun:delete_object");
 
-    await press(host.querySelector(".kw-stable tbody tr"));
-    const zone = host.querySelector(".kw-drawer .kw-sdanger")!;
-    const go = zone.querySelector<HTMLButtonElement>("button.kw-danger")!;
+    await press(host.querySelector(".stable tbody tr"));
+    const zone = host.querySelector(".drawer .sdanger")!;
+    const go = zone.querySelector<HTMLButtonElement>("button.danger")!;
     expect(go.disabled).toBe(true);
     const typed = zone.querySelector<HTMLInputElement>("input")!;
     await act(async () => {

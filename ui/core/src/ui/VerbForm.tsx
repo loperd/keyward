@@ -13,7 +13,7 @@ const say = (x: Text) => text(x);
 
 function Label({ inp }: { inp: Input }) {
   return (
-    <span className="kw-fl">
+    <span className="fl">
       {inp.lead && <Tile lead={inp.lead} />}
       <span>{say(inp.label)}</span>
     </span>
@@ -38,12 +38,12 @@ function TextRow({ inp, setArg, onEnter, first }: { inp: Extract<Input, { text: 
     if (first && !inp.text) el.current?.focus();
   }, [first, inp.text]);
   return (
-    <div className="kw-frow">
+    <div className="frow">
       <Label inp={inp} />
-      <label className="kw-fin">
+      <label className="fin">
         <input
           ref={el}
-          className={inp.mono ? "kw-mono" : undefined}
+          className={inp.mono ? "mono" : undefined}
           value={v}
           spellCheck={false}
           autoComplete="off"
@@ -75,16 +75,16 @@ function TextRow({ inp, setArg, onEnter, first }: { inp: Extract<Input, { text: 
 
 function ChoiceRow({ inp, setArg }: { inp: Extract<Input, { choices: unknown }>; setArg: (a: string) => void }) {
   return (
-    <div className={`kw-frow${inp.toggle ? " kw-frow-t" : ""}`}>
+    <div className={`frow${inp.toggle ? " frow-t" : ""}`}>
       <Label inp={inp} />
-      <div className="kw-fseg" role="radiogroup" aria-label={say(inp.label)}>
+      <div className="fseg" role="radiogroup" aria-label={say(inp.label)}>
         {inp.choices.map((c, i) => (
           <button
             key={i}
             type="button"
             role="radio"
             aria-checked={c.on}
-            className={c.on ? "kw-on" : undefined}
+            className={c.on ? "on" : undefined}
             disabled={!!c.off && !c.on}
             {...(c.off && !c.on ? { "data-tip": say(c.off) } : {})}
             onClick={() => !c.on && setArg(c.arg)}
@@ -96,7 +96,7 @@ function ChoiceRow({ inp, setArg }: { inp: Extract<Input, { choices: unknown }>;
       {inp.toggle && (
         <button
           type="button"
-          className={`kw-btn kw-ico kw-ftog kw-tip-l${inp.toggle.on ? " kw-on" : ""}`}
+          className={`btn ico ftog tip-l${inp.toggle.on ? " on" : ""}`}
           aria-pressed={inp.toggle.on}
           aria-label={say(inp.toggle.off ?? inp.toggle.label)}
           data-tip={say(inp.toggle.off ?? inp.toggle.label)}
@@ -104,7 +104,7 @@ function ChoiceRow({ inp, setArg }: { inp: Extract<Input, { choices: unknown }>;
           onClick={() => setArg(inp.toggle!.arg)}
         >
           <Icon name="eye" />
-          {inp.toggle.on && <i className="kw-slash" aria-hidden />}
+          {inp.toggle.on && <i className="slash" aria-hidden />}
         </button>
       )}
     </div>
@@ -123,10 +123,10 @@ export function VerbForm({ form, onEnter }: { form: FormGroup[]; onEnter: () => 
   return (
     <>
       {form.map((g, gi) => (
-        <section key={gi} className={gi === 0 && !g.title ? "kw-form kw-form-top" : "kw-sec kw-form"}>
+        <section key={gi} className={gi === 0 && !g.title ? "form form-top" : "sec form"}>
           {g.title && (
-            <div className="kw-sec-h">
-              <h2 className="kw-h2">{say(g.title)}</h2>
+            <div className="sec-h">
+              <h2 className="h2">{say(g.title)}</h2>
             </div>
           )}
           {g.inputs.map((inp) => {

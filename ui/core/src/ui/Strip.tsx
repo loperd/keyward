@@ -11,6 +11,7 @@ import { IconButton, Kbd, useCore } from "./marks";
 import { PathLine, type LineHandle } from "./PathLine";
 import { useBusy, Busy } from "./activity";
 import { Turning } from "./Loading";
+import { WindowButtons } from "./WindowButtons";
 import { useSettingsMaybe } from "./settings-context";
 import { SETTINGS_ID } from "../settings/pages";
 import { LanguageChoice, ThemeChoice } from "../settings/types";
@@ -60,109 +61,109 @@ function AccountMenu({ name, onClose }: { name: string; onClose: () => void }) {
     fn().catch(core.report);
   };
   const langRow = (code: Lang, label: string) => (
-    <div className="kw-mrow" onClick={() => chooseLang(code)}>
-      <span className="kw-ic">
+    <div className="mrow" onClick={() => chooseLang(code)}>
+      <span className="ic">
         <Icon name="lang" />
       </span>
-      <span className="kw-lb">{label}</span>
+      <span className="lb">{label}</span>
       {lang === code && (
-        <span className="kw-ck">
+        <span className="ck">
           <Icon name="check" />
         </span>
       )}
     </div>
   );
   return (
-    <div className="kw-veil" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="kw-menu">
-        <div className="kw-me">
-          <span className="kw-ava">{initials(name)}</span>
+    <div className="veil" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="menu">
+        <div className="me">
+          <span className="ava">{initials(name)}</span>
           <div>
             <b>{name}</b>
             <span>{core.server}</span>
           </div>
         </div>
-        <div className="kw-mh">{t("sections")}</div>
+        <div className="mh">{t("sections")}</div>
         {sectionLines(core).map((s, i) => (
           <div
             key={s.line}
-            className="kw-mrow"
+            className="mrow"
             onClick={() => {
               onClose();
               core.store.commit(s.line);
             }}
           >
-            <span className="kw-ic">
+            <span className="ic">
               <Icon name={s.icon} />
             </span>
-            <span className="kw-lb">{s.name}</span>
+            <span className="lb">{s.name}</span>
             <Kbd>{`⌘${i + 1}`}</Kbd>
           </div>
         ))}
         {core.dir.has(SETTINGS_ID) && (
           <div
-            className="kw-mrow"
+            className="mrow"
             onClick={() => {
               onClose();
               core.store.go(SETTINGS_ID);
             }}
           >
-            <span className="kw-ic">
+            <span className="ic">
               <Icon name="settings" />
             </span>
-            <span className="kw-lb">{t("set.title")}</span>
+            <span className="lb">{t("set.title")}</span>
             <Kbd>⌘,</Kbd>
           </div>
         )}
-        <div className="kw-mh">{t("lang")}</div>
+        <div className="mh">{t("lang")}</div>
         {langRow(Lang.Ru, t("ui.lang.ru"))}
         {langRow(Lang.En, t("ui.lang.en"))}
-        <div className="kw-mh">{t("account")}</div>
+        <div className="mh">{t("account")}</div>
         {several && accounts === null && (
-          <div className="kw-mrow kw-sk-mrow kw-sk-late" role="status" aria-label={t("load.accounts")}>
-            <span className="kw-ic">
+          <div className="mrow sk-mrow sk-late" role="status" aria-label={t("load.accounts")}>
+            <span className="ic">
               <Turning />
             </span>
-            <span className="kw-sk" aria-hidden="true" />
+            <span className="sk" aria-hidden="true" />
           </div>
         )}
         {accounts
           ?.filter((a) => !a.active)
           .map((a) => (
-            <div key={a.id} className="kw-mrow" onClick={() => b.switchAccount && act(() => b.switchAccount!(a.id))}>
-              <span className="kw-ic">
+            <div key={a.id} className="mrow" onClick={() => b.switchAccount && act(() => b.switchAccount!(a.id))}>
+              <span className="ic">
                 <Icon name="user2" />
               </span>
-              <span className="kw-lb">{a.email}</span>
+              <span className="lb">{a.email}</span>
             </div>
           ))}
         {several && b.addAccount && (
-          <div className="kw-mrow" onClick={() => act(() => b.addAccount!())}>
-            <span className="kw-ic">
+          <div className="mrow" onClick={() => act(() => b.addAccount!())}>
+            <span className="ic">
               <Icon name="plus" />
             </span>
-            <span className="kw-lb">{t("gate.account.add")}</span>
+            <span className="lb">{t("gate.account.add")}</span>
           </div>
         )}
         {several && (
-          <div className="kw-mrow" onClick={() => act(() => b.logout())}>
-            <span className="kw-ic">
+          <div className="mrow" onClick={() => act(() => b.logout())}>
+            <span className="ic">
               <Icon name="logout" />
             </span>
-            <span className="kw-lb">{t("gate.account.signOut")}</span>
+            <span className="lb">{t("gate.account.signOut")}</span>
           </div>
         )}
         <div
-          className="kw-mrow"
+          className="mrow"
           onClick={() => {
             onClose();
             core.store.verb("lock");
           }}
         >
-          <span className="kw-ic">
+          <span className="ic">
             <Icon name="lock" />
           </span>
-          <span className="kw-lb">{t("lock")}</span>
+          <span className="lb">{t("lock")}</span>
           <Kbd>⌘L</Kbd>
         </div>
       </div>
@@ -181,8 +182,9 @@ export const Strip = forwardRef<LineHandle, { name: string; syncedAt: number; me
   // A sync under way, whoever started it: the glyph turns until it ends.
   const syncing = useBusy(core.activity, Busy.Sync);
   return (
-    <header className="kw-strip" data-tauri-drag-region="deep">
-      <div className="kw-nav">
+    <header className="strip" data-tauri-drag-region="deep">
+      <WindowButtons />
+      <div className="nav">
         <IconButton icon="back" tip={`${t("back")} ⌘[`} onClick={() => core.store.back()} disabled={!snap.canBack} />
         <IconButton icon="fwd" tip={`${t("forward")} ⌘]`} onClick={() => core.store.forward()} disabled={!snap.canForward} />
       </div>
@@ -192,7 +194,7 @@ export const Strip = forwardRef<LineHandle, { name: string; syncedAt: number; me
           sync, whoever started it, is under way. */}
       <IconButton
         icon="refresh"
-        className={`kw-sync${syncing ? " kw-syncing" : ""}`}
+        className={`sync${syncing ? " syncing" : ""}`}
         tip={syncing ? t("ui.syncing") : t("ui.syncWith", { server: core.server })}
         disabled={syncing}
         onClick={() => {
@@ -210,8 +212,8 @@ export const Strip = forwardRef<LineHandle, { name: string; syncedAt: number; me
         }}
       />
       <IconButton icon="lock" tip={`${t("lock")} ⌘L`} onClick={() => core.backend.lock().catch(core.report)} />
-      <button type="button" className="kw-btn kw-ico kw-tip-l" data-tip={t("ui.account", { name })} aria-label={t("ui.account", { name })} onClick={() => setMenu(true)}>
-        <span className="kw-ava">{initials(name)}</span>
+      <button type="button" className="btn ico tip-l" data-tip={t("ui.account", { name })} aria-label={t("ui.account", { name })} onClick={() => setMenu(true)}>
+        <span className="ava">{initials(name)}</span>
       </button>
       {menu && <AccountMenu name={name} onClose={() => setMenu(false)} />}
     </header>

@@ -3,11 +3,9 @@
 // the field leaves the screen, and after thirty seconds. Until then the field
 // shows dots. A copy goes through the backend, which clears the clipboard.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { t } from "../i18n";
 import type { SecretRef } from "../model/types";
-import { IconButton, useCore } from "./marks";
+import { useCore } from "./marks";
 import { isLockedError, RevealSession } from "./reveal-session";
-import { Turning } from "./Loading";
 
 /// How long a revealed value stays on the screen.
 export const REVEAL_MS = 30_000;
@@ -92,79 +90,3 @@ const DOTS: Record<string, string> = {
 /// length.
 export const dotsFor = (key: string | null) => (key && DOTS[key]) ?? "••••••••";
 
-/// The one-time code, counting down. It is asked for again when its period
-/// runs out; the code is shown as long as the field is, like the concept's.
-/// An item that asks for the master password again shows no code by itself:
-/// a press asks for the password first (or, where the backend checks it
-/// itself, asks the backend).
-export function TotpCode({ itemId }: { itemId: string }) {
-  const { reprompt } = useCore();
-  const fail = useReportUnlessLocked();
-  const [opened, setOpened] = useState<string | null>(null);
-  if (!reprompt.isGuarded(itemId) || opened === itemId) return <TotpLive key={itemId} itemId={itemId} />;
-  const open = () => {
-    reprompt
-      .confirm(itemId)
-      .then((ok) => {
-        if (ok) setOpened(itemId);
-      })
-      .catch(fail);
-  };
-  return (
-    <span className="kw-totp">
-      <IconButton icon="lock" tip={t("reprompt.show")} onClick={open} />
-    </span>
-  );
-}
-
-function TotpLive({ itemId }: { itemId: string }) {
-  const { backend } = useCore();
-  const fail = useReportUnlessLocked();
-  const [code, setCode] = useState<{ code: string; period: number; at: number; remaining: number } | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    let live = true;
-    let next: ReturnType<typeof setTimeout> | null = null;
-    const load = async () => {
-      const c = await backend.totp(itemId);
-      if (!live) return;
-      setCode({ code: c.code, period: c.period, at: Date.now(), remaining: c.remaining });
-      next = setTimeout(run, c.remaining * 1000 + 50);
-    };
-    const run = () => {
-      load().catch((e: unknown) => {
-        if (live) fail(e);
-      });
-    };
-    run();
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      live = false;
-      if (next) clearTimeout(next);
-      clearInterval(tick);
-      setCode(null);
-    };
-  }, [backend, itemId, fail]);
-  // The ring's length is its circumference: 2π × 6.5.
-  const C = 40.84;
-  // The first code on its way: a bar of its breadth and a turning ring.
-  if (!code)
-    return (
-      <span className="kw-totp kw-sk-late" role="status" aria-label={t("load.code")}>
-        <span className="kw-sk kw-sk-code" aria-hidden="true" />
-        <Turning className="kw-faint" />
-      </span>
-    );
-  const left = Math.max(0, code.remaining - Math.floor((now - code.at) / 1000));
-  const period = code.period;
-  return (
-    <span className="kw-totp">
-      <span className="kw-code">{`${code.code.slice(0, 3)} ${code.code.slice(3)}`}</span>
-      <svg className={`kw-ring${left <= 7 ? " kw-low" : ""}`} viewBox="0 0 16 16" aria-hidden="true">
-        <circle className="kw-bg" cx="8" cy="8" r="6.5" />
-        <circle className="kw-fg" cx="8" cy="8" r="6.5" strokeDasharray={C} style={{ strokeDashoffset: C * (1 - left / period) }} />
-      </svg>
-      <span className="kw-secs">{t("ui.seconds", { n: left })}</span>
-    </span>
-  );
-}

@@ -87,7 +87,7 @@ export function isIcon(name: string): name is IconName {
 /// An icon by name. A name the set does not have is an error, not a blank.
 export function Icon({ name, className }: { name: string; className?: string }) {
   if (!isIcon(name)) throw new Error(`no icon "${name}"`);
-  return <svg className={`kw-icon${className ? " " + className : ""}`} viewBox="0 0 16 16" aria-hidden="true" dangerouslySetInnerHTML={{ __html: PATHS[name] }} />;
+  return <svg className={`icon${className ? " " + className : ""}`} viewBox="0 0 16 16" aria-hidden="true" dangerouslySetInnerHTML={{ __html: PATHS[name] }} />;
 }
 
 /// A map point's outline by type; the state's mark sits inside it.

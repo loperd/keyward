@@ -19,6 +19,9 @@ export enum LiveBlock {
   TwoFactor = "twoFactor",
   /// The account's email, and the two steps of changing it.
   Email = "email",
+  /// The browsers as a row among the vault's connections: paired, or the
+  /// extension still to be installed.
+  Browsers = "browsers",
 }
 
 /// What a skeleton block stands for while its content is on its way.
@@ -99,7 +102,6 @@ export type Block =
   /// A field of an opened item: a value, or dots until revealed.
   | { secret: Field; itemId: string; verb?: string; tail?: string }
   /// The item's one-time code, counting down.
-  | { totp: string; verb?: string }
   /// A line to another place: lead, name, context, a mark on the right edge.
   | { ref: string | null; lead: Lead; title: Text; mono?: boolean; context?: Text; mark?: MarkSpec; perm?: Text; glyph?: MarkSpec; off?: boolean; nest?: boolean; act?: Act }
   /// A finding: its mark in the lead slot, words, a faint reason, one action.

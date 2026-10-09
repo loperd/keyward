@@ -2,25 +2,25 @@
   "url": "http://localhost:5190/?p=critical-step",
   "layout": "O|insp",
   "pads": [
-    "kw-doc: 24 40 64 40 ×1",
-    "kw-f: 0 8 0 8 ×4",
-    "kw-grp: 0 16 8 16 ×2",
-    "kw-list: 16 0 24 0 ×1",
-    "kw-qline: 0 4 0 4 ×1",
-    "kw-ref: 0 8 0 8 ×1",
-    "kw-row: 0 16 0 8 ×1",
-    "kw-row: 0 8 0 8 ×4",
-    "kw-sig: 0 8 0 8 ×2",
-    "kw-strip: 0 16 0 80 ×1"
+    "doc: 24 40 64 40 ×1",
+    "f: 0 8 0 8 ×4",
+    "grp: 0 16 8 16 ×2",
+    "list: 16 0 24 0 ×1",
+    "qline: 0 4 0 4 ×1",
+    "ref: 0 8 0 8 ×1",
+    "row: 0 16 0 8 ×1",
+    "row: 0 8 0 8 ×4",
+    "sig: 0 8 0 8 ×2",
+    "strip: 0 16 0 16 ×1"
   ],
   "type": [
     "12px/400 sans ×29  e.g. span \"Хранилище\"",
-    "12px/600 sans ×16  e.g. span.kw-g.kw-m-crit \"!\"",
+    "12px/600 sans ×16  e.g. span.g.m-crit \"!\"",
     "12px/500 sans ×12  e.g. span \"Travel — company card\"",
-    "12px/400 mono ×5  e.g. kbd.kw-kbd \"⌘K\"",
-    "12px/400 mono ls2px ×2  e.g. span.kw-dots \"•••• •••• ••••\"",
-    "12px/500 mono ×1  e.g. span.kw-t.kw-mono \"db-1\"",
-    "20px/600 sans ls-0.2px ×1  e.g. h1.kw-h1 \"Travel — company card\""
+    "12px/400 mono ×5  e.g. kbd.kbd \"⌘K\"",
+    "12px/400 mono ls2px ×2  e.g. span.dots \"•••• •••• ••••\"",
+    "12px/500 mono ×1  e.g. span.t.mono \"db-1\"",
+    "20px/600 sans ls-0.2px ×1  e.g. h1.h1 \"Travel — company card\""
   ],
   "findings": {
     "audit": {},

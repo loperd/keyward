@@ -27,6 +27,8 @@ export enum NodeKind {
   Member = "member",
   Trash = "trash",
   Plugin = "plugin",
+  /// The personal folders that hold nothing, gathered in one row.
+  EmptyFolders = "emptyFolders",
   Settings = "settings",
   SettingsPage = "settingsPage",
   /// A plugin installed here, under Settings › Plugins.
@@ -133,6 +135,9 @@ export type Contribution = {
 };
 
 export const isStep = (e: Entry): e is Step => "id" in e;
+
+/// The row the empty personal folders are gathered under.
+export const EMPTY_FOLDERS = "personal/empty";
 
 const ITEM_ICON: Record<ItemKind, string> = { [ItemKind.Login]: "login", [ItemKind.Card]: "card", [ItemKind.Identity]: "identity", [ItemKind.SecureNote]: "note", [ItemKind.SshKey]: "key" };
 const ORG_HUES: Hue[] = [Hue.Orange, Hue.Cyan, Hue.Amber, Hue.Mint, Hue.Sky];
@@ -461,6 +466,8 @@ export class Directory {
     }
     const personal = live.filter((i) => !i.orgId);
     const inFolder = groupBy(personal, (i) => i.folderId);
+    const full = folders.filter((f) => inFolder.has(f.id));
+    const empty = folders.filter((f) => !inFolder.has(f.id));
     this.add({
       id: "all",
       kind: NodeKind.All,
@@ -486,8 +493,26 @@ export class Directory {
       sub: key("personal.sub", { n: personal.length }),
       level: lvl(personal),
       home: ["personal"],
-      kids: () => [...folders.map((f) => ({ id: `folder:${f.id}` })), ...personal.filter((i) => !i.folderId).map((i) => ({ id: itemId(i) }))],
+      // A folder with nothing in it says nothing about the vault: the empty
+      // ones go into one row of their own, after the rest.
+      kids: () => [
+        ...full.map((f) => ({ id: `folder:${f.id}` })),
+        ...personal.filter((i) => !i.folderId).map((i) => ({ id: itemId(i) })),
+        ...(empty.length ? [{ gap: true } as const, { id: EMPTY_FOLDERS }] : []),
+      ],
     });
+    if (empty.length)
+      this.add({
+        id: EMPTY_FOLDERS,
+        kind: NodeKind.EmptyFolders,
+        slug: this.freeSlug("empty folders"),
+        name: key("folders.empty"),
+        icon: "folder",
+        count: empty.length,
+        level: Level.Unknown,
+        home: ["personal", EMPTY_FOLDERS],
+        kids: () => empty.map((f) => ({ id: `folder:${f.id}` })),
+      });
     for (const f of folders) {
       const xs = inFolder.get(f.id) ?? [];
       this.add({
@@ -498,7 +523,7 @@ export class Directory {
         icon: "folder",
         count: xs.length,
         level: lvl(xs),
-        home: ["personal", `folder:${f.id}`],
+        home: xs.length ? ["personal", `folder:${f.id}`] : ["personal", EMPTY_FOLDERS, `folder:${f.id}`],
         wide: true,
         kids: () => xs.map((i) => ({ id: itemId(i) })),
       });

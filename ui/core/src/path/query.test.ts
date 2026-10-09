@@ -238,3 +238,16 @@ describe("the store", () => {
     expect(s.get().state.segs.some((x) => "id" in x && x.id === "item:aws")).toBe(false);
   });
 });
+
+describe("the columns in a small window", () => {
+  const fits = () => true;
+  it("fold the last one too where the answer would not have its width beside it", () => {
+    expect(fold(3, { map: false, narrow: true, fits, room: () => false })).toEqual([false, false, false]);
+  });
+  it("keep the last one where the answer has its width", () => {
+    expect(fold(3, { map: false, narrow: true, fits, room: (open) => open <= 1 })).toEqual([false, false, true]);
+  });
+  it("keep a column unfolded by hand open whatever the width", () => {
+    expect(fold(3, { map: false, narrow: true, fits, shown: 1, room: () => false })).toEqual([false, true, false]);
+  });
+});

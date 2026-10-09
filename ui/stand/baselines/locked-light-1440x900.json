@@ -2,16 +2,16 @@
   "url": "http://localhost:5190/?locked=1&accounts=1",
   "layout": "|insp",
   "pads": [
-    "kw-gate-doc: 24 40 64 40 ×1",
-    "kw-qline: 0 4 0 4 ×1",
-    "kw-strip: 0 16 0 80 ×1"
+    "gate-doc: 24 40 64 40 ×1",
+    "qline: 0 4 0 4 ×1",
+    "strip: 0 16 0 16 ×1"
   ],
   "type": [
     "12px/400 sans ×7  e.g. span \"Хранилище\"",
     "12px/500 sans ×2  e.g. span \"Разблокировка\"",
-    "12px/600 sans ×1  e.g. span.kw-ava \"A\"",
+    "12px/600 sans ×1  e.g. span.ava \"A\"",
     "20px/600 sans ls-0.2px ×1  e.g. h1 \"Хранилище заблокировано\"",
-    "12px/400 mono ×1  e.g. kbd.kw-kbd \"↵\""
+    "12px/400 mono ×1  e.g. kbd.kbd \"↵\""
   ],
   "findings": {
     "audit": {},

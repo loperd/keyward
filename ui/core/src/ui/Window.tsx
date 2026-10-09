@@ -29,7 +29,7 @@ import { ScreenOverlays, useScreenView } from "./screen/Sheet";
 /// flight. It is always there, so its coming and going fade.
 function ActivityBar({ activity }: { activity: Activity }) {
   const busy = useBusy(activity);
-  return <div className={`kw-activity${busy ? " kw-on" : ""}`} role="progressbar" aria-hidden={!busy} aria-busy={busy} aria-label={t("ui.working")} />;
+  return <div className={`activity${busy ? " on" : ""}`} role="progressbar" aria-hidden={!busy} aria-busy={busy} aria-label={t("ui.working")} />;
 }
 
 /// Effects whose sheet moves on when they succeed: the preview is gone
@@ -90,8 +90,17 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
   const answer = answerOf(st, cols);
   if (answer.kind === AnswerKind.List) cols = cols.slice(0, -1);
   const n = cols.length;
-  const W = { col: tokenPx("--col-w"), spine: tokenPx("--spine"), insp: tokenPx("--insp-max"), narrow: tokenPx("--narrow") };
-  const open = fold(n, { map: !!st.map, narrow: winW < W.narrow, fits: (max) => (n - max) * W.spine + max * W.col + W.insp <= stageW, shown: snap.shown });
+  const W = { col: tokenPx("--col-w"), spine: tokenPx("--spine"), insp: tokenPx("--insp-max"), inspMin: tokenPx("--insp-min"), narrow: tokenPx("--narrow") };
+  // A page, a preview or a map answers beside the columns; a list answer is
+  // a column itself and keeps its own.
+  const answers = answer.kind !== AnswerKind.List;
+  const open = fold(n, {
+    map: !!st.map,
+    narrow: winW < W.narrow,
+    fits: (max) => (n - max) * W.spine + max * W.col + W.insp <= stageW,
+    shown: snap.shown,
+    ...(answers ? { room: (max: number) => (n - max) * W.spine + max * W.col + W.inspMin <= stageW } : {}),
+  });
   const used = open.reduce((s, o) => s + (o ? W.col : W.spine), 0);
   const focus = Math.min(snap.focus, Math.max(0, n - 1));
   const obj = store.object();
@@ -177,7 +186,7 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
       const active = document.activeElement;
       // Escape in a field of a plugin's drawer or dialogue closes it — but
       // never in a terminal, whose shell has its own use for the key.
-      if (e.key === "Escape" && docId && active instanceof HTMLElement && active.closest(".kw-dialog, .kw-drawer") && !active.closest(".kw-term")) {
+      if (e.key === "Escape" && docId && active instanceof HTMLElement && active.closest(".dialog, .drawer") && !active.closest(".term")) {
         e.preventDefault();
         core.screens.closeTop(docId);
         return;
@@ -272,9 +281,9 @@ export function Window({ name, syncedAt, version, perform, startTyping }: Window
   }, [obj]);
 
   return (
-    <div className="kw-window">
+    <div className="window">
       <Strip ref={line} name={name} syncedAt={syncedAt} menu={menu} setMenu={setMenu} onConfirm={confirm} />
-      <main className="kw-stage" ref={stage}>
+      <main className="stage" ref={stage}>
         <ActivityBar activity={core.activity} />
         <Columns cols={cols as Column[]} open={open} widths={W} focus={focus} lit={mapHover} onHover={onRowHover} />
         <Inspector answer={answer} run={runState} onRun={() => confirm()} lsel={lsel} mapHover={mapHover} onMapHover={onMapHover} version={version} secretForm={secretForm} />

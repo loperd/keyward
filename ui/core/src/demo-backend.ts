@@ -7,7 +7,7 @@
 import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions, type AccountProfile, KdfKind, type TwoFactorStatus } from "./settings/types";
 import { AccountOp, type AccountWrite } from "./verbs/spec";
 import type { FillContext, FillMode } from "./verbs/fill";
-import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
+import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, type WindowControls, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
 import { registerWords, t, type Text, type Words, Lang } from "./i18n";
 import { type Catalog, type ItemDetail, type Field, type SecretRef, type Totp, Level, ItemKind, SecretField } from "./model/types";
@@ -764,11 +764,28 @@ export class DemoBackend implements Backend {
   private fillWatchers = new Set<(c: FillContext) => void>();
   /// Whether the demo may type into other apps.
   fillGranted = true;
+
+  /// The stand is the desktop window's double: its buttons are drawn, and a
+  /// press is only noted.
+  window: WindowControls = {
+    close: async () => void this.calls.push("window:close"),
+    minimize: async () => void this.calls.push("window:minimize"),
+    fullscreen: async () => void this.calls.push("window:fullscreen"),
+    zoom: async () => void this.calls.push("window:zoom"),
+    onFocus: () => () => {},
+  };
+  /// A press before the window listens, as the stand's `?fill=` makes one:
+  /// given to the first to listen.
+  private fillWaiting: FillContext | null = null;
   onAutofill(cb: (c: FillContext) => void): () => void {
     this.fillWatchers.add(cb);
+    const waiting = this.fillWaiting;
+    this.fillWaiting = null;
+    if (waiting) queueMicrotask(() => cb(waiting));
     return () => void this.fillWatchers.delete(cb);
   }
   pressAutofill(ctx: FillContext) {
+    if (!this.fillWatchers.size) this.fillWaiting = ctx;
     for (const w of this.fillWatchers) w(ctx);
   }
   async fill(itemId: string, mode: FillMode): Promise<void> {
@@ -830,13 +847,13 @@ export class DemoBackend implements Backend {
 
   /// The demo's browsers: one paired, and one asking while `?pair=1` says so.
   private browsers: BrowserExtensions = {
-    paired: [{ key: "demo-paired", words: ["amber", "canyon", "lilac", "orbit", "spruce"], at: 1780000000, expires: 0 }],
+    paired: [{ key: "demo-paired", words: ["amber", "canyon", "lilac", "orbit", "spruce"], at: 1780000000, expires: 0, browser: "Arc", device: "Studio Mac", used: null }],
     pending: [],
   };
   /// Puts a browser asking to be paired on the demo's list, for `seconds`.
   askToPair(seconds = 300) {
     const now = Math.floor(Date.now() / 1000);
-    this.browsers = { ...this.browsers, pending: [{ key: "demo-asking", words: ["harbor", "violet", "maple", "comet", "tundra"], at: now, expires: now + seconds }] };
+    this.browsers = { ...this.browsers, pending: [{ key: "demo-asking", words: ["harbor", "violet", "maple", "comet", "tundra"], at: now, expires: now + seconds, browser: "Google Chrome", device: "Studio Mac", used: null }] };
   }
   async extensions(): Promise<BrowserExtensions> {
     await this.wait();

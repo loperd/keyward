@@ -510,11 +510,15 @@ async fn run() -> anyhow::Result<()> {
                 other => return print_unexpected(other),
             };
             let show = |paired: &[keyward_core::passkey::ExtensionRow], pending: &[keyward_core::passkey::ExtensionRow]| {
+                let place = |r: &keyward_core::passkey::ExtensionRow| {
+                    let names: Vec<&str> = [r.browser.as_str(), r.device.as_str()].into_iter().filter(|n| !n.is_empty()).collect();
+                    if names.is_empty() { String::new() } else { format!("  ({})", names.join(", ")) }
+                };
                 for (i, r) in pending.iter().enumerate() {
-                    println!("{:>2}  asking   {}", i + 1, r.words.join(" "));
+                    println!("{:>2}  asking   {}{}", i + 1, r.words.join(" "), place(r));
                 }
                 for (i, r) in paired.iter().enumerate() {
-                    println!("{:>2}  paired   {}", pending.len() + i + 1, r.words.join(" "));
+                    println!("{:>2}  paired   {}{}", pending.len() + i + 1, r.words.join(" "), place(r));
                 }
                 if paired.is_empty() && pending.is_empty() {
                     println!("no browser extension; try a passkey in the browser and it will ask");

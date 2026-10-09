@@ -1,7 +1,7 @@
 // The UI check: a visual and layout regression run over the core's stand
 // (ui/stand, Vite dev on :5190). For every preset × theme × size it takes a
 // screenshot in headless WebKit (playwright-core), runs the layout audit (scripts/stand-audit.js,
-// scoped to the core's kw- containers) and the alignment probe
+// scoped to the core's containers) and the alignment probe
 // (scripts/stand-align.js), and collects console errors.
 //
 //   node scripts/ui-check.mjs            compare with ui/stand/baselines/
@@ -41,7 +41,7 @@ const PRESETS = ["home", "aws", "acme", "dana", "finance", "ssh", "critical", "c
 // A preset is the stand's ?p=; "locked" is the gate (?locked=1, with the
 // desktop's other accounts beside it) instead.
 const query = (preset) => (preset === "locked" ? "locked=1&accounts=1" : `p=${encodeURIComponent(preset)}`);
-const AUDIT_SCOPE = ".kw-window, .kw-gate";
+const AUDIT_SCOPE = ".window, .gate";
 // The audit's real findings; its pads and type lists are inventories, compared
 // with the baseline instead of being required to be empty.
 const AUDIT_FINDINGS = ["spill", "grid", "cramped", "edges", "tabs", "head"];
@@ -156,9 +156,9 @@ const SETTLE_JS = `(async () => {
   }
   mo.disconnect();
   for (const a of document.getAnimations()) if (a.effect?.getComputedTiming().endTime === Infinity) { a.pause(); a.currentTime = 0; }
-  if (!document.getElementById("kw-ui-check")) {
+  if (!document.getElementById("ui-check-style")) {
     const st = document.createElement("style");
-    st.id = "kw-ui-check";
+    st.id = "ui-check-style";
     st.textContent = "*, *::before, *::after { caret-color: transparent !important; }";
     document.head.append(st);
   }
