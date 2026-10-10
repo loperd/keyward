@@ -248,6 +248,12 @@ export interface Backend {
   /// The recovery code, shown once.
   recoveryCode?(password: string): Promise<Revealed>;
 
+  /// A new key for an ssh key item, made or read where the keys are: the
+  /// window gets the public half and a draft's number, never the private
+  /// key. A key pasted in passes the window once, on its way there; one
+  /// from the clipboard does not pass it at all.
+  sshKeyDraft?(from: SshKeyFrom): Promise<SshKeyDraft>;
+
   /// The window's own buttons, where the app is a window of its own (the
   /// desktop app; a web page has none and draws none).
   window?: WindowControls;
@@ -287,3 +293,24 @@ export interface WindowControls {
   /// Returns the unsubscribe.
   onFocus(cb: (focused: boolean) => void): () => void;
 }
+
+/// Which kind of ssh key to make.
+export enum SshAlgorithm {
+  Ed25519 = "ed25519",
+  Rsa4096 = "rsa4096",
+}
+
+/// Where a new ssh key comes from: made where the keys are, read there off
+/// the clipboard or out of the item itself, or pasted into the window's field. A passphrase opens a
+/// key under one and is not kept.
+export type SshKeyFrom =
+  | { generate: SshAlgorithm }
+  | { clipboard: true; passphrase: string | null }
+  | { paste: string; passphrase: string | null }
+  /// The key the item holds now, its public half and fingerprint worked out
+  /// again: for an item whose stored ones are not its key's.
+  | { stored: string };
+
+/// A key held where the keys are until the item is saved: its number and
+/// what can be shown of it.
+export type SshKeyDraft = { id: string; publicKey: string; fingerprint: string; algorithm: string };

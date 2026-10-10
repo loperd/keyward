@@ -7,7 +7,7 @@
 import { type AppSettings, LanguageChoice, LockAction, LockTimeoutKind, type SettingsPatch, ThemeChoice, type UnlockState, type BrowserExtensions, type AccountProfile, KdfKind, type TwoFactorStatus } from "./settings/types";
 import { AccountOp, type AccountWrite } from "./verbs/spec";
 import type { FillContext, FillMode } from "./verbs/fill";
-import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, type WindowControls, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
+import { type Account, type Backend, type Capabilities, type Change, type Copied, type LoginStep, type Revealed, type Session, type SshKeyDraft, type SshKeyFrom, SshAlgorithm, type WindowControls, TwoFactorProvider, SessionState, ChangeKind, LoginStepKind } from "./backend";
 import { DEMO, DEMO_NOW } from "./demo";
 import { registerWords, t, type Text, type Words, Lang } from "./i18n";
 import { type Catalog, type ItemDetail, type Field, type SecretRef, type Totp, Level, ItemKind, SecretField } from "./model/types";
@@ -765,6 +765,23 @@ export class DemoBackend implements Backend {
   /// Whether the demo may type into other apps.
   fillGranted = true;
 
+  /// A made-up key for each ask: generated, off the clipboard or pasted; a
+  /// paste that is no private key is refused as the daemon refuses it.
+  private drafts = 0;
+  async sshKeyDraft(from: SshKeyFrom): Promise<SshKeyDraft> {
+    await this.wait();
+    if ("paste" in from && !from.paste.includes("PRIVATE KEY")) throw new Error("err.sshKeyUnsupported");
+    const n = ++this.drafts;
+    const rsa = "generate" in from && from.generate === SshAlgorithm.Rsa4096;
+    this.calls.push(`ssh-draft:${"generate" in from ? from.generate : "clipboard" in from ? "clipboard" : "stored" in from ? "stored" : "paste"}`);
+    return {
+      id: `demo-draft-${n}`,
+      publicKey: rsa ? `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDemoDraft${n} ` : `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDemoDraft${n}`,
+      fingerprint: `SHA256:DemoDraft${n}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
+      algorithm: rsa ? "ssh-rsa" : "ssh-ed25519",
+    };
+  }
+
   /// The stand is the desktop window's double: its buttons are drawn, and a
   /// press is only noted.
   window: WindowControls = {
@@ -1024,6 +1041,7 @@ export class DemoBackend implements Backend {
     } else if (it.kind === ItemKind.SshKey) {
       vis("algorithm", "Ed25519");
       vis("fingerprint", (it.subtitle ?? "").split(" · ")[1] ?? "", true);
+      vis("publicKey", `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDemo${id.replace(/[^a-z0-9]/gi, "")}0000000000000000000000000 ${id}@demo.example`, true);
       hidden("privateKey", ref(SecretField.PrivateKey));
     }
     return { item: it, fields, notes: it.kind === ItemKind.SecureNote ? ref(SecretField.Notes) : null, passkeys: [], passwordHistory: [] };

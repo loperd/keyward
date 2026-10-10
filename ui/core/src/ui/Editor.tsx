@@ -45,6 +45,7 @@ import { useWrites, type GenPrefs, type WritesApi } from "./writes-context";
 import "./edit.css";
 import { SecretInput, type SecretInputHandle } from "./secret-input";
 import { Phase } from "./feedback";
+import { SshKeyBlock } from "./SshKeyEdit";
 
 const say = (x: Text) => text(x);
 const KIND_ICON: Record<ItemKind, string> = {
@@ -118,6 +119,7 @@ export function EditDocument({
         </>
       }
       owner={{ orgId: detail.item.orgId }}
+      itemId={detail.item.id}
       fresh={false}
     />
   );
@@ -196,6 +198,7 @@ function FormSheet({
   owner,
   kinds,
   fresh,
+  itemId,
 }: {
   formKey: string;
   form: Form;
@@ -204,6 +207,8 @@ function FormSheet({
   owner?: { orgId: string | null };
   kinds?: (k: ItemKind) => void;
   fresh: boolean;
+  /// The item being changed; absent for a new one.
+  itemId?: string;
 }) {
   const { dir } = useCore();
   const w = useApi();
@@ -369,6 +374,14 @@ function FormSheet({
                 setGen={setGen}
               />
             ))}
+            {form.ssh && (
+              <SshKeyBlock
+                ssh={form.ssh}
+                fresh={fresh}
+                {...(itemId ? { itemId } : {})}
+                onKey={(d) => set({ ssh: { publicKey: d.publicKey, fingerprint: d.fingerprint, draft: d.id } })}
+              />
+            )}
             {form.kind === ItemKind.SecureNote && (
               <SecretRow
                 slotId="notes"

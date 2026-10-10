@@ -697,6 +697,16 @@ impl Host for DaemonHost {
             .filter(|k| !k.trim().is_empty())
             .ok_or_else(|| keyward_core::fault!("err.itemNoPrivateKey", "name" => &name))?;
 
+        // The agent showed the host the stored public half. A private key that
+        // is not its pair signs what the host cannot check, and all the host
+        // says is "Permission denied": it is said here instead, before the
+        // finger is asked for anything.
+        if !is_pair(entry.public_key.as_deref(), &private)? {
+            tracing::warn!(entry = %name, "the item's private key is not the pair of its public key: the host accepts the public one and refuses the signature; open the item and work the public half out again");
+            self.notice(&keyward_core::text::t("notice.sshKeyMismatchTitle", &[]), &keyward_core::text::t("err.sshKeyMismatch", &[("name", &name)]));
+            return Err(keyward_core::fault!("err.sshKeyMismatch", "name" => &name));
+        }
+
         // A `kw-confirm` mark on the item itself outweighs a plugin's
         // arguments: a person set it in the vault and a plugin is not entitled
         // to take it off. A plugin's argument can only add a prompt — it alone
@@ -753,9 +763,30 @@ impl Host for DaemonHost {
     }
 }
 
+/// Whether a stored public key is the pair of a private one: the kind and
+/// the key itself, the comment aside.
+fn is_pair(public: Option<&str>, private: &str) -> anyhow::Result<bool> {
+    let derived = keyward_sshkey::import(private, None)
+        .map_err(|e| keyward_core::fault!("err.signingFailed", "reason" => e))?
+        .public_key;
+    let body = |line: &str| line.split_whitespace().take(2).collect::<Vec<_>>().join(" ");
+    Ok(public.map(body).is_some_and(|p| p == body(&derived)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_private_key_signs_only_beside_its_own_public_half() {
+        let a = keyward_sshkey::generate(keyward_core::edits::SshAlgorithm::Ed25519, "a").unwrap();
+        let b = keyward_sshkey::generate(keyward_core::edits::SshAlgorithm::Ed25519, "b").unwrap();
+        assert!(is_pair(Some(&a.public_key), &a.private_key).unwrap());
+        let renamed = format!("{} another comment", a.public_key.split_whitespace().take(2).collect::<Vec<_>>().join(" "));
+        assert!(is_pair(Some(&renamed), &a.private_key).unwrap(), "the comment is no part of the key");
+        assert!(!is_pair(Some(&b.public_key), &a.private_key).unwrap(), "a stale public half after the private one was changed");
+        assert!(!is_pair(None, &a.private_key).unwrap());
+    }
 
     /// The full round of an installation against a real `~/.keyward/plugins`.
     ///

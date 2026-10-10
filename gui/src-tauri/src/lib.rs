@@ -963,6 +963,18 @@ async fn copy_secret(entry_id: String, field: SecretField) -> Result<u64, String
     }
 }
 
+/// A draft of an ssh key, made or read by the daemon: the window gets its
+/// number and the public half, never the private key. "From the clipboard" is
+/// read by the daemon itself — the clipboard does not pass through here.
+#[tauri::command]
+async fn ssh_key_draft(source: keyward_core::edits::SshDraftSource) -> Result<keyward_core::edits::SshDraftView, String> {
+    match ask(Request::SshKeyDraft { source }).await? {
+        Response::SshDraft { draft } => Ok(draft),
+        Response::Error { message } => Err(humanize(&message)),
+        other => Err(format!("an unexpected answer from the daemon: {other:?}")),
+    }
+}
+
 /// A webview opens its sealed session: its public key in, ours out.
 #[tauri::command]
 fn window_seal_open(window: tauri::WebviewWindow, public: String) -> Result<String, String> {
@@ -1442,6 +1454,7 @@ pub fn run() {
             autofill_request_access,
             autofill_fill,
             copy_secret,
+            ssh_key_draft,
             reveal_secret,
             update_item,
             pending_edits,

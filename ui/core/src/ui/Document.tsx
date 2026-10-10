@@ -198,7 +198,7 @@ function SectionView({ s }: { s: Section }) {
   const waiting = s.blocks.some((b) => "skeleton" in b);
   if (waiting) waited.current = true;
   return (
-    <section className={`sec${!waiting && waited.current ? " arrived" : ""}`}>
+    <section className={`sec${s.danger ? " sdanger" : ""}${!waiting && waited.current ? " arrived" : ""}`}>
       <div className="sec-h">
         <h2 className="h2">{say(s.title)}</h2>
         {s.count !== undefined && <span className="n">{typeof s.count === "number" ? s.count : say(s.count)}</span>}
@@ -367,6 +367,20 @@ function BlockView({ b }: { b: Block }) {
   if ("setting" in b) return <SettingRowView setting={b.setting} report={report} />;
   if ("live" in b) return b.live === LiveBlock.Extensions ? <ExtensionsList /> : b.live === LiveBlock.TwoFactor ? <TwoFactorPanel /> : b.live === LiveBlock.Email ? <EmailChange /> : b.live === LiveBlock.Browsers ? <BrowsersRow /> : <ProfileView version={profileTick} />;
   if ("secret" in b) return <SecretField b={b} />;
+  if ("danger" in b)
+    return (
+      <div className="sdanger-row">
+        <span className="sdanger-t">
+          <b>{say(b.danger.title)}</b>
+          <span>{say(b.danger.sub)}</span>
+        </span>
+        <span className="sdanger-a">
+          <ActButton act={b.danger.action.act} icon={b.danger.action.icon} className="btn solid danger">
+            {say(b.danger.action.label)}
+          </ActButton>
+        </span>
+      </div>
+    );
   if ("field" in b)
     return (
       <div className="f">

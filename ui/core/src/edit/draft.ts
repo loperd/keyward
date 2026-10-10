@@ -46,11 +46,9 @@ export const KIND_FIELDS: Record<ItemKind, FieldSpec[]> = {
     { key: "company", label: "field.company" },
   ],
   [ItemKind.SecureNote]: [],
-  [ItemKind.SshKey]: [
-    { key: "privateKey", label: "field.privateKey", secret: true, mono: true, multiline: true, placeholder: "edit.pasteKey" },
-    { key: "publicKey", label: "field.publicKey", mono: true },
-    { key: "fingerprint", label: "field.fingerprint", mono: true, readOnly: true },
-  ],
+  // A key is not typed into fields: its block shows the public half and
+  // fingerprint, worked out where the keys are, and makes or reads a new one.
+  [ItemKind.SshKey]: [],
 };
 
 /// The kinds a new item can be, in the order the switch shows them, with
@@ -75,8 +73,16 @@ export type CustomField = { name: string; hidden: boolean; value: string; secret
 /// Where an item lives: an organisation's collections, or a personal folder.
 export type Placement = { orgId: string | null; folderId: string | null; collectionIds: string[] };
 
+/// An ssh key item's key as the form holds it: the public half and the
+/// fingerprint, worked out where the keys are, and the draft of a new key
+/// held there until the save, by its number. The private half is never here.
+export type SshKeyForm = { publicKey: string; fingerprint: string; draft: string | null };
+const NO_KEY: SshKeyForm = { publicKey: "", fingerprint: "", draft: null };
+
 export type Form = {
   kind: ItemKind;
+  /// The key, for an ssh key item; `null` for every other kind.
+  ssh: SshKeyForm | null;
   name: string;
   place: Placement;
   favorite: boolean;
@@ -128,8 +134,15 @@ export function formFromDetail(d: ItemDetail): Form {
   const it = d.item;
   const { values, secrets } = blank(it.kind);
   const custom: CustomField[] = [];
+  const ssh: SshKeyForm | null = it.kind === ItemKind.SshKey ? { ...NO_KEY } : null;
   for (const f of d.fields) {
     if (f.key !== null && DERIVED.has(f.key)) continue;
+    if (ssh && (f.key === "publicKey" || f.key === "fingerprint")) {
+      ssh[f.key] = f.value ?? "";
+      continue;
+    }
+    // The private half is the daemon's: the form knows only that it is there.
+    if (ssh && f.key === "privateKey") continue;
     if (f.key === "expiry") {
       const m = /^(\d{1,2})\s*\/\s*(\d{2,4})$/.exec(f.value ?? "");
       if (!m) throw new Error(`a card's expiry is not "MM / YYYY": ${f.value}`);
@@ -159,6 +172,7 @@ export function formFromDetail(d: ItemDetail): Form {
   }
   return {
     kind: it.kind,
+    ssh,
     name: it.name,
     place: { orgId: it.orgId, folderId: it.folderId, collectionIds: [...it.collectionIds] },
     favorite: it.favorite,
@@ -174,7 +188,7 @@ export function formFromDetail(d: ItemDetail): Form {
 
 /// A new item's form, in a place.
 export function formForNew(kind: ItemKind, place: Placement, name = ""): Form {
-  return { kind, name, place, favorite: false, reprompt: false, uris: kind === ItemKind.Login ? [""] : [], notes: EMPTY_SLOT, ...blank(kind), custom: [], tags: {} };
+  return { kind, ssh: kind === ItemKind.SshKey ? { ...NO_KEY } : null, name, place, favorite: false, reprompt: false, uris: kind === ItemKind.Login ? [""] : [], notes: EMPTY_SLOT, ...blank(kind), custom: [], tags: {} };
 }
 
 /// Another kind for a form not saved yet: what both kinds have is kept.
@@ -183,7 +197,7 @@ export function switchKind(f: Form, kind: ItemKind): Form {
   const b = blank(kind);
   for (const k of Object.keys(b.values)) if (k in f.values) b.values[k] = f.values[k]!;
   for (const k of Object.keys(b.secrets)) if (k in f.secrets) b.secrets[k] = f.secrets[k]!;
-  return { ...f, kind, ...b, uris: kind === ItemKind.Login ? (f.uris.length ? f.uris : [""]) : f.uris };
+  return { ...f, kind, ssh: kind === ItemKind.SshKey ? (f.ssh ?? { ...NO_KEY }) : null, ...b, uris: kind === ItemKind.Login ? (f.uris.length ? f.uris : [""]) : f.uris };
 }
 
 /// Where a new item made at a node goes: the node's folder or collection,
@@ -270,6 +284,7 @@ export function problems(f: Form): Key[] {
   const out: Key[] = [];
   if (!f.name.trim()) out.push("edit.needName");
   if (f.place.orgId && !f.place.collectionIds.length) out.push("edit.needCollection");
+  if (f.ssh && !f.ssh.draft && !f.ssh.publicKey) out.push("edit.needKey");
   return out;
 }
 
@@ -308,8 +323,9 @@ export function draftOf(f: Form): ItemDraft {
     reprompt: f.reprompt,
     uris: f.kind === ItemKind.Login ? f.uris.map((u) => u.trim()).filter(Boolean) : [],
     notes: secretOf(f.notes) ?? { clear: true },
-    fields,
+    fields: f.ssh ? [...fields, { key: "publicKey", value: f.ssh.publicKey }, { key: "fingerprint", value: f.ssh.fingerprint }] : fields,
     tags: { ...f.tags },
+    ...(f.ssh?.draft ? { sshKey: { draft: f.ssh.draft } } : {}),
   };
 }
 
@@ -400,7 +416,9 @@ export function detailOf(d: ItemDraft, item: Item, prev: ItemDetail | null): Ite
     if (alg) fields.push(alg);
     vis("fingerprint", v("fingerprint"), true);
     vis("publicKey", v("publicKey"), true);
-    hid("privateKey", s("privateKey"), ref(SecretField.PrivateKey));
+    // The private half is there whenever the item is: made with a key, it
+    // cannot lose it.
+    hid("privateKey", { keep: true }, ref(SecretField.PrivateKey));
   }
   for (const f of d.fields) {
     if (!("custom" in f)) continue;

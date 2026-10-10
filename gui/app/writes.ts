@@ -62,7 +62,8 @@ type Edit = {
   card?: KindFields;
   identity?: KindFields;
   reprompt?: boolean;
-  ssh_key?: { source: "import"; private_key: string; passphrase: null };
+  /// A new key: the draft the daemon holds, by its number (see sshKeyDraft).
+  ssh_key?: { source: "draft"; id: string };
 };
 
 /// What `item_detail` sends that `src/types.ts` does not spell out.
@@ -104,6 +105,10 @@ function fieldValue(f: Extract<DraftField, { key: string }>, creating: boolean):
 /// The draft's built-in fields as the edit's, by kind. Only what changed goes
 /// out on an update: `current` is what the daemon shows of the item now.
 function builtIns(draft: ItemDraft, edit: Edit, creating: boolean, current: Detail | null) {
+  if (draft.sshKey) {
+    if (draft.kind !== ItemKind.SshKey) fail(`a ${draft.kind} has no ssh key`);
+    edit.ssh_key = { source: "draft", id: draft.sshKey.draft };
+  }
   const card: KindFields = {};
   const identity: KindFields = {};
   const shown = (key: string): string | null => current?.fields.find((f) => f.key === key && !f.hidden)?.value ?? null;
@@ -134,10 +139,9 @@ function builtIns(draft: ItemDraft, edit: Edit, creating: boolean, current: Deta
         if (!plain || differs(current?.identity?.[f.key], next)) identity[f.key] = next;
         break;
       case ItemKind.SshKey:
-        if (SSH_DERIVED.has(f.key)) break;
-        if (f.key !== "privateKey") fail(`an ssh key has no field "${f.key}"`);
-        if (next === "") fail("an ssh key item cannot lose its key");
-        edit.ssh_key = { source: "import", private_key: next, passphrase: null };
+        // The key itself goes as the daemon's draft (draft.sshKey), never as
+        // a field: what the form shows of it is derived there.
+        if (!SSH_DERIVED.has(f.key)) fail(`an ssh key has no field "${f.key}"`);
         break;
       case ItemKind.SecureNote:
         fail(`a note has no field "${f.key}"`);

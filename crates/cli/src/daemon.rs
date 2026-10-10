@@ -1729,7 +1729,18 @@ async fn handle(req: Request, shared: &Shared, peer: &crate::peer::Peer) -> Resp
 
         Request::SshKeyDraft { source } => {
             use keyward_core::edits::{SshDraftSource, SshDraftView};
+            let stored = match &source {
+                SshDraftSource::Stored { entry_id } => match shared.lock().await.active().cloned() {
+                    Some(vault) => Some(vault.secret(entry_id, &keyward_core::detail::SecretField::PrivateKey)),
+                    None => Some(Err(keyward_core::fault!("err.noActiveAccount"))),
+                },
+                _ => None,
+            };
             let made = match &source {
+                SshDraftSource::Stored { .. } => match stored.expect("read above for a stored key") {
+                    Ok(private_key) => keyward_sshkey::import(private_key.as_str(), None),
+                    Err(e) => Err(e),
+                },
                 SshDraftSource::Generate { algorithm } => keyward_sshkey::generate(*algorithm, ""),
                 SshDraftSource::Clipboard { passphrase } => match clipboard::read_text() {
                     Some(text) => keyward_sshkey::import(&text, passphrase.as_ref().map(|p| p.as_str())),

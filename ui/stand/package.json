@@ -1,7 +1,7 @@
 {
   "name": "@keyward/stand",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "The core's stand: the shared window over the demo backend, with the concept's screens as presets (?p=) and the line kept in the URL (?q=).",
   "scripts": {
@@ -10,7 +10,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@keyward/core": "0.2.1",
+    "@keyward/core": "0.2.2",
     "react": "^19",
     "react-dom": "^19"
   },

@@ -52,6 +52,9 @@ import {
   FillMode,
   FillField,
   type WindowControls,
+  type SshKeyDraft,
+  type SshKeyFrom,
+  SshAlgorithm,
   type Kdf,
   KdfKind,
   parseKdfKind,
@@ -484,8 +487,37 @@ const WINDOW: WindowControls = {
   },
 };
 
+/// boundary: the daemon's draft of an ssh key (keyward_core::edits::SshDraftView).
+function sshDraftOf(w: unknown): SshKeyDraft {
+  const o = w as Record<string, unknown> | null;
+  const s = (k: string) => {
+    const v = o?.[k];
+    if (typeof v !== "string" || v === "") throw new Error(`the daemon's draft of an ssh key has no ${k}`);
+    return v;
+  };
+  return { id: s("id"), publicKey: s("public_key"), fingerprint: s("fingerprint"), algorithm: s("algorithm") };
+}
+
+/// boundary: a key's kind in the daemon's words (keyward_core::edits::SshAlgorithm).
+const SSH_ALGORITHM_WIRE: Record<SshAlgorithm, string> = { [SshAlgorithm.Ed25519]: "ed25519", [SshAlgorithm.Rsa4096]: "rsa4096" };
+
 export class DaemonBackend implements Backend {
   window = WINDOW;
+
+  /// The daemon makes the key, or reads it off the clipboard itself, or
+  /// opens the one pasted in; the window gets the draft's number and the
+  /// public half.
+  async sshKeyDraft(from: SshKeyFrom): Promise<SshKeyDraft> {
+    const source =
+      "generate" in from
+        ? { source: "generate", algorithm: SSH_ALGORITHM_WIRE[from.generate] }
+        : "clipboard" in from
+          ? { source: "clipboard", passphrase: from.passphrase }
+          : "stored" in from
+            ? { source: "stored", entry_id: from.stored }
+            : { source: "paste", private_key: from.paste, passphrase: from.passphrase };
+    return sshDraftOf(await invoke<unknown>("ssh_key_draft", { source }));
+  }
   readonly caps: Capabilities = { chooseServer: true, accounts: true, biometric: true, plugins: true, clipboardClears: true };
   private readonly listeners = new Set<(c: Change) => void>();
   /// The login waits for the new device's code (the daemon's provider 100)

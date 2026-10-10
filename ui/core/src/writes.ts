@@ -33,6 +33,9 @@ export type ItemDraft = {
   fields: DraftField[];
   /// The item's own `kw-*` fields, written back as they are.
   tags: Record<string, string>;
+  /// An ssh key item's new key: a draft held where the keys are, by its
+  /// number. Absent, the key stays as it is.
+  sshKey?: { draft: string };
 };
 
 /// What a generator makes: a password of characters, or a phrase of words.

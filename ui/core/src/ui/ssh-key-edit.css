@@ -1,0 +1,17 @@
+/* An ssh key item's key in the editor, and the sheet a person's own key is
+   pasted into. Tokens only. */
+.keypub { white-space: pre-wrap; word-break: break-all; line-height: var(--lh-s); }
+.keypub.fresh { color: var(--text); }
+.keynote { padding: var(--u) 0; }
+.keyacts { display: flex; flex-wrap: wrap; gap: var(--u); padding: var(--u) 0 var(--u2); }
+
+/* the sheet: wider than a prompt, the key's field the size of a key */
+.reprompt.keysheet { width: min(calc(var(--u) * 80), calc(100vw - 2 * var(--u2))); max-height: calc(100dvh - 2 * var(--u2)); overflow-y: auto; gap: var(--u2); padding: var(--u3); }
+.keyarea { width: 100%; height: min(calc(var(--lh-s) * 14), max(calc(var(--lh-s) * 6), calc(100dvh - var(--u) * 38))); min-height: calc(var(--lh-s) * 6); resize: vertical; padding: var(--u) var(--u2); border: 0; border-radius: var(--r-ctl);
+  background: var(--field); color: var(--text); box-shadow: inset 0 0 0 1px var(--edge); outline: none;
+  font: var(--w-text) var(--fs-s)/var(--lh-s) var(--mono); }
+.keyarea:focus { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sky) 55%, var(--edge)), var(--ring); }
+.keyarea::placeholder { color: var(--faint); }
+.keysheet .reprompt-in input { letter-spacing: 0; }
+.keysheet .reprompt-go { align-items: center; }
+.keygap { flex: 1; }

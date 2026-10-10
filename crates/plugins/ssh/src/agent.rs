@@ -122,6 +122,7 @@ impl ssh_agent_lib::agent::Session for HostAgent {
 
     async fn sign(&mut self, request: SignRequest) -> Result<Signature, AgentError> {
         if self.refuse {
+            tracing::warn!(host = %self.mapping.pattern, entry = %self.mapping.entry_name, "a signature was refused: the host key was not the right one");
             return Err(AgentError::Other(
                 anyhow::anyhow!("signing is forbidden: the host key is not the right one").into(),
             ));
@@ -130,6 +131,7 @@ impl ssh_agent_lib::agent::Session for HostAgent {
         if request.pubkey != *expected.key_data() {
             // One key lives on this socket; a request to sign with another is
             // either a mistake or an attempt to feel around for something.
+            tracing::warn!(host = %self.mapping.pattern, entry = %self.mapping.entry_name, "a signature was refused: asked for with a key that is not on this socket");
             return Err(AgentError::Other(
                 anyhow::anyhow!("a signature was asked for with a key that is not on this socket").into(),
             ));
@@ -143,7 +145,12 @@ impl ssh_agent_lib::agent::Session for HostAgent {
             .core
             .sign_ssh(&self.entry.id, &request.data, request.flags, self.confirm)
             .await
-            .map_err(|e| AgentError::Other(e.into()))?;
+            .map_err(|e| {
+                // ssh itself says only "Permission denied": the reason is here.
+                tracing::warn!(host = %self.mapping.pattern, entry = %self.mapping.entry_name, error = %e, "a signature was refused");
+                AgentError::Other(e.into())
+            })?;
+        tracing::info!(host = %self.mapping.pattern, entry = %self.mapping.entry_name, "signed");
         decode_signature(&wire)
     }
 }
@@ -233,14 +240,20 @@ impl ssh_agent_lib::agent::Session for VaultAgent {
                     .and_then(|raw| raw.parse::<PublicKey>().ok())
                     .is_some_and(|pk| *pk.key_data() == request.pubkey)
             })
-            .ok_or_else(|| fail("a signature was asked for with a key that is not in the vault".into()))?;
+            .ok_or_else(|| {
+                tracing::warn!("a signature was refused on the shared socket: asked for with a key that is not in the vault");
+                fail("a signature was asked for with a key that is not in the vault".into())
+            })?;
 
         let confirm = self.confirm_all || crate::table::is_yes(entry.field(crate::table::CONFIRM));
         let wire = self
             .core
             .sign_ssh(&entry.id, &request.data, request.flags, confirm)
             .await
-            .map_err(|e| fail(e.to_string()))?;
+            .map_err(|e| {
+                tracing::warn!(entry = %entry.name, error = %e, "a signature was refused on the shared socket");
+                fail(e.to_string())
+            })?;
         decode_signature(&wire)
     }
 }

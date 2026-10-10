@@ -1213,5 +1213,7 @@
   "err.mergeNameTaken": "The kept record already has a field named {name}",
   "err.mergeKeeperWaiting": "The merged record is waiting to reach the server: the copies stay where they are until it does",
   "err.mergeInTrash": "A record in the trash is not merged",
-  "field.passkeys": "Passkeys"
+  "field.passkeys": "Passkeys",
+  "err.sshKeyMismatch": "The item «{name}» has a private key that is not the pair of its public one: the server accepts the public key and refuses the signature. Open the item, Edit → Work out from the private key, and add the new public key to the server",
+  "notice.sshKeyMismatchTitle": "The key did not fit"
 }

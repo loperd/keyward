@@ -205,6 +205,10 @@ pub enum SshDraftSource {
         #[serde(default)]
         passphrase: Option<Secret>,
     },
+    /// The key an item holds now, read in the daemon: its public half and
+    /// fingerprint worked out again, for an item whose stored ones no longer
+    /// match it.
+    Stored { entry_id: String },
 }
 
 impl std::fmt::Debug for SshDraftSource {
@@ -213,6 +217,7 @@ impl std::fmt::Debug for SshDraftSource {
             Self::Generate { algorithm } => write!(f, "Generate({algorithm:?})"),
             Self::Clipboard { .. } => write!(f, "Clipboard"),
             Self::Paste { .. } => write!(f, "Paste(..)"),
+            Self::Stored { entry_id } => write!(f, "Stored({entry_id})"),
         }
     }
 }

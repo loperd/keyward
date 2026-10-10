@@ -231,7 +231,9 @@ export class Directory {
 
   node(id: string): Node {
     const n = this.nodes.get(id);
-    if (!n) throw new Error(`no node "${id}" in the graph`);
+    // The kind of id stands outside the quotes: the window's log keeps it
+    // while it hides what is quoted.
+    if (!n) throw new Error(`no ${id.includes(":") ? id.slice(0, id.indexOf(":")) : "plain"} node "${id}" in the graph`);
     return n;
   }
   has(id: string): boolean {

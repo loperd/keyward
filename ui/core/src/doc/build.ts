@@ -592,7 +592,8 @@ function fieldBlocks(it: NonNullable<Node["item"]>, detail: ItemDetail | null): 
     // neither shows nor copies it.
     if (f.key === "totp") continue;
     if (f.key === "privateKey") {
-      // The private key is never shown or copied: it signs in the daemon.
+      // The private key is never shown: it signs in the daemon. Copying it
+      // out is the danger zone's, behind the finger.
       out.push({ field: fieldLabel(f), value: k("doc.privateKey"), dim: true });
       continue;
     }
@@ -717,6 +718,15 @@ function item(ctx: DocContext, n: Node): DocSpec {
       ...(body && body.blocks.length ? [body] : body ? [{ ...body, blocks: [] }] : []),
       sec(k(it.kind === ItemKind.SshKey ? "doc.opens" : "doc.security"), security),
       ...(rel.length ? [sec(k("doc.relations"), rel, { count: rel.length, aside: { label: k("map.relations"), act: { map: { kind: MapKind.Relations, anchor: n.id } }, icon: "map" } })] : []),
+      ...(it.kind === ItemKind.SshKey && !it.deleted && ctx.detail?.fields.some((f) => f.key === "privateKey")
+        ? [
+            {
+              title: k("doc.danger"),
+              danger: true,
+              blocks: [{ danger: { title: k("doc.copyPrivateKey"), sub: k("doc.copyPrivateKeySub"), action: { icon: "copy", label: k("doc.copyPrivateKeyGo"), act: { copy: { itemId: it.id, field: SecretField.PrivateKey as const } } } } }],
+            } satisfies Section,
+          ]
+        : []),
     ],
     ...(it.revised ? { history: k("doc.changedAgo", { ago: ago(it.revised, dir.now) }) } : {}),
   };

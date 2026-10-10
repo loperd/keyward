@@ -96,6 +96,8 @@ export type Action = { icon: string; label: Text; act: Act; off?: Text };
 export type MarkSpec = { level: Level; text: Text };
 
 export type Block =
+  /// A row of the danger zone: what it does, why it is weighty, and its button.
+  | { danger: { title: Text; sub: Text; action: Action } }
   /// A label and a value; `copy` copies through the backend by the field's
   /// reference.
   | { field: Text; value: Text; mono?: boolean; dim?: boolean; mark?: MarkSpec; faint?: Text; copy?: Act; open?: boolean }
@@ -119,7 +121,14 @@ export type Block =
   | { live: LiveBlock }
   | { para: Text };
 
-export type Section = { title: Text; count?: number | Text; aside?: { label: Text; act: Act; icon?: string }; blocks: Block[] };
+export type Section = {
+  title: Text;
+  count?: number | Text;
+  aside?: { label: Text; act: Act; icon?: string };
+  /// The danger zone: last on the page, in its colour, its rows `danger` blocks.
+  danger?: boolean;
+  blocks: Block[];
+};
 
 export type Hero = {
   lead: Lead;

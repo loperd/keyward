@@ -217,5 +217,6 @@
   "err.daemonSocketSilent": "The daemon has been running for {seconds} s, but its socket does not answer",
   "err.daemonExits": "The daemon keeps exiting with code {code}. Its last error: {log}",
   "err.daemonNeverUp": "The daemon's socket did not come up in {seconds} s",
-  "err.sessionNotSaved": "The session was not saved: {reason}"
+  "err.sessionNotSaved": "The session was not saved: {reason}",
+  "err.sshKeyMismatch": "The item «{name}» has a private key that is not the pair of its public one: the server accepts the public key and refuses the signature. Open the item, Edit → Work out from the private key, and add the new public key to the server"
 }
